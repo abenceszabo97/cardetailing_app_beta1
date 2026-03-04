@@ -81,11 +81,19 @@ export const Services = () => {
 
   const handleSubmit = async () => {
     try {
+      // Clean up empty strings to null
+      const cleanedData = {
+        ...formData,
+        car_size: formData.car_size || null,
+        package: formData.package || null,
+        description: formData.description || null
+      };
+      
       if (editingService) {
-        await axios.put(`${API}/services/${editingService.service_id}`, formData, { withCredentials: true });
+        await axios.put(`${API}/services/${editingService.service_id}`, cleanedData, { withCredentials: true });
         toast.success("Szolgáltatás frissítve!");
       } else {
-        await axios.post(`${API}/services`, formData, { withCredentials: true });
+        await axios.post(`${API}/services`, cleanedData, { withCredentials: true });
         toast.success("Szolgáltatás létrehozva!");
       }
       setIsNewServiceOpen(false);
@@ -93,7 +101,8 @@ export const Services = () => {
       resetForm();
       fetchServices();
     } catch (error) {
-      toast.error("Hiba történt");
+      console.error("Service error:", error);
+      toast.error(error.response?.data?.detail || "Hiba történt");
     }
   };
 
