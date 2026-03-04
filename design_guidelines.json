@@ -1,0 +1,132 @@
+{
+  "brand_identity": {
+    "name": "X-CLEAN",
+    "tagline": "GARANTÁLT TISZTASÁG",
+    "tone": "Professional, High-Tech, Efficient, Automotive",
+    "aesthetic": "Dark Mode Performance",
+    "archetype": "The Performance Pro"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Manrope, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-muted-foreground"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "name": "Electric Green",
+        "hex": "#22c55e",
+        "tailwind": "green-500",
+        "usage": "Primary actions, active states, 'Ready' status"
+      },
+      "background": {
+        "name": "Deep Navy",
+        "hex": "#020617",
+        "tailwind": "slate-950",
+        "usage": "Main app background"
+      },
+      "surface": {
+        "name": "Slate Navy",
+        "hex": "#0f172a",
+        "tailwind": "slate-900",
+        "usage": "Cards, sidebars, headers"
+      },
+      "accent": {
+        "name": "Neon Lime",
+        "hex": "#84cc16",
+        "tailwind": "lime-500",
+        "usage": "Highlights, icons, special offers"
+      },
+      "status": {
+        "ready": "text-green-400 bg-green-400/10 border-green-400/20",
+        "in_progress": "text-orange-400 bg-orange-400/10 border-orange-400/20",
+        "booked": "text-red-400 bg-red-400/10 border-red-400/20"
+      }
+    },
+    "theme_mode": "dark"
+  },
+  "layout": {
+    "grid_system": "Bento Grid (Mode B: High Density)",
+    "spacing": "Generous (p-6, p-8) for containers, Tight (gap-2, gap-4) for data density",
+    "container_style": "Rounded-xl, 1px border (border-white/10), Glassmorphism (bg-slate-900/60 backdrop-blur-xl)",
+    "sidebar": "Fixed left, collapsible, dark slate background"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg shadow-[0_0_15px_rgba(34,197,94,0.4)] transition-all",
+      "secondary": "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700",
+      "ghost": "hover:bg-white/5 text-slate-300 hover:text-white"
+    },
+    "cards": {
+      "style": "bg-slate-900/50 border border-slate-800/60 backdrop-blur-sm rounded-xl hover:border-green-500/30 transition-colors",
+      "kpi": "p-6 flex flex-col justify-between h-full relative overflow-hidden group"
+    },
+    "inputs": {
+      "style": "bg-slate-950/50 border-slate-800 focus:border-green-500 focus:ring-green-500/20 rounded-md text-white placeholder:text-slate-500"
+    },
+    "tables": {
+      "style": "w-full text-sm text-left",
+      "header": "text-slate-400 font-medium uppercase tracking-wider border-b border-slate-800 pb-3",
+      "row": "border-b border-slate-800/50 hover:bg-white/5 transition-colors"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-slate-900/70 border border-white/10",
+    "gradients": "Subtle radial gradients (green/blue) in background for depth, never full screen linear gradients",
+    "shadows": "Colored shadows for primary actions (shadow-green-500/20)",
+    "borders": "1px solid border-white/5"
+  },
+  "assets": {
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1759673735031-b6eabfc82261?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHw0fHxsdXh1cnklMjBjYXIlMjB3YXNoJTIwZGV0YWlsaW5nJTIwZGFyayUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3NzI2MTI1NjF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Close up of dark green Porsche, excellent for abstract background or hero"
+      },
+      {
+        "category": "garage_context",
+        "url": "https://images.unsplash.com/photo-1714434087915-27cfbdd3b048?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjYXIlMjB3YXNoJTIwZGV0YWlsaW5nJTIwZGFyayUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3NzI2MTI1NjF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Black car in garage, good for service context"
+      },
+      {
+        "category": "branding_reference",
+        "url": "https://customer-assets.emergentagent.com/job_car-service-hub-62/artifacts/2kcsgqfg_625380525_122238416144250810_7677540675122599703_n.jpg",
+        "description": "Original Price List Asset"
+      }
+    ],
+    "icons": "Lucide React (default), Phosphor Icons (for detailed automotive icons if needed)"
+  },
+  "motion": {
+    "transitions": "transition-all duration-200 ease-out",
+    "hover_effects": "scale-[1.02] brightness-110",
+    "loading": "Pulse effect on skeletons, spinning loader for actions"
+  },
+  "instructions_to_main_agent": [
+    "Implement a 'Dark Mode First' approach. The app should feel like a cockpit.",
+    "Use the 'Deep Navy' (#020617) as the global body background, NOT pure black.",
+    "Use 'Electric Green' (#22c55e) sparingly for high-impact actions (CTAs, active states).",
+    "For the 'Daily Jobs' list, use the specific status colors defined in the palette.",
+    "Ensure the 'Price List' grid matches the structure of the provided asset (Exterior/Interior/Extras columns).",
+    "Use 'Manrope' font for all headings to give it that technical automotive look.",
+    "KPI Cards should use the 'Tracing Beam' or subtle border glow effect on hover.",
+    "All interactive elements must have `data-testid` attributes.",
+    "Do not use generic gradients. Use solid colors with subtle transparency (glassmorphism).",
+    "The 'Shift Calendar' should be dense and clearly visible against the dark background."
+  ],
+  "universal_guidelines": [
+    "Avoid 'AI Slop' - no generic centered layouts.",
+    "Create depth with z-index and layered glassmorphism.",
+    "No universal 'transition: all'.",
+    "Use 'sonner' for toasts.",
+    "Export components as named exports."
+  ]
+}
