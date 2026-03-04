@@ -90,7 +90,8 @@ export const DayManagement = () => {
     if (!window.confirm("Biztosan le szeretnéd zárni a mai napot?")) return;
     
     try {
-      await axios.post(`${API}/day-records/close?location=${selectedLocation}`, {
+      await axios.post(`${API}/day-records/close`, {
+        location: selectedLocation,
         notes: closingNotes
       }, { withCredentials: true });
       
