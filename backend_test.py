@@ -2,6 +2,8 @@ import requests
 import sys
 from datetime import datetime, timezone
 import json
+import io
+import base64
 
 class XCleanAPITester:
     def __init__(self, base_url="https://car-service-hub-62.preview.emergentagent.com"):
