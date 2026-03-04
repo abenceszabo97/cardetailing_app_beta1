@@ -71,7 +71,7 @@ import {
 } from "date-fns";
 import { hu } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export const Workers = () => {
   const { user } = useAuth();
@@ -106,7 +106,7 @@ export const Workers = () => {
       revenue: acc.revenue + w.revenue
     }), { days: 0, hours: 0, cars: 0, revenue: 0 });
     
-    doc.autoTable({
+    autoTable(doc, {
       startY: 40,
       head: [["Megnevezes", "Ertek"]],
       body: [
@@ -120,8 +120,9 @@ export const Workers = () => {
     });
     
     if (workerStats.length > 0) {
-      doc.autoTable({
-        startY: doc.lastAutoTable.finalY + 14,
+      const finalY = doc.lastAutoTable?.finalY || 100;
+      autoTable(doc, {
+        startY: finalY + 14,
         head: [["Dolgozo", "Telephely", "Napok", "Orak", "Autok", "Bevetel"]],
         body: workerStats.map(w => [
           w.name,

@@ -30,7 +30,7 @@ import {
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export const DayManagement = () => {
   const { user } = useAuth();
@@ -121,7 +121,7 @@ export const DayManagement = () => {
     doc.setFontSize(14);
     doc.text("Napi osszesites", 14, 62);
     
-    doc.autoTable({
+    autoTable(doc, {
       startY: 68,
       head: [["Megnevezes", "Ertek"]],
       body: [
@@ -137,11 +137,12 @@ export const DayManagement = () => {
     
     const completedJobs = todayJobs.filter(j => j.status === "kesz");
     if (completedJobs.length > 0) {
+      const finalY = doc.lastAutoTable?.finalY || 120;
       doc.setFontSize(14);
-      doc.text("Elkeszult munkak", 14, doc.lastAutoTable.finalY + 14);
+      doc.text("Elkeszult munkak", 14, finalY + 14);
       
-      doc.autoTable({
-        startY: doc.lastAutoTable.finalY + 20,
+      autoTable(doc, {
+        startY: finalY + 20,
         head: [["Rendszam", "Szolgaltatas", "Fizetes", "Osszeg"]],
         body: completedJobs.map(j => [
           j.plate_number || "-",

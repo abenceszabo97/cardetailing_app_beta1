@@ -41,7 +41,7 @@ import {
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export const Statistics = () => {
   const { user } = useAuth();
@@ -111,7 +111,7 @@ export const Statistics = () => {
       doc.text('Összesítés', 14, yPos);
       yPos += 10;
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [['Mutató', 'Érték']],
         body: [
@@ -136,7 +136,7 @@ export const Statistics = () => {
       doc.text('Napi statisztika (aktuális hónap)', 14, yPos);
       yPos += 10;
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [['Dátum', 'Autók száma', 'Bevétel']],
         body: dailyStats.map(d => [
@@ -164,7 +164,7 @@ export const Statistics = () => {
       doc.text('Dolgozói teljesítmény (havi)', 14, yPos);
       yPos += 10;
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [['Dolgozó', 'Autók száma', 'Bevétel']],
         body: workerStats.map(w => [
@@ -192,7 +192,7 @@ export const Statistics = () => {
       doc.text('Legnépszerűbb szolgáltatások', 14, yPos);
       yPos += 10;
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [['Szolgáltatás', 'Darab', 'Bevétel']],
         body: serviceStats.map(s => [
@@ -220,7 +220,7 @@ export const Statistics = () => {
       doc.text('Telephely bontás (havi)', 14, yPos);
       yPos += 10;
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [['Telephely', 'Autók száma', 'Bevétel']],
         body: locationStats.map(l => [
