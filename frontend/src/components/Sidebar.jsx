@@ -28,9 +28,9 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
   const { user, logout } = useAuth();
 
   const navItems = [
-    { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/dashboard", label: "Főoldal", icon: LayoutDashboard },
     { path: "/customers", label: "Ügyfelek", icon: Users },
-    { path: "/workers", label: "Beosztás", icon: Calendar },
+    { path: "/workers", label: "Dolgozók", icon: Calendar },
     { path: "/inventory", label: "Készlet", icon: Package },
     { path: "/statistics", label: "Statisztika", icon: BarChart3 },
     { path: "/services", label: "Szolgáltatások", icon: Sparkles },
