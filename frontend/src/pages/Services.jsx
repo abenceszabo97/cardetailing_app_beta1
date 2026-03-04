@@ -245,12 +245,12 @@ export const Services = () => {
                   </div>
                   <div>
                     <Label className="text-slate-300">Autó méret</Label>
-                    <Select value={formData.car_size} onValueChange={(v) => setFormData({...formData, car_size: v})}>
+                    <Select value={formData.car_size || "none"} onValueChange={(v) => setFormData({...formData, car_size: v === "none" ? "" : v})}>
                       <SelectTrigger className="bg-slate-950 border-slate-700">
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="" className="text-white">-</SelectItem>
+                        <SelectItem value="none" className="text-white">-</SelectItem>
                         {carSizes.map(size => (
                           <SelectItem key={size} value={size} className="text-white">{size}</SelectItem>
                         ))}
