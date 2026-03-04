@@ -142,7 +142,18 @@ export const Workers = () => {
 
   const handleDownloadWorkerPDF = () => {
     const doc = generateWorkerPDF();
-    doc.save(`xclean_dolgozoi_riport_${statsMonth}.pdf`);
+    const filename = `xclean_dolgozoi_riport_${statsMonth}.pdf`;
+    
+    const blob = doc.output("blob");
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
     toast.success("PDF letöltve!");
   };
 

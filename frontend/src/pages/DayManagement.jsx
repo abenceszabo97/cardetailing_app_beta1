@@ -161,8 +161,19 @@ export const DayManagement = () => {
   const handleDownloadPDF = () => {
     const doc = generateDayClosePDF();
     const today = format(new Date(), "yyyy-MM-dd");
-    doc.save(`xclean_napzaras_${selectedLocation}_${today}.pdf`);
-    toast.success("PDF letoltve!");
+    const filename = `xclean_napzaras_${selectedLocation}_${today}.pdf`;
+    
+    const blob = doc.output("blob");
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success("PDF letöltve!");
   };
 
   const handleEmailPDF = async () => {
