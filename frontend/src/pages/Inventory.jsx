@@ -155,8 +155,7 @@ export const Inventory = () => {
             </SelectContent>
           </Select>
           
-          {user?.role === "admin" && (
-            <Dialog open={isNewItemOpen} onOpenChange={setIsNewItemOpen}>
+          <Dialog open={isNewItemOpen} onOpenChange={setIsNewItemOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-green-600 hover:bg-green-500" data-testid="new-inventory-btn">
                   <Plus className="w-4 h-4 mr-2" />
@@ -238,7 +237,6 @@ export const Inventory = () => {
                 </div>
               </DialogContent>
             </Dialog>
-          )}
         </div>
       </div>
 
@@ -405,7 +403,6 @@ export const Inventory = () => {
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
-                              {user?.role === "admin" && (
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
@@ -414,7 +411,6 @@ export const Inventory = () => {
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
-                              )}
                             </div>
                           )}
                         </TableCell>

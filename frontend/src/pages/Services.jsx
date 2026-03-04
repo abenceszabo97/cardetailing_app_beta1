@@ -177,8 +177,7 @@ export const Services = () => {
           <h1 className="text-3xl font-bold text-white font-['Manrope']">Szolgáltatások</h1>
           <p className="text-slate-400 mt-1">{services.length} szolgáltatás</p>
         </div>
-        {user?.role === "admin" && (
-          <Dialog open={isNewServiceOpen} onOpenChange={(open) => {
+        <Dialog open={isNewServiceOpen} onOpenChange={(open) => {
             setIsNewServiceOpen(open);
             if (!open) {
               setEditingService(null);
@@ -291,7 +290,6 @@ export const Services = () => {
               </div>
             </DialogContent>
           </Dialog>
-        )}
       </div>
 
       {/* Services by Category */}
@@ -339,7 +337,6 @@ export const Services = () => {
                           )}
                         </div>
                       </div>
-                      {user?.role === "admin" && (
                         <div className="flex gap-1">
                           <Button 
                             variant="ghost" 
@@ -358,7 +355,6 @@ export const Services = () => {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                      )}
                     </div>
                     
                     {service.description && (

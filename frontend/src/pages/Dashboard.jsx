@@ -34,13 +34,7 @@ import {
   Image,
   X,
   Upload,
-  ZoomIn,
-  ArrowUpRight,
-  ArrowDownRight,
-  Users,
-  BarChart3,
-  Trophy,
-  Repeat
+  ZoomIn
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -57,7 +51,6 @@ export const Dashboard = () => {
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [workers, setWorkers] = useState([]);
-  const [advancedStats, setAdvancedStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState("all");
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
@@ -83,14 +76,13 @@ export const Dashboard = () => {
     try {
       const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
       
-      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, advancedRes] = await Promise.all([
+      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/jobs/today${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/customers`, { withCredentials: true }),
         axios.get(`${API}/services`, { withCredentials: true }),
-        axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
-        axios.get(`${API}/stats/advanced${locationParam}`, { withCredentials: true })
+        axios.get(`${API}/workers${locationParam}`, { withCredentials: true })
       ]);
 
       setStats(statsRes.data);
@@ -99,7 +91,6 @@ export const Dashboard = () => {
       setCustomers(customersRes.data);
       setServices(servicesRes.data);
       setWorkers(workersRes.data);
-      setAdvancedStats(advancedRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Hiba az adatok betöltésekor");
@@ -498,178 +489,6 @@ export const Dashboard = () => {
           </Card>
         </div>
       </div>
-
-      {/* Advanced Analytics */}
-      {advancedStats && (
-        <div className="space-y-6">
-          {/* Analytics KPI Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="glass-card" data-testid="avg-revenue-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Átl. bevétel / autó</p>
-                    <p className="text-2xl font-bold text-white mt-1">{(advancedStats.avg_revenue_per_car || 0).toLocaleString()} Ft</p>
-                  </div>
-                  <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-                    <BarChart3 className="w-5 h-5 text-emerald-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="glass-card" data-testid="returning-customers-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Visszatérő ügyfelek</p>
-                    <p className="text-2xl font-bold text-white mt-1">{advancedStats.returning_customers} / {advancedStats.total_customers}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center">
-                    <Repeat className="w-5 h-5 text-cyan-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="glass-card" data-testid="month-cars-change-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Autók vs. előző hónap</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-white">{advancedStats.month_comparison?.current_month?.cars || 0}</p>
-                      {advancedStats.month_comparison?.cars_change_percent !== 0 && (
-                        <span className={`flex items-center text-sm ${advancedStats.month_comparison?.cars_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {advancedStats.month_comparison?.cars_change_percent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                          {Math.abs(advancedStats.month_comparison?.cars_change_percent || 0)}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="w-10 h-10 bg-violet-500/20 rounded-xl flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-violet-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="glass-card" data-testid="month-revenue-change-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Bevétel vs. előző hónap</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-white">{(advancedStats.month_comparison?.current_month?.revenue || 0).toLocaleString()} Ft</p>
-                      {advancedStats.month_comparison?.revenue_change_percent !== 0 && (
-                        <span className={`flex items-center text-sm ${advancedStats.month_comparison?.revenue_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {advancedStats.month_comparison?.revenue_change_percent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                          {Math.abs(advancedStats.month_comparison?.revenue_change_percent || 0)}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
-                    <Wallet className="w-5 h-5 text-amber-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Employee Revenue & Location Revenue & Top Customers */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Employee Revenue */}
-            <Card className="glass-card" data-testid="employee-revenue-card">
-              <CardHeader>
-                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-400" />
-                  Bevétel dolgozónként
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(advancedStats.employee_revenue || []).length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">Nincs adat</p>
-                ) : (
-                  <div className="space-y-3">
-                    {advancedStats.employee_revenue.map((emp) => (
-                      <div key={emp.worker_id} className="flex items-center justify-between">
-                        <div>
-                          <p className="text-white text-sm font-medium">{emp.name}</p>
-                          <p className="text-slate-500 text-xs">{emp.cars} autó</p>
-                        </div>
-                        <p className="text-green-400 font-semibold">{emp.revenue.toLocaleString()} Ft</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Location Revenue */}
-            <Card className="glass-card" data-testid="location-revenue-card">
-              <CardHeader>
-                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-green-400" />
-                  Bevétel telephelyenként
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(advancedStats.location_revenue || []).length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">Nincs adat</p>
-                ) : (
-                  <div className="space-y-3">
-                    {advancedStats.location_revenue.map((loc) => (
-                      <div key={loc.location} className="flex items-center justify-between p-3 bg-slate-950/50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-slate-500" />
-                          <div>
-                            <p className="text-white text-sm font-medium">{loc.location}</p>
-                            <p className="text-slate-500 text-xs">{loc.cars} autó</p>
-                          </div>
-                        </div>
-                        <p className="text-green-400 font-semibold">{loc.revenue.toLocaleString()} Ft</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Top 10 Customers */}
-            <Card className="glass-card" data-testid="top-customers-card">
-              <CardHeader>
-                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-400" />
-                  TOP 10 ügyfél
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(advancedStats.top_customers || []).length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">Nincs adat</p>
-                ) : (
-                  <div className="space-y-2">
-                    {advancedStats.top_customers.map((cust, idx) => (
-                      <div key={cust.customer_id} className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                          idx === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                          idx === 1 ? 'bg-slate-400/20 text-slate-300' :
-                          idx === 2 ? 'bg-orange-500/20 text-orange-400' :
-                          'bg-slate-800 text-slate-500'
-                        }`}>
-                          {idx + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{cust.name}</p>
-                          <p className="text-slate-500 text-xs">{cust.jobs} alkalom</p>
-                        </div>
-                        <p className="text-green-400 font-semibold text-sm">{cust.total.toLocaleString()} Ft</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
 
       {/* Image Dialog with Gallery */}
       <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>

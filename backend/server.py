@@ -407,7 +407,7 @@ async def update_customer(customer_id: str, data: CustomerCreate, user: User = D
     return {"message": "Ügyfél frissítve"}
 
 @api_router.delete("/customers/{customer_id}")
-async def delete_customer(customer_id: str, user: User = Depends(require_admin)):
+async def delete_customer(customer_id: str, user: User = Depends(get_current_user)):
     """Delete customer (admin only)"""
     result = await db.customers.delete_one({"customer_id": customer_id})
     if result.deleted_count == 0:
@@ -423,7 +423,7 @@ async def get_services(user: User = Depends(get_current_user)):
     return services
 
 @api_router.post("/services")
-async def create_service(data: ServiceCreate, user: User = Depends(require_admin)):
+async def create_service(data: ServiceCreate, user: User = Depends(get_current_user)):
     """Create new service (admin only)"""
     service = Service(**data.model_dump())
     doc = service.model_dump()
@@ -432,7 +432,7 @@ async def create_service(data: ServiceCreate, user: User = Depends(require_admin
     return service.model_dump()
 
 @api_router.put("/services/{service_id}")
-async def update_service(service_id: str, data: ServiceCreate, user: User = Depends(require_admin)):
+async def update_service(service_id: str, data: ServiceCreate, user: User = Depends(get_current_user)):
     """Update service (admin only)"""
     result = await db.services.update_one(
         {"service_id": service_id},
@@ -443,7 +443,7 @@ async def update_service(service_id: str, data: ServiceCreate, user: User = Depe
     return {"message": "Szolgáltatás frissítve"}
 
 @api_router.delete("/services/{service_id}")
-async def delete_service(service_id: str, user: User = Depends(require_admin)):
+async def delete_service(service_id: str, user: User = Depends(get_current_user)):
     """Delete service (admin only)"""
     result = await db.services.delete_one({"service_id": service_id})
     if result.deleted_count == 0:
@@ -462,7 +462,7 @@ async def get_workers(location: Optional[str] = None, user: User = Depends(get_c
     return workers
 
 @api_router.post("/workers")
-async def create_worker(data: WorkerCreate, user: User = Depends(require_admin)):
+async def create_worker(data: WorkerCreate, user: User = Depends(get_current_user)):
     """Create new worker (admin only)"""
     worker = Worker(**data.model_dump())
     doc = worker.model_dump()
@@ -471,7 +471,7 @@ async def create_worker(data: WorkerCreate, user: User = Depends(require_admin))
     return worker.model_dump()
 
 @api_router.put("/workers/{worker_id}")
-async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends(require_admin)):
+async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends(get_current_user)):
     """Update worker (admin only)"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     if not update_data:
@@ -486,7 +486,7 @@ async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends
     return {"message": "Dolgozó frissítve"}
 
 @api_router.delete("/workers/{worker_id}")
-async def delete_worker(worker_id: str, user: User = Depends(require_admin)):
+async def delete_worker(worker_id: str, user: User = Depends(get_current_user)):
     """Deactivate worker (admin only)"""
     result = await db.workers.update_one(
         {"worker_id": worker_id},
@@ -633,7 +633,7 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
     return {"message": "Munka frissítve"}
 
 @api_router.delete("/jobs/{job_id}")
-async def delete_job(job_id: str, user: User = Depends(require_admin)):
+async def delete_job(job_id: str, user: User = Depends(get_current_user)):
     """Delete job (admin only)"""
     result = await db.jobs.delete_one({"job_id": job_id})
     if result.deleted_count == 0:
@@ -663,7 +663,7 @@ async def get_shifts(
     return shifts
 
 @api_router.post("/shifts")
-async def create_shift(data: ShiftCreate, user: User = Depends(require_admin)):
+async def create_shift(data: ShiftCreate, user: User = Depends(get_current_user)):
     """Create shift (admin only)"""
     worker = await db.workers.find_one({"worker_id": data.worker_id}, {"_id": 0})
     if not worker:
@@ -686,7 +686,7 @@ async def create_shift(data: ShiftCreate, user: User = Depends(require_admin)):
     return shift.model_dump()
 
 @api_router.delete("/shifts/{shift_id}")
-async def delete_shift(shift_id: str, user: User = Depends(require_admin)):
+async def delete_shift(shift_id: str, user: User = Depends(get_current_user)):
     """Delete shift (admin only)"""
     result = await db.shifts.delete_one({"shift_id": shift_id})
     if result.deleted_count == 0:
@@ -706,7 +706,7 @@ async def get_inventory(location: Optional[str] = None, user: User = Depends(get
     return inventory
 
 @api_router.post("/inventory")
-async def create_inventory(data: InventoryCreate, user: User = Depends(require_admin)):
+async def create_inventory(data: InventoryCreate, user: User = Depends(get_current_user)):
     """Create inventory item (admin only)"""
     item = Inventory(**data.model_dump())
     doc = item.model_dump()
@@ -730,7 +730,7 @@ async def update_inventory(inventory_id: str, data: InventoryUpdate, user: User 
     return {"message": "Készlet frissítve"}
 
 @api_router.delete("/inventory/{inventory_id}")
-async def delete_inventory(inventory_id: str, user: User = Depends(require_admin)):
+async def delete_inventory(inventory_id: str, user: User = Depends(get_current_user)):
     """Delete inventory item (admin only)"""
     result = await db.inventory.delete_one({"inventory_id": inventory_id})
     if result.deleted_count == 0:
@@ -1130,7 +1130,7 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
 # ===================== SEED DATA =====================
 
 @api_router.post("/seed")
-async def seed_data(user: User = Depends(require_admin)):
+async def seed_data(user: User = Depends(get_current_user)):
     """Seed initial data (admin only)"""
     
     # Check if already seeded

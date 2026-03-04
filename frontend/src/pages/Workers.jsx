@@ -274,8 +274,7 @@ export const Workers = () => {
           <Card className="glass-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-xl text-white font-['Manrope']">Dolgozók listája</CardTitle>
-              {user?.role === "admin" && (
-                <Dialog open={isNewWorkerOpen} onOpenChange={setIsNewWorkerOpen}>
+              <Dialog open={isNewWorkerOpen} onOpenChange={setIsNewWorkerOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-green-600 hover:bg-green-500" data-testid="new-worker-btn">
                       <UserPlus className="w-4 h-4 mr-2" />
@@ -349,7 +348,6 @@ export const Workers = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
-              )}
             </CardHeader>
             <CardContent>
               {workers.length === 0 ? (
@@ -476,8 +474,6 @@ export const Workers = () => {
                                 </div>
                               ) : (
                                 <div className="flex justify-end gap-1">
-                                  {user?.role === "admin" && (
-                                    <>
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
@@ -494,8 +490,6 @@ export const Workers = () => {
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </Button>
-                                    </>
-                                  )}
                                 </div>
                               )}
                             </TableCell>
@@ -525,8 +519,7 @@ export const Workers = () => {
               </TabsList>
             </Tabs>
             
-            {user?.role === "admin" && (
-              <Dialog open={isNewShiftOpen} onOpenChange={setIsNewShiftOpen}>
+            <Dialog open={isNewShiftOpen} onOpenChange={setIsNewShiftOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-green-600 hover:bg-green-500" data-testid="new-shift-btn">
                     <Plus className="w-4 h-4 mr-2" />
@@ -595,7 +588,6 @@ export const Workers = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-            )}
           </div>
 
           {/* Navigation */}
@@ -656,14 +648,12 @@ export const Workers = () => {
                                 title={`${shift.worker_name}: ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`}
                               >
                                 <span>{shift.worker_name?.split(' ')[0]}</span>
-                                {user?.role === "admin" && (
                                   <button
                                     onClick={() => handleDeleteShift(shift.shift_id)}
                                     className="absolute right-0 top-0 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"
                                   >
                                     <X className="w-2 h-2" />
                                   </button>
-                                )}
                               </div>
                             );
                           })}
@@ -721,11 +711,9 @@ export const Workers = () => {
                                         className={`${colors.bg} text-white text-xs p-1 rounded flex items-center justify-between group`}
                                       >
                                         <span>{format(new Date(shift.start_time), 'HH:mm')}-{format(new Date(shift.end_time), 'HH:mm')}</span>
-                                        {user?.role === "admin" && (
                                           <button onClick={() => handleDeleteShift(shift.shift_id)} className="opacity-0 group-hover:opacity-100 ml-1">
                                             <Trash2 className="w-3 h-3" />
                                           </button>
-                                        )}
                                       </div>
                                     ))}
                                   </div>
