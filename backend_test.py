@@ -151,9 +151,154 @@ class XCleanAPITester:
         """Test today's jobs endpoint"""
         return self.run_test("Today's Jobs", "GET", "jobs/today", 200)
 
-    def test_day_record_today(self):
-        """Test today's day record"""
-        return self.run_test("Today's Day Record", "GET", "day-records/today?location=Budapest", 200)
+    def test_image_upload(self):
+        """Test image upload endpoint"""
+        # Create a simple test image (1x1 pixel PNG)
+        test_image_data = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
+        
+        files = {'file': ('test.png', io.BytesIO(test_image_data), 'image/png')}
+        
+        url = f"{self.base_url}/api/upload"
+        print(f"\n🔍 Testing Image Upload...")
+        print(f"   URL: POST {url}")
+        
+        try:
+            # Remove Content-Type header for file upload
+            headers = {'Authorization': f'Bearer {self.session_token}'}
+            response = requests.post(url, files=files, headers=headers)
+            
+            self.tests_run += 1
+            print(f"   Response: {response.status_code}")
+            
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ PASSED - Image upload successful")
+                resp_data = response.json()
+                if 'url' in resp_data and resp_data['url'].startswith('data:image'):
+                    print(f"   Response contains valid data URL")
+                    return True, resp_data
+                else:
+                    print(f"❌ Response missing valid data URL")
+                    return False, {}
+            else:
+                print(f"❌ FAILED - Expected 200, got {response.status_code}")
+                if response.text:
+                    print(f"   Error: {response.text[:300]}")
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ FAILED - Error: {str(e)}")
+            return False, {}
+
+    def test_inventory_crud(self):
+        """Test inventory CRUD operations"""
+        # Test Create
+        inventory_data = {
+            "product_name": "Test Product",
+            "current_quantity": 50.0,
+            "min_level": 10.0,
+            "unit": "db",
+            "location": "Budapest"
+        }
+        
+        success, create_resp = self.run_test("Inventory Create", "POST", "inventory", 201, inventory_data)
+        if not success:
+            return False
+            
+        inventory_id = create_resp.get('inventory_id')
+        if not inventory_id:
+            print("❌ No inventory_id in create response")
+            return False
+            
+        # Test Update (all fields)
+        update_data = {
+            "product_name": "Updated Test Product",
+            "current_quantity": 75.0,
+            "min_level": 15.0,
+            "unit": "liter",
+            "location": "Debrecen"
+        }
+        
+        success, _ = self.run_test("Inventory Update (all fields)", "PUT", f"inventory/{inventory_id}", 200, update_data)
+        if not success:
+            return False
+            
+        # Test Delete
+        success, _ = self.run_test("Inventory Delete", "DELETE", f"inventory/{inventory_id}", 200)
+        return success
+
+    def test_services_crud(self):
+        """Test services CRUD operations"""
+        # Test Create
+        service_data = {
+            "name": "Test CRUD Service",
+            "category": "extra",
+            "price": 8000,
+            "duration": 45,
+            "description": "Test service for CRUD testing",
+            "car_size": "M",
+            "package": "Pro"
+        }
+        
+        success, create_resp = self.run_test("Service Create (CRUD)", "POST", "services", 201, service_data)
+        if not success:
+            return False
+            
+        service_id = create_resp.get('service_id')
+        if not service_id:
+            print("❌ No service_id in create response")
+            return False
+            
+        # Test Update/Edit
+        update_data = {
+            "name": "Updated CRUD Service",
+            "category": "komplett",
+            "price": 12000,
+            "duration": 60,
+            "description": "Updated test service",
+            "car_size": "L",
+            "package": "VIP"
+        }
+        
+        success, _ = self.run_test("Service Update/Edit", "PUT", f"services/{service_id}", 200, update_data)
+        if not success:
+            return False
+            
+        # Test Delete
+        success, _ = self.run_test("Service Delete", "DELETE", f"services/{service_id}", 200)
+        return success
+
+    def test_shifts_crud(self):
+        """Test shifts create and delete operations"""
+        # First get workers to use for shift creation
+        success, workers = self.run_test("Get Workers for Shift", "GET", "workers", 200)
+        if not success or not workers:
+            print("❌ No workers available for shift testing")
+            return False
+            
+        worker_id = workers[0]['worker_id']
+        
+        # Test Create Shift
+        shift_data = {
+            "worker_id": worker_id,
+            "location": "Budapest",
+            "start_time": "2024-01-15T08:00:00",
+            "end_time": "2024-01-15T16:00:00"
+        }
+        
+        success, create_resp = self.run_test("Shift Create", "POST", "shifts", 201, shift_data)
+        if not success:
+            return False
+            
+        shift_id = create_resp.get('shift_id')
+        if not shift_id:
+            print("❌ No shift_id in create response")
+            return False
+            
+        # Test Delete Shift
+        success, _ = self.run_test("Shift Delete", "DELETE", f"shifts/{shift_id}", 200)
+        return success
 
 def main():
     print("🚀 Starting X-CLEAN API Testing for Bug Fixes and New Features")
