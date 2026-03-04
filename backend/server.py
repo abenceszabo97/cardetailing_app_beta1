@@ -825,17 +825,29 @@ async def get_day_records(location: Optional[str] = None, user: User = Depends(g
 
 @api_router.get("/day-records/today")
 async def get_today_record(location: str, user: User = Depends(get_current_user)):
-    """Get today's day record"""
+    """Get today's day record - prioritize open records"""
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today + timedelta(days=1)
     
+    # First try to find an open record
     record = await db.day_records.find_one({
         "location": location,
+        "status": "open",
         "date": {
             "$gte": today.isoformat(),
             "$lt": tomorrow.isoformat()
         }
     }, {"_id": 0})
+    
+    if not record:
+        # Fall back to most recent record (closed)
+        record = await db.day_records.find_one({
+            "location": location,
+            "date": {
+                "$gte": today.isoformat(),
+                "$lt": tomorrow.isoformat()
+            }
+        }, {"_id": 0}, sort=[("opened_at", -1)])
     
     return record
 
