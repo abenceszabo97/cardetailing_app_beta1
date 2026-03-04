@@ -3,6 +3,7 @@ import axios from "axios";
 import { API, useAuth } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import {
   Select,
   SelectContent,
@@ -15,7 +16,9 @@ import {
   MapPin,
   TrendingUp,
   Users,
-  Sparkles
+  Sparkles,
+  FileText,
+  Download
 } from "lucide-react";
 import { 
   BarChart, 
@@ -32,6 +35,8 @@ import {
 } from 'recharts';
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export const Statistics = () => {
   const { user } = useAuth();
@@ -40,6 +45,7 @@ export const Statistics = () => {
   const [workerStats, setWorkerStats] = useState([]);
   const [serviceStats, setServiceStats] = useState([]);
   const [locationStats, setLocationStats] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState("all");
 
@@ -48,18 +54,20 @@ export const Statistics = () => {
   const fetchStats = async () => {
     try {
       const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
-      const [dailyRes, monthlyRes, workerRes, serviceRes, locationRes] = await Promise.all([
+      const [dailyRes, monthlyRes, workerRes, serviceRes, locationRes, dashRes] = await Promise.all([
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/monthly${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/workers${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/services${locationParam}`, { withCredentials: true }),
-        axios.get(`${API}/stats/locations`, { withCredentials: true })
+        axios.get(`${API}/stats/locations`, { withCredentials: true }),
+        axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true })
       ]);
       setDailyStats(dailyRes.data);
       setMonthlyStats(monthlyRes.data);
       setWorkerStats(workerRes.data);
       setServiceStats(serviceRes.data.slice(0, 10));
       setLocationStats(locationRes.data);
+      setDashboardStats(dashRes.data);
     } catch (error) {
       toast.error("Hiba a statisztikák betöltésekor");
     } finally {
@@ -70,6 +78,168 @@ export const Statistics = () => {
   useEffect(() => {
     fetchStats();
   }, [selectedLocation]);
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(34, 197, 94); // Green
+    doc.text('X-CLEAN Statisztika', pageWidth / 2, 20, { align: 'center' });
+    
+    // Date and location
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generálva: ${format(new Date(), 'yyyy. MMMM d. HH:mm', { locale: hu })}`, pageWidth / 2, 30, { align: 'center' });
+    doc.text(`Telephely: ${selectedLocation === 'all' ? 'Összes' : selectedLocation}`, pageWidth / 2, 37, { align: 'center' });
+    
+    let yPos = 50;
+    
+    // Summary KPIs
+    if (dashboardStats) {
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Összesítés', 14, yPos);
+      yPos += 10;
+      
+      doc.autoTable({
+        startY: yPos,
+        head: [['Mutató', 'Érték']],
+        body: [
+          ['Mai elkészült autók', dashboardStats.today_cars?.toString() || '0'],
+          ['Mai készpénz bevétel', `${(dashboardStats.today_cash || 0).toLocaleString()} Ft`],
+          ['Mai kártya bevétel', `${(dashboardStats.today_card || 0).toLocaleString()} Ft`],
+          ['Havi elkészült autók', dashboardStats.month_cars?.toString() || '0'],
+          ['Havi készpénz bevétel', `${(dashboardStats.month_cash || 0).toLocaleString()} Ft`],
+          ['Havi kártya bevétel', `${(dashboardStats.month_card || 0).toLocaleString()} Ft`],
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [34, 197, 94] },
+        styles: { fontSize: 10 }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 15;
+    }
+    
+    // Daily stats table
+    if (dailyStats.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Napi statisztika (aktuális hónap)', 14, yPos);
+      yPos += 10;
+      
+      doc.autoTable({
+        startY: yPos,
+        head: [['Dátum', 'Autók száma', 'Bevétel']],
+        body: dailyStats.map(d => [
+          format(new Date(d.date), 'yyyy.MM.dd'),
+          d.count.toString(),
+          `${d.revenue.toLocaleString()} Ft`
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [34, 197, 94] },
+        styles: { fontSize: 9 }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 15;
+    }
+    
+    // Check if we need a new page
+    if (yPos > 200) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Worker stats
+    if (workerStats.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Dolgozói teljesítmény (havi)', 14, yPos);
+      yPos += 10;
+      
+      doc.autoTable({
+        startY: yPos,
+        head: [['Dolgozó', 'Autók száma', 'Bevétel']],
+        body: workerStats.map(w => [
+          w.worker_name,
+          w.count.toString(),
+          `${w.revenue.toLocaleString()} Ft`
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 10 }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 15;
+    }
+    
+    // Check if we need a new page
+    if (yPos > 200) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Service stats
+    if (serviceStats.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Legnépszerűbb szolgáltatások', 14, yPos);
+      yPos += 10;
+      
+      doc.autoTable({
+        startY: yPos,
+        head: [['Szolgáltatás', 'Darab', 'Bevétel']],
+        body: serviceStats.map(s => [
+          s.service_name,
+          s.count.toString(),
+          `${s.revenue.toLocaleString()} Ft`
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [249, 115, 22] },
+        styles: { fontSize: 9 }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 15;
+    }
+    
+    // Check if we need a new page
+    if (yPos > 230) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Location stats
+    if (locationStats.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Telephely bontás (havi)', 14, yPos);
+      yPos += 10;
+      
+      doc.autoTable({
+        startY: yPos,
+        head: [['Telephely', 'Autók száma', 'Bevétel']],
+        body: locationStats.map(l => [
+          l.location,
+          l.count.toString(),
+          `${l.revenue.toLocaleString()} Ft`
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [168, 85, 247] },
+        styles: { fontSize: 10 }
+      });
+    }
+    
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`X-CLEAN Menedzsment - Oldal ${i}/${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    }
+    
+    // Save
+    const fileName = `xclean_statisztika_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
+    doc.save(fileName);
+    toast.success('PDF sikeresen letöltve!');
+  };
 
   const CustomTooltip = ({ active, payload, label, formatter }) => {
     if (active && payload && payload.length) {
@@ -103,18 +273,71 @@ export const Statistics = () => {
           <h1 className="text-3xl font-bold text-white font-['Manrope']">Statisztika</h1>
           <p className="text-slate-400 mt-1">Részletes kimutatások</p>
         </div>
-        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-          <SelectTrigger className="w-[180px] bg-slate-900 border-slate-700 text-white" data-testid="stats-location-select">
-            <MapPin className="w-4 h-4 mr-2 text-green-400" />
-            <SelectValue placeholder="Telephely" />
-          </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-slate-700">
-            <SelectItem value="all" className="text-white">Összes telephely</SelectItem>
-            <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
-            <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+            <SelectTrigger className="w-[180px] bg-slate-900 border-slate-700 text-white" data-testid="stats-location-select">
+              <MapPin className="w-4 h-4 mr-2 text-green-400" />
+              <SelectValue placeholder="Telephely" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-900 border-slate-700">
+              <SelectItem value="all" className="text-white">Összes telephely</SelectItem>
+              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+              <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            onClick={generatePDF}
+            className="bg-green-600 hover:bg-green-500"
+            data-testid="export-pdf-btn"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            PDF Export
+          </Button>
+        </div>
       </div>
+
+      {/* Summary Cards */}
+      {dashboardStats && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <Card className="glass-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-slate-400">Mai autók</p>
+              <p className="text-2xl font-bold text-white">{dashboardStats.today_cars}</p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-slate-400">Mai készpénz</p>
+              <p className="text-xl font-bold text-green-400">{(dashboardStats.today_cash || 0).toLocaleString()} Ft</p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-slate-400">Mai kártya</p>
+              <p className="text-xl font-bold text-blue-400">{(dashboardStats.today_card || 0).toLocaleString()} Ft</p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-slate-400">Havi autók</p>
+              <p className="text-2xl font-bold text-white">{dashboardStats.month_cars}</p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-slate-400">Havi készpénz</p>
+              <p className="text-xl font-bold text-green-400">{(dashboardStats.month_cash || 0).toLocaleString()} Ft</p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-slate-400">Havi kártya</p>
+              <p className="text-xl font-bold text-blue-400">{(dashboardStats.month_card || 0).toLocaleString()} Ft</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
