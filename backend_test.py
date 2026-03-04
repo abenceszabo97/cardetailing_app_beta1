@@ -301,7 +301,8 @@ class XCleanAPITester:
         return success
 
 def main():
-    print("🚀 Starting X-CLEAN API Testing for Bug Fixes and New Features")
+    print("🚀 Starting X-CLEAN API Testing for New Features")
+    print("Testing: Image Upload, Inventory CRUD, Services CRUD, Shifts CRUD")
     print("=" * 70)
     
     tester = XCleanAPITester()
@@ -313,38 +314,35 @@ def main():
         print("❌ Authentication failed, stopping tests")
         return 1
 
+    # Test new image upload feature
+    print("\n📷 IMAGE UPLOAD TESTS")
+    print("-" * 30)
+    tester.test_image_upload()
+
+    # Test inventory CRUD operations
+    print("\n📦 INVENTORY CRUD TESTS")
+    print("-" * 30)
+    tester.test_inventory_crud()
+
+    # Test services CRUD operations
+    print("\n🛠️ SERVICES CRUD TESTS")
+    print("-" * 30)
+    tester.test_services_crud()
+
+    # Test shifts create/delete operations
+    print("\n👥 SHIFTS CRUD TESTS")
+    print("-" * 30)
+    tester.test_shifts_crud()
+
     # Test dashboard with cash/card breakdown
     print("\n📊 DASHBOARD STATS TESTS")
     print("-" * 30)
     tester.test_dashboard_stats()
 
-    # Test service creation fixes
-    print("\n🛠️ SERVICE CREATION TESTS")
-    print("-" * 30)
-    tester.test_service_creation()
-    tester.test_service_creation_with_none_values()
-
-    # Test day management functionality
-    print("\n📅 DAY MANAGEMENT TESTS")
-    print("-" * 30)
-    tester.test_day_record_today()
-    # Note: Day open/close tests might fail if day is already open/closed
-    # This is expected behavior, not a bug
-    
-    # Test job images functionality
-    print("\n🖼️ JOB IMAGES TESTS")
-    print("-" * 30)
-    tester.test_job_images_update()
-
-    # Test workers calendar functionality
-    print("\n👥 WORKERS CALENDAR TESTS")
-    print("-" * 30)
-    tester.test_workers_endpoint()
-    tester.test_shifts_endpoint()
-
-    # Test additional endpoints
+    # Test additional endpoints for completeness
     print("\n📋 ADDITIONAL ENDPOINT TESTS")
     print("-" * 30)
+    tester.test_workers_endpoint()
     tester.test_jobs_today()
 
     # Print final results
