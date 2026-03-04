@@ -95,6 +95,8 @@ class Job(BaseModel):
     payment_method: Optional[str] = None  # keszpenz, kartya
     date: datetime
     notes: Optional[str] = None
+    images_before: List[str] = Field(default_factory=list)  # URLs of before images
+    images_after: List[str] = Field(default_factory=list)  # URLs of after images
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class JobCreate(BaseModel):
@@ -111,6 +113,8 @@ class JobUpdate(BaseModel):
     worker_id: Optional[str] = None
     payment_method: Optional[str] = None
     notes: Optional[str] = None
+    images_before: Optional[List[str]] = None
+    images_after: Optional[List[str]] = None
 
 class Worker(BaseModel):
     worker_id: str = Field(default_factory=lambda: f"wrk_{uuid.uuid4().hex[:12]}")
@@ -183,6 +187,7 @@ class DayOpenCreate(BaseModel):
     opening_balance: float
 
 class DayCloseCreate(BaseModel):
+    location: str
     notes: Optional[str] = None
 
 # ===================== AUTH HELPERS =====================
@@ -773,13 +778,13 @@ async def open_day(data: DayOpenCreate, user: User = Depends(get_current_user)):
     return record.model_dump()
 
 @api_router.post("/day-records/close")
-async def close_day(location: str, data: DayCloseCreate, user: User = Depends(get_current_user)):
+async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)):
     """Close day"""
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today + timedelta(days=1)
     
     record = await db.day_records.find_one({
-        "location": location,
+        "location": data.location,
         "status": "open",
         "date": {
             "$gte": today.isoformat(),
@@ -792,7 +797,7 @@ async def close_day(location: str, data: DayCloseCreate, user: User = Depends(ge
     
     # Calculate stats
     jobs = await db.jobs.find({
-        "location": location,
+        "location": data.location,
         "status": "kesz",
         "date": {
             "$gte": today.isoformat(),
