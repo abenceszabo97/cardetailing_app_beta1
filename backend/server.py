@@ -853,6 +853,8 @@ async def get_dashboard_stats(location: Optional[str] = None, user: User = Depen
     today_jobs = await db.jobs.find(today_query, {"_id": 0}).to_list(1000)
     today_cars = len(today_jobs)
     today_revenue = sum(j["price"] for j in today_jobs)
+    today_cash = sum(j["price"] for j in today_jobs if j.get("payment_method") == "keszpenz")
+    today_card = sum(j["price"] for j in today_jobs if j.get("payment_method") == "kartya")
     
     # Monthly stats
     month_query = {
@@ -863,12 +865,18 @@ async def get_dashboard_stats(location: Optional[str] = None, user: User = Depen
     month_jobs = await db.jobs.find(month_query, {"_id": 0}).to_list(1000)
     month_cars = len(month_jobs)
     month_revenue = sum(j["price"] for j in month_jobs)
+    month_cash = sum(j["price"] for j in month_jobs if j.get("payment_method") == "keszpenz")
+    month_card = sum(j["price"] for j in month_jobs if j.get("payment_method") == "kartya")
     
     return {
         "today_cars": today_cars,
         "today_revenue": today_revenue,
+        "today_cash": today_cash,
+        "today_card": today_card,
         "month_cars": month_cars,
-        "month_revenue": month_revenue
+        "month_revenue": month_revenue,
+        "month_cash": month_cash,
+        "month_card": month_card
     }
 
 @api_router.get("/stats/daily")
