@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { API, useAuth } from "../App";
 import { toast } from "sonner";
@@ -33,7 +33,8 @@ import {
   CreditCard,
   Wallet,
   Image,
-  X
+  X,
+  Upload
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -55,6 +56,10 @@ export const Dashboard = () => {
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  
+  const beforeFileRef = useRef(null);
+  const afterFileRef = useRef(null);
   
   // New job form state
   const [newJob, setNewJob] = useState({
@@ -98,6 +103,16 @@ export const Dashboard = () => {
     fetchData();
   }, [selectedLocation]);
 
+  // Update selectedJob when todayJobs changes
+  useEffect(() => {
+    if (selectedJob) {
+      const updatedJob = todayJobs.find(j => j.job_id === selectedJob.job_id);
+      if (updatedJob) {
+        setSelectedJob(updatedJob);
+      }
+    }
+  }, [todayJobs]);
+
   const handleCreateJob = async () => {
     try {
       await axios.post(`${API}/jobs`, newJob, { withCredentials: true });
@@ -132,21 +147,37 @@ export const Dashboard = () => {
     }
   };
 
-  const handleAddImage = async (jobId, type, url) => {
-    const job = todayJobs.find(j => j.job_id === jobId);
-    if (!job) return;
+  const handleFileUpload = async (file, type) => {
+    if (!file || !selectedJob) return;
     
-    const currentImages = type === 'before' ? (job.images_before || []) : (job.images_after || []);
-    const updatedImages = [...currentImages, url];
-    
+    setUploading(true);
     try {
-      await axios.put(`${API}/jobs/${jobId}`, {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await axios.post(`${API}/upload`, formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      const imageUrl = uploadRes.data.url;
+      const job = todayJobs.find(j => j.job_id === selectedJob.job_id);
+      if (!job) return;
+      
+      const currentImages = type === 'before' ? (job.images_before || []) : (job.images_after || []);
+      const updatedImages = [...currentImages, imageUrl];
+      
+      await axios.put(`${API}/jobs/${selectedJob.job_id}`, {
         [type === 'before' ? 'images_before' : 'images_after']: updatedImages
       }, { withCredentials: true });
-      toast.success("Kép hozzáadva!");
+      
+      toast.success("Kép feltöltve!");
       fetchData();
     } catch (error) {
-      toast.error("Hiba a kép hozzáadásakor");
+      console.error("Upload error:", error);
+      toast.error("Hiba a kép feltöltésekor");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -572,23 +603,26 @@ export const Dashboard = () => {
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-slate-300 text-lg">Előtte</Label>
                   <div className="flex gap-2">
-                    <Input
-                      id="before-url"
-                      placeholder="Kép URL..."
-                      className="w-64 bg-slate-950 border-slate-700 text-white text-sm"
+                    <input
+                      type="file"
+                      ref={beforeFileRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleFileUpload(e.target.files[0], 'before');
+                          e.target.value = '';
+                        }
+                      }}
                     />
                     <Button
                       size="sm"
-                      onClick={() => {
-                        const input = document.getElementById('before-url');
-                        if (input.value) {
-                          handleAddImage(selectedJob.job_id, 'before', input.value);
-                          input.value = '';
-                        }
-                      }}
+                      onClick={() => beforeFileRef.current?.click()}
                       className="bg-green-600 hover:bg-green-500"
+                      disabled={uploading}
                     >
-                      <Plus className="w-4 h-4" />
+                      <Upload className="w-4 h-4 mr-1" />
+                      {uploading ? "Feltöltés..." : "Kép feltöltése"}
                     </Button>
                   </div>
                 </div>
@@ -615,23 +649,26 @@ export const Dashboard = () => {
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-slate-300 text-lg">Utána</Label>
                   <div className="flex gap-2">
-                    <Input
-                      id="after-url"
-                      placeholder="Kép URL..."
-                      className="w-64 bg-slate-950 border-slate-700 text-white text-sm"
+                    <input
+                      type="file"
+                      ref={afterFileRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleFileUpload(e.target.files[0], 'after');
+                          e.target.value = '';
+                        }
+                      }}
                     />
                     <Button
                       size="sm"
-                      onClick={() => {
-                        const input = document.getElementById('after-url');
-                        if (input.value) {
-                          handleAddImage(selectedJob.job_id, 'after', input.value);
-                          input.value = '';
-                        }
-                      }}
+                      onClick={() => afterFileRef.current?.click()}
                       className="bg-green-600 hover:bg-green-500"
+                      disabled={uploading}
                     >
-                      <Plus className="w-4 h-4" />
+                      <Upload className="w-4 h-4 mr-1" />
+                      {uploading ? "Feltöltés..." : "Kép feltöltése"}
                     </Button>
                   </div>
                 </div>
