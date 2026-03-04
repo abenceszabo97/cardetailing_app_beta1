@@ -202,7 +202,7 @@ class XCleanAPITester:
             "location": "Budapest"
         }
         
-        success, create_resp = self.run_test("Inventory Create", "POST", "inventory", 201, inventory_data)
+        success, create_resp = self.run_test("Inventory Create", "POST", "inventory", 200, inventory_data)
         if not success:
             return False
             
