@@ -164,8 +164,11 @@ class InventoryCreate(BaseModel):
     location: str
 
 class InventoryUpdate(BaseModel):
+    product_name: Optional[str] = None
     current_quantity: Optional[float] = None
     min_level: Optional[float] = None
+    unit: Optional[str] = None
+    location: Optional[str] = None
 
 class DayRecord(BaseModel):
     record_id: str = Field(default_factory=lambda: f"day_{uuid.uuid4().hex[:12]}")
