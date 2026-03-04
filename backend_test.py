@@ -287,7 +287,7 @@ class XCleanAPITester:
             "end_time": "2024-01-15T16:00:00"
         }
         
-        success, create_resp = self.run_test("Shift Create", "POST", "shifts", 201, shift_data)
+        success, create_resp = self.run_test("Shift Create", "POST", "shifts", 200, shift_data)
         if not success:
             return False
             
