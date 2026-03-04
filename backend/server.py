@@ -471,11 +471,15 @@ async def create_worker(data: WorkerCreate, user: User = Depends(require_admin))
     return worker.model_dump()
 
 @api_router.put("/workers/{worker_id}")
-async def update_worker(worker_id: str, data: WorkerCreate, user: User = Depends(require_admin)):
+async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends(require_admin)):
     """Update worker (admin only)"""
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
+    
     result = await db.workers.update_one(
         {"worker_id": worker_id},
-        {"$set": data.model_dump()}
+        {"$set": update_data}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Dolgozó nem található")
