@@ -503,149 +503,189 @@ export const Workers = () => {
                   <p>Nincs dolgozó</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-slate-800 hover:bg-transparent">
-                        <TableHead className="text-slate-400">Név</TableHead>
-                        <TableHead className="text-slate-400">Beosztás</TableHead>
-                        <TableHead className="text-slate-400">Telephely</TableHead>
-                        <TableHead className="text-slate-400">Elérhetőség</TableHead>
-                        <TableHead className="text-slate-400 text-right">Műveletek</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workers.map((worker, index) => {
-                        const colors = getWorkerColor(index);
-                        const isEditing = editingWorker === worker.worker_id;
-                        
-                        return (
-                          <TableRow key={worker.worker_id} className="border-slate-800 hover:bg-white/5">
-                            <TableCell>
-                              {isEditing ? (
-                                <Input
-                                  value={editWorkerForm.name}
-                                  onChange={(e) => setEditWorkerForm({...editWorkerForm, name: e.target.value})}
-                                  className="w-40 bg-slate-950 border-slate-700 text-white"
-                                />
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-3 h-3 rounded-full ${colors.bg}`} />
-                                  <span className="text-white font-medium">{worker.name}</span>
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <Input
-                                  value={editWorkerForm.position}
-                                  onChange={(e) => setEditWorkerForm({...editWorkerForm, position: e.target.value})}
-                                  className="w-32 bg-slate-950 border-slate-700 text-white"
-                                  placeholder="Beosztás"
-                                />
-                              ) : (
-                                <span className="text-slate-300">{worker.position || "-"}</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <Select value={editWorkerForm.location} onValueChange={(v) => setEditWorkerForm({...editWorkerForm, location: v})}>
-                                  <SelectTrigger className="w-32 bg-slate-950 border-slate-700">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-slate-900 border-slate-700">
-                                    <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
-                                    <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Badge variant="outline" className="border-slate-600 text-slate-300">
-                                  <MapPin className="w-3 h-3 mr-1" />
-                                  {worker.location}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <div className="space-y-1">
+                <>
+                  {/* Mobile: Card Layout */}
+                  <div className="md:hidden space-y-3">
+                    {workers.map((worker, index) => {
+                      const colors = getWorkerColor(index);
+                      return (
+                        <div key={worker.worker_id} className="p-4 bg-slate-950/50 rounded-lg border border-slate-800" data-testid={`worker-card-${worker.worker_id}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full ${colors.bg}`} />
+                              <span className="text-white font-semibold">{worker.name}</span>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white"
+                                onClick={() => handleStartEditWorker(worker)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-400"
+                                onClick={() => handleDeleteWorker(worker.worker_id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400">
+                            <Badge variant="outline" className="border-slate-600 text-slate-300 text-xs">
+                              <MapPin className="w-3 h-3 mr-1" />{worker.location}
+                            </Badge>
+                            {worker.position && <span>{worker.position}</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 mt-2">
+                            {worker.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{worker.phone}</span>}
+                            {worker.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{worker.email}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop: Table Layout */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-slate-800 hover:bg-transparent">
+                          <TableHead className="text-slate-400">Név</TableHead>
+                          <TableHead className="text-slate-400">Beosztás</TableHead>
+                          <TableHead className="text-slate-400">Telephely</TableHead>
+                          <TableHead className="text-slate-400">Elérhetőség</TableHead>
+                          <TableHead className="text-slate-400 text-right">Műveletek</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {workers.map((worker, index) => {
+                          const colors = getWorkerColor(index);
+                          const isEditing = editingWorker === worker.worker_id;
+                          
+                          return (
+                            <TableRow key={worker.worker_id} className="border-slate-800 hover:bg-white/5">
+                              <TableCell>
+                                {isEditing ? (
                                   <Input
-                                    value={editWorkerForm.phone}
-                                    onChange={(e) => setEditWorkerForm({...editWorkerForm, phone: e.target.value})}
-                                    className="w-36 bg-slate-950 border-slate-700 text-white text-sm"
-                                    placeholder="Telefon"
+                                    value={editWorkerForm.name}
+                                    onChange={(e) => setEditWorkerForm({...editWorkerForm, name: e.target.value})}
+                                    className="w-40 bg-slate-950 border-slate-700 text-white"
                                   />
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${colors.bg}`} />
+                                    <span className="text-white font-medium">{worker.name}</span>
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
                                   <Input
-                                    value={editWorkerForm.email}
-                                    onChange={(e) => setEditWorkerForm({...editWorkerForm, email: e.target.value})}
-                                    className="w-36 bg-slate-950 border-slate-700 text-white text-sm"
-                                    placeholder="Email"
+                                    value={editWorkerForm.position}
+                                    onChange={(e) => setEditWorkerForm({...editWorkerForm, position: e.target.value})}
+                                    className="w-32 bg-slate-950 border-slate-700 text-white"
+                                    placeholder="Beosztás"
                                   />
-                                </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  {worker.phone && (
-                                    <div className="flex items-center gap-1 text-sm text-slate-400">
-                                      <Phone className="w-3 h-3" />
-                                      {worker.phone}
-                                    </div>
-                                  )}
-                                  {worker.email && (
-                                    <div className="flex items-center gap-1 text-sm text-slate-400">
-                                      <Mail className="w-3 h-3" />
-                                      {worker.email}
-                                    </div>
-                                  )}
-                                  {!worker.phone && !worker.email && <span className="text-slate-500">-</span>}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {isEditing ? (
-                                <div className="flex justify-end gap-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-green-400 hover:text-green-300"
-                                    onClick={() => handleSaveWorker(worker.worker_id)}
-                                  >
-                                    <Save className="w-4 h-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-slate-400 hover:text-white"
-                                    onClick={() => { setEditingWorker(null); setEditWorkerForm(null); }}
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex justify-end gap-1">
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-8 w-8 text-slate-400 hover:text-white"
-                                        onClick={() => handleStartEditWorker(worker)}
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-8 w-8 text-slate-400 hover:text-red-400"
-                                        onClick={() => handleDeleteWorker(worker.worker_id)}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                                ) : (
+                                  <span className="text-slate-300">{worker.position || "-"}</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Select value={editWorkerForm.location} onValueChange={(v) => setEditWorkerForm({...editWorkerForm, location: v})}>
+                                    <SelectTrigger className="w-32 bg-slate-950 border-slate-700">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-900 border-slate-700">
+                                      <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+                                      <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                    <MapPin className="w-3 h-3 mr-1" />
+                                    {worker.location}
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <div className="space-y-1">
+                                    <Input
+                                      value={editWorkerForm.phone}
+                                      onChange={(e) => setEditWorkerForm({...editWorkerForm, phone: e.target.value})}
+                                      className="w-36 bg-slate-950 border-slate-700 text-white text-sm"
+                                      placeholder="Telefon"
+                                    />
+                                    <Input
+                                      value={editWorkerForm.email}
+                                      onChange={(e) => setEditWorkerForm({...editWorkerForm, email: e.target.value})}
+                                      className="w-36 bg-slate-950 border-slate-700 text-white text-sm"
+                                      placeholder="Email"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1">
+                                    {worker.phone && (
+                                      <div className="flex items-center gap-1 text-sm text-slate-400">
+                                        <Phone className="w-3 h-3" />
+                                        {worker.phone}
+                                      </div>
+                                    )}
+                                    {worker.email && (
+                                      <div className="flex items-center gap-1 text-sm text-slate-400">
+                                        <Mail className="w-3 h-3" />
+                                        {worker.email}
+                                      </div>
+                                    )}
+                                    {!worker.phone && !worker.email && <span className="text-slate-500">-</span>}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isEditing ? (
+                                  <div className="flex justify-end gap-1">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 text-green-400 hover:text-green-300"
+                                      onClick={() => handleSaveWorker(worker.worker_id)}
+                                    >
+                                      <Save className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 text-slate-400 hover:text-white"
+                                      onClick={() => { setEditingWorker(null); setEditWorkerForm(null); }}
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-end gap-1">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-8 w-8 text-slate-400 hover:text-white"
+                                          onClick={() => handleStartEditWorker(worker)}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-8 w-8 text-slate-400 hover:text-red-400"
+                                          onClick={() => handleDeleteWorker(worker.worker_id)}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

@@ -177,7 +177,7 @@ export const Customers = () => {
         />
       </div>
 
-      {/* Customers Table */}
+      {/* Customers - Mobile Cards + Desktop Table */}
       <Card className="glass-card">
         <CardContent className="p-0">
           {filteredCustomers.length === 0 ? (
@@ -186,57 +186,88 @@ export const Customers = () => {
               <p>Nincs találat</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-800 hover:bg-transparent">
-                    <TableHead className="text-slate-400">Név</TableHead>
-                    <TableHead className="text-slate-400">Telefonszám</TableHead>
-                    <TableHead className="text-slate-400">Autó</TableHead>
-                    <TableHead className="text-slate-400">Rendszám</TableHead>
-                    <TableHead className="text-slate-400 text-right">Összes költés</TableHead>
-                    <TableHead className="text-slate-400 w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCustomers.map((customer) => (
-                    <TableRow 
-                      key={customer.customer_id}
-                      className="border-slate-800 hover:bg-white/5 cursor-pointer"
-                      data-testid={`customer-row-${customer.customer_id}`}
-                    >
-                      <TableCell className="text-white font-medium">{customer.name}</TableCell>
-                      <TableCell className="text-slate-300">
-                        <span className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-slate-500" />
-                          {customer.phone}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-slate-300">
-                        <span className="flex items-center gap-2">
-                          <Car className="w-4 h-4 text-slate-500" />
-                          {customer.car_type || "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-white font-mono font-bold">{customer.plate_number}</TableCell>
-                      <TableCell className="text-right">
-                        <span className="flex items-center justify-end gap-2 text-green-400 font-semibold">
-                          <Banknote className="w-4 h-4" />
-                          {(customer.total_spent || 0).toLocaleString()} Ft
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/customers/${customer.customer_id}`}>
-                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
-                            <ChevronRight className="w-5 h-5" />
-                          </Button>
-                        </Link>
-                      </TableCell>
+            <>
+              {/* Mobile: Card Layout */}
+              <div className="md:hidden divide-y divide-slate-800">
+                {filteredCustomers.map((customer) => (
+                  <Link 
+                    key={customer.customer_id}
+                    to={`/customers/${customer.customer_id}`}
+                    className="block p-4 hover:bg-white/5 transition-colors"
+                    data-testid={`customer-card-${customer.customer_id}`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white font-semibold">{customer.name}</span>
+                      <span className="text-green-400 font-semibold text-sm">
+                        {(customer.total_spent || 0).toLocaleString()} Ft
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" /> {customer.phone}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Car className="w-3 h-3" /> {customer.car_type || "-"}
+                      </span>
+                      <span className="font-mono text-white text-xs">{customer.plate_number}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-800 hover:bg-transparent">
+                      <TableHead className="text-slate-400">Név</TableHead>
+                      <TableHead className="text-slate-400">Telefonszám</TableHead>
+                      <TableHead className="text-slate-400">Autó</TableHead>
+                      <TableHead className="text-slate-400">Rendszám</TableHead>
+                      <TableHead className="text-slate-400 text-right">Összes költés</TableHead>
+                      <TableHead className="text-slate-400 w-10"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.map((customer) => (
+                      <TableRow 
+                        key={customer.customer_id}
+                        className="border-slate-800 hover:bg-white/5 cursor-pointer"
+                        data-testid={`customer-row-${customer.customer_id}`}
+                      >
+                        <TableCell className="text-white font-medium">{customer.name}</TableCell>
+                        <TableCell className="text-slate-300">
+                          <span className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-slate-500" />
+                            {customer.phone}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-slate-300">
+                          <span className="flex items-center gap-2">
+                            <Car className="w-4 h-4 text-slate-500" />
+                            {customer.car_type || "-"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-white font-mono font-bold">{customer.plate_number}</TableCell>
+                        <TableCell className="text-right">
+                          <span className="flex items-center justify-end gap-2 text-green-400 font-semibold">
+                            <Banknote className="w-4 h-4" />
+                            {(customer.total_spent || 0).toLocaleString()} Ft
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/customers/${customer.customer_id}`}>
+                            <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
+                              <ChevronRight className="w-5 h-5" />
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
