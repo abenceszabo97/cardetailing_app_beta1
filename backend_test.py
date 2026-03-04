@@ -6,7 +6,7 @@ import io
 import base64
 
 class XCleanAPITester:
-    def __init__(self, base_url="https://car-service-hub-62.preview.emergentagent.com"):
+    def __init__(self, base_url="https://xclean-preview.preview.emergentagent.com"):
         self.base_url = base_url
         self.session_token = "test_session_1772613432485"
         self.tests_run = 0
