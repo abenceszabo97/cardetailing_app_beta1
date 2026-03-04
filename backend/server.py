@@ -1102,6 +1102,40 @@ async def seed_data(user: User = Depends(require_admin)):
     
     return {"message": "Adatok sikeresen létrehozva"}
 
+# ===================== IMAGE UPLOAD =====================
+
+@api_router.post("/upload")
+async def upload_image(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload image and return base64 data URL"""
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="Csak képfájl tölthető fel")
+    
+    # Read and encode to base64
+    contents = await file.read()
+    base64_data = base64.b64encode(contents).decode('utf-8')
+    data_url = f"data:{file.content_type};base64,{base64_data}"
+    
+    # Store in database for persistence
+    image_id = f"img_{uuid.uuid4().hex[:12]}"
+    await db.images.insert_one({
+        "image_id": image_id,
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "data_url": data_url,
+        "uploaded_by": user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"image_id": image_id, "url": data_url}
+
+@api_router.get("/images/{image_id}")
+async def get_image(image_id: str, user: User = Depends(get_current_user)):
+    """Get image by ID"""
+    image = await db.images.find_one({"image_id": image_id}, {"_id": 0})
+    if not image:
+        raise HTTPException(status_code=404, detail="Kép nem található")
+    return image
+
 # ===================== ROOT ROUTE =====================
 
 @api_router.get("/")
