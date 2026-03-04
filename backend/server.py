@@ -122,6 +122,8 @@ class Worker(BaseModel):
     user_id: Optional[str] = None
     name: str
     phone: Optional[str] = None
+    email: Optional[str] = None
+    position: Optional[str] = None  # beosztás
     location: str
     active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -129,8 +131,18 @@ class Worker(BaseModel):
 class WorkerCreate(BaseModel):
     name: str
     phone: Optional[str] = None
+    email: Optional[str] = None
+    position: Optional[str] = None
     location: str
     user_id: Optional[str] = None
+
+class WorkerUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    position: Optional[str] = None
+    location: Optional[str] = None
+    active: Optional[bool] = None
 
 class Shift(BaseModel):
     shift_id: str = Field(default_factory=lambda: f"shft_{uuid.uuid4().hex[:12]}")
