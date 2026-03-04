@@ -16,6 +16,7 @@ import { Services } from "./pages/Services";
 import { DayManagement } from "./pages/DayManagement";
 import { Settings } from "./pages/Settings";
 import { Sidebar } from "./components/Sidebar";
+import { NotificationBell } from "./components/NotificationBell";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -149,16 +150,18 @@ const MainLayout = ({ children }) => {
         setSelectedLocation={setSelectedLocation}
       />
       <div className="flex-1 lg:ml-64">
-        <header className="lg:hidden sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3">
+        <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-white p-2 hover:bg-white/10 rounded-lg"
+            className="lg:hidden text-white p-2 hover:bg-white/10 rounded-lg"
             data-testid="mobile-menu-btn"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+          <div className="hidden lg:block" />
+          <NotificationBell />
         </header>
         <main className="p-4 lg:p-8">
           {children}

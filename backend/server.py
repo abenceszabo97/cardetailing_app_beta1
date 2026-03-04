@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -23,6 +24,26 @@ db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+# Twilio SMS config
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
+
+twilio_client = None
+if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+    from twilio.rest import Client as TwilioClient
+    twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    logging.info("Twilio SMS integration initialized")
+
+# Resend email config
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+
+if RESEND_API_KEY:
+    import resend
+    resend.api_key = RESEND_API_KEY
+    logging.info("Resend email integration initialized")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -1347,6 +1368,111 @@ async def get_image(image_id: str, user: User = Depends(get_current_user)):
     if not image:
         raise HTTPException(status_code=404, detail="Kép nem található")
     return image
+
+# ===================== NOTIFICATIONS =====================
+
+@api_router.get("/notifications/low-stock")
+async def get_low_stock_notifications(user: User = Depends(get_current_user)):
+    """Get low stock items as notifications"""
+    items = await db.inventory.find({}, {"_id": 0}).to_list(500)
+    low_stock = []
+    for item in items:
+        if item.get("current_quantity", 0) < item.get("min_level", 0):
+            low_stock.append({
+                "inventory_id": item.get("inventory_id"),
+                "product_name": item.get("product_name"),
+                "current_quantity": item.get("current_quantity"),
+                "min_level": item.get("min_level"),
+                "location": item.get("location", ""),
+                "severity": "critical" if item.get("current_quantity", 0) == 0 else "warning"
+            })
+    return low_stock
+
+# ===================== SMS (TWILIO) =====================
+
+class SMSRequest(BaseModel):
+    phone_number: str
+    message: str
+
+@api_router.post("/send-sms")
+async def send_sms(data: SMSRequest, user: User = Depends(get_current_user)):
+    """Send SMS via Twilio"""
+    if not twilio_client or not TWILIO_PHONE_NUMBER:
+        raise HTTPException(status_code=503, detail="SMS szolgáltatás nincs konfigurálva. Kérjük adja meg a Twilio API kulcsokat a .env fájlban.")
+    
+    try:
+        message = twilio_client.messages.create(
+            body=data.message,
+            from_=TWILIO_PHONE_NUMBER,
+            to=data.phone_number
+        )
+        return {"status": "sent", "sid": message.sid}
+    except Exception as e:
+        logging.error(f"SMS sending failed: {e}")
+        raise HTTPException(status_code=500, detail=f"SMS küldés sikertelen: {str(e)}")
+
+@api_router.post("/jobs/{job_id}/notify-customer")
+async def notify_customer_job_done(job_id: str, user: User = Depends(get_current_user)):
+    """Send SMS to customer when job is completed"""
+    job = await db.jobs.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Munka nem található")
+    
+    # Find customer
+    customer = await db.customers.find_one({"customer_id": job.get("customer_id")}, {"_id": 0})
+    if not customer or not customer.get("phone"):
+        raise HTTPException(status_code=400, detail="Ügyfél telefonszáma nem elérhető")
+    
+    if not twilio_client or not TWILIO_PHONE_NUMBER:
+        raise HTTPException(status_code=503, detail="SMS szolgáltatás nincs konfigurálva. Kérjük adja meg a Twilio API kulcsokat a .env fájlban.")
+    
+    message_text = f"Kedves {customer.get('name', 'Ügyfelünk')}! Az autója elkészült az X-CLEAN autómosóban. Várjuk szeretettel!"
+    
+    try:
+        message = twilio_client.messages.create(
+            body=message_text,
+            from_=TWILIO_PHONE_NUMBER,
+            to=customer["phone"]
+        )
+        
+        # Mark notification sent
+        await db.jobs.update_one(
+            {"job_id": job_id},
+            {"$set": {"sms_sent": True, "sms_sent_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {"status": "sent", "sid": message.sid, "message": message_text}
+    except Exception as e:
+        logging.error(f"Customer SMS failed: {e}")
+        raise HTTPException(status_code=500, detail=f"SMS küldés sikertelen: {str(e)}")
+
+# ===================== EMAIL (RESEND) =====================
+
+class EmailRequest(BaseModel):
+    recipient_email: str
+    subject: str
+    html_content: str
+
+@api_router.post("/send-email")
+async def send_email(data: EmailRequest, user: User = Depends(get_current_user)):
+    """Send email via Resend"""
+    if not RESEND_API_KEY:
+        raise HTTPException(status_code=503, detail="Email szolgáltatás nincs konfigurálva. Kérjük adja meg a Resend API kulcsot a .env fájlban.")
+    
+    import resend
+    params = {
+        "from": SENDER_EMAIL,
+        "to": [data.recipient_email],
+        "subject": data.subject,
+        "html": data.html_content
+    }
+    
+    try:
+        email = await asyncio.to_thread(resend.Emails.send, params)
+        return {"status": "sent", "email_id": email.get("id")}
+    except Exception as e:
+        logging.error(f"Email sending failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Email küldés sikertelen: {str(e)}")
 
 # ===================== ROOT ROUTE =====================
 

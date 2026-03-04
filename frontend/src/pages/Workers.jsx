@@ -52,7 +52,8 @@ import {
   BarChart3,
   Car,
   Clock,
-  Calendar
+  Calendar,
+  Download
 } from "lucide-react";
 import { 
   format, 
@@ -69,6 +70,8 @@ import {
   isSameMonth
 } from "date-fns";
 import { hu } from "date-fns/locale";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 export const Workers = () => {
   const { user } = useAuth();
@@ -86,6 +89,96 @@ export const Workers = () => {
   const [editWorkerForm, setEditWorkerForm] = useState(null);
   const [workerStats, setWorkerStats] = useState([]);
   const [statsMonth, setStatsMonth] = useState(format(new Date(), "yyyy-MM"));
+
+  const generateWorkerPDF = () => {
+    const doc = new jsPDF();
+    const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
+    
+    doc.setFontSize(20);
+    doc.text("X-CLEAN Dolgozoi Havi Riport", 14, 22);
+    doc.setFontSize(12);
+    doc.text(`Honap: ${monthLabel}`, 14, 32);
+    
+    const totals = workerStats.reduce((acc, w) => ({
+      days: acc.days + w.days_worked,
+      hours: acc.hours + w.hours_worked,
+      cars: acc.cars + w.cars_completed,
+      revenue: acc.revenue + w.revenue
+    }), { days: 0, hours: 0, cars: 0, revenue: 0 });
+    
+    doc.autoTable({
+      startY: 40,
+      head: [["Megnevezes", "Ertek"]],
+      body: [
+        ["Osszes ledolgozott nap", `${totals.days} nap`],
+        ["Osszes ledolgozott ora", `${totals.hours.toFixed(1)} ora`],
+        ["Osszes elkeszitett auto", `${totals.cars} db`],
+        ["Osszes bevetel", `${totals.revenue.toLocaleString()} Ft`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [30, 41, 59] },
+    });
+    
+    if (workerStats.length > 0) {
+      doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 14,
+        head: [["Dolgozo", "Telephely", "Napok", "Orak", "Autok", "Bevetel"]],
+        body: workerStats.map(w => [
+          w.name,
+          w.location,
+          `${w.days_worked} nap`,
+          `${w.hours_worked} ora`,
+          `${w.cars_completed} db`,
+          `${w.revenue.toLocaleString()} Ft`
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [30, 41, 59] },
+      });
+    }
+    
+    return doc;
+  };
+
+  const handleDownloadWorkerPDF = () => {
+    const doc = generateWorkerPDF();
+    doc.save(`xclean_dolgozoi_riport_${statsMonth}.pdf`);
+    toast.success("PDF letöltve!");
+  };
+
+  const handleEmailWorkerPDF = async () => {
+    const email = window.prompt("Add meg az email cimet:");
+    if (!email) return;
+    
+    try {
+      const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
+      const totals = workerStats.reduce((acc, w) => ({
+        days: acc.days + w.days_worked,
+        hours: acc.hours + w.hours_worked,
+        cars: acc.cars + w.cars_completed,
+        revenue: acc.revenue + w.revenue
+      }), { days: 0, hours: 0, cars: 0, revenue: 0 });
+      
+      let tableRows = workerStats.map(w => 
+        `<tr><td>${w.name}</td><td>${w.location}</td><td>${w.days_worked} nap</td><td>${w.hours_worked} ora</td><td>${w.cars_completed} db</td><td>${w.revenue.toLocaleString()} Ft</td></tr>`
+      ).join("");
+      
+      await axios.post(`${API}/send-email`, {
+        recipient_email: email,
+        subject: `X-CLEAN Dolgozoi Havi Riport - ${monthLabel}`,
+        html_content: `<h2>X-CLEAN Dolgozoi Havi Riport</h2>
+          <p><strong>Honap:</strong> ${monthLabel}</p>
+          <p><strong>Osszes nap:</strong> ${totals.days} | <strong>Orak:</strong> ${totals.hours.toFixed(1)} | <strong>Autok:</strong> ${totals.cars} | <strong>Bevetel:</strong> ${totals.revenue.toLocaleString()} Ft</p>
+          <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
+            <tr style="background:#1e293b;color:white;"><th>Dolgozo</th><th>Telephely</th><th>Napok</th><th>Orak</th><th>Autok</th><th>Bevetel</th></tr>
+            ${tableRows}
+          </table>`
+      }, { withCredentials: true });
+      
+      toast.success("Email sikeresen elkuldve!");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Email kuldes sikertelen");
+    }
+  };
   
   const [newShift, setNewShift] = useState({
     worker_id: "",
@@ -773,34 +866,55 @@ export const Workers = () => {
         {/* Stats Tab */}
         <TabsContent value="stats" className="mt-6 space-y-4">
           {/* Month Selector */}
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              onClick={() => {
-                const d = new Date(statsMonth + "-01");
-                d.setMonth(d.getMonth() - 1);
-                setStatsMonth(format(d, "yyyy-MM"));
-              }}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <span className="text-white font-semibold text-lg">
-              {format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu })}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              onClick={() => {
-                const d = new Date(statsMonth + "-01");
-                d.setMonth(d.getMonth() + 1);
-                setStatsMonth(format(d, "yyyy-MM"));
-              }}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                onClick={() => {
+                  const d = new Date(statsMonth + "-01");
+                  d.setMonth(d.getMonth() - 1);
+                  setStatsMonth(format(d, "yyyy-MM"));
+                }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-white font-semibold text-lg">
+                {format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                onClick={() => {
+                  const d = new Date(statsMonth + "-01");
+                  d.setMonth(d.getMonth() + 1);
+                  setStatsMonth(format(d, "yyyy-MM"));
+                }}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2 ml-auto">
+              <Button 
+                onClick={handleDownloadWorkerPDF}
+                className="bg-slate-800 hover:bg-slate-700 text-white"
+                data-testid="download-worker-pdf-btn"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                PDF letöltés
+              </Button>
+              <Button 
+                onClick={handleEmailWorkerPDF}
+                variant="outline"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                data-testid="email-worker-pdf-btn"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Küldés emailben
+              </Button>
+            </div>
           </div>
 
           {/* Summary Cards */}

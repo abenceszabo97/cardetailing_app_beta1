@@ -23,10 +23,14 @@ import {
   CreditCard,
   Wallet,
   CheckCircle2,
-  Lock
+  Lock,
+  Download,
+  Mail
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 export const DayManagement = () => {
   const { user } = useAuth();
@@ -100,6 +104,90 @@ export const DayManagement = () => {
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba a napzárásnál");
+    }
+  };
+
+  const generateDayClosePDF = () => {
+    const doc = new jsPDF();
+    const today = format(new Date(), "yyyy. MMMM dd.", { locale: hu });
+    
+    doc.setFontSize(20);
+    doc.text("X-CLEAN Napi Zarasi Osszesito", 14, 22);
+    doc.setFontSize(12);
+    doc.text(`Datum: ${today}`, 14, 32);
+    doc.text(`Telephely: ${selectedLocation}`, 14, 40);
+    doc.text(`Nyito egyenleg: ${(todayRecord?.opening_balance || 0).toLocaleString()} Ft`, 14, 48);
+    
+    doc.setFontSize(14);
+    doc.text("Napi osszesites", 14, 62);
+    
+    doc.autoTable({
+      startY: 68,
+      head: [["Megnevezes", "Ertek"]],
+      body: [
+        ["Elkeszult autok", `${stats.today_cars} db`],
+        ["Osszes bevetel", `${stats.today_revenue.toLocaleString()} Ft`],
+        ["Keszpenz bevetel", `${stats.cash.toLocaleString()} Ft`],
+        ["Kartya bevetel", `${stats.card.toLocaleString()} Ft`],
+        ["Varhato zaro egyenleg", `${((todayRecord?.opening_balance || 0) + stats.cash).toLocaleString()} Ft`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [30, 41, 59] },
+    });
+    
+    const completedJobs = todayJobs.filter(j => j.status === "kesz");
+    if (completedJobs.length > 0) {
+      doc.setFontSize(14);
+      doc.text("Elkeszult munkak", 14, doc.lastAutoTable.finalY + 14);
+      
+      doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [["Rendszam", "Szolgaltatas", "Fizetes", "Osszeg"]],
+        body: completedJobs.map(j => [
+          j.plate_number || "-",
+          j.service_name || "-",
+          j.payment_method === "keszpenz" ? "Keszpenz" : "Kartya",
+          `${j.price.toLocaleString()} Ft`
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [30, 41, 59] },
+      });
+    }
+    
+    return doc;
+  };
+
+  const handleDownloadPDF = () => {
+    const doc = generateDayClosePDF();
+    const today = format(new Date(), "yyyy-MM-dd");
+    doc.save(`xclean_napzaras_${selectedLocation}_${today}.pdf`);
+    toast.success("PDF letoltve!");
+  };
+
+  const handleEmailPDF = async () => {
+    const email = window.prompt("Add meg az email cimet:");
+    if (!email) return;
+    
+    try {
+      const doc = generateDayClosePDF();
+      const today = format(new Date(), "yyyy. MMMM dd.", { locale: hu });
+      const pdfContent = doc.output("datauristring");
+      
+      await axios.post(`${API}/send-email`, {
+        recipient_email: email,
+        subject: `X-CLEAN Napi zaras - ${selectedLocation} - ${today}`,
+        html_content: `<h2>X-CLEAN Napi Zarasi Osszesito</h2>
+          <p><strong>Datum:</strong> ${today}</p>
+          <p><strong>Telephely:</strong> ${selectedLocation}</p>
+          <p><strong>Elkeszult autok:</strong> ${stats.today_cars} db</p>
+          <p><strong>Osszes bevetel:</strong> ${stats.today_revenue.toLocaleString()} Ft</p>
+          <p><strong>Keszpenz:</strong> ${stats.cash.toLocaleString()} Ft</p>
+          <p><strong>Kartya:</strong> ${stats.card.toLocaleString()} Ft</p>`
+      }, { withCredentials: true });
+      
+      toast.success("Email sikeresen elkuldve!");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Email kuldes sikertelen");
     }
   };
 
@@ -265,6 +353,27 @@ export const DayManagement = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* PDF Export Buttons */}
+          <div className="flex gap-3" data-testid="day-export-buttons">
+            <Button 
+              onClick={handleDownloadPDF}
+              className="bg-slate-800 hover:bg-slate-700 text-white"
+              data-testid="download-day-pdf-btn"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              PDF letöltés
+            </Button>
+            <Button 
+              onClick={handleEmailPDF}
+              variant="outline"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              data-testid="email-day-pdf-btn"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Küldés emailben
+            </Button>
           </div>
 
           {/* Today's Completed Jobs */}
