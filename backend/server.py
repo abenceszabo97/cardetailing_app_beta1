@@ -693,7 +693,81 @@ async def delete_shift(shift_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Műszak nem található")
     return {"message": "Műszak törölve"}
 
+@api_router.get("/stats/worker-monthly")
+async def get_worker_monthly_stats(month: Optional[str] = None, location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get monthly statistics per worker: days worked, hours, cars completed"""
+    if month:
+        year, m = month.split("-")
+        month_start = datetime(int(year), int(m), 1, tzinfo=timezone.utc)
+    else:
+        now = datetime.now(timezone.utc)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    if month_start.month == 12:
+        month_end = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        month_end = month_start.replace(month=month_start.month + 1)
+    
+    # Get all workers
+    worker_query = {}
+    if location and location != "all":
+        worker_query["location"] = location
+    all_workers = await db.workers.find(worker_query, {"_id": 0}).to_list(100)
+    
+    # Get shifts for this month
+    shift_query = {
+        "start_time": {"$gte": month_start.isoformat(), "$lt": month_end.isoformat()}
+    }
+    if location and location != "all":
+        shift_query["location"] = location
+    all_shifts = await db.shifts.find(shift_query, {"_id": 0}).to_list(5000)
+    
+    # Get completed jobs for this month
+    job_query = {
+        "status": "kesz",
+        "date": {"$gte": month_start.isoformat(), "$lt": month_end.isoformat()}
+    }
+    if location and location != "all":
+        job_query["location"] = location
+    all_jobs = await db.jobs.find(job_query, {"_id": 0}).to_list(5000)
+    
+    result = []
+    for worker in all_workers:
+        wid = worker["worker_id"]
+        
+        # Shifts for this worker
+        worker_shifts = [s for s in all_shifts if s.get("worker_id") == wid]
+        
+        # Unique days worked
+        days_set = set()
+        total_hours = 0.0
+        for s in worker_shifts:
+            try:
+                start = datetime.fromisoformat(s["start_time"])
+                end = datetime.fromisoformat(s["end_time"])
+                days_set.add(start.strftime("%Y-%m-%d"))
+                total_hours += (end - start).total_seconds() / 3600.0
+            except (ValueError, KeyError):
+                pass
+        
+        # Cars completed by this worker
+        worker_jobs = [j for j in all_jobs if j.get("worker_id") == wid]
+        cars_count = len(worker_jobs)
+        revenue = sum(j.get("price", 0) for j in worker_jobs)
+        
+        result.append({
+            "worker_id": wid,
+            "name": worker.get("name", ""),
+            "location": worker.get("location", ""),
+            "days_worked": len(days_set),
+            "hours_worked": round(total_hours, 1),
+
 # ===================== INVENTORY ROUTES =====================
+            "cars_completed": cars_count,
+            "revenue": revenue
+        })
+    
+    return result
 
 @api_router.get("/inventory")
 async def get_inventory(location: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -771,9 +845,10 @@ async def open_day(data: DayOpenCreate, user: User = Depends(get_current_user)):
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today + timedelta(days=1)
     
-    # Check if already open
+    # Check if already open (only block if an OPEN record exists)
     existing = await db.day_records.find_one({
         "location": data.location,
+        "status": "open",
         "date": {
             "$gte": today.isoformat(),
             "$lt": tomorrow.isoformat()

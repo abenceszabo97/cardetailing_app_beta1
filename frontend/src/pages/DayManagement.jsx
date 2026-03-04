@@ -172,8 +172,8 @@ export const DayManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Open Day Form */}
-      {!todayRecord && (
+      {/* Open Day Form - show when no record OR day is closed */}
+      {(!todayRecord || todayRecord?.status === "closed") && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">

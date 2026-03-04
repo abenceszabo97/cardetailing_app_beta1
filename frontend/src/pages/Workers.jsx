@@ -48,7 +48,11 @@ import {
   Phone,
   Mail,
   UserPlus,
-  Users
+  Users,
+  BarChart3,
+  Car,
+  Clock,
+  Calendar
 } from "lucide-react";
 import { 
   format, 
@@ -80,6 +84,8 @@ export const Workers = () => {
   const [calendarView, setCalendarView] = useState("month");
   const [editingWorker, setEditingWorker] = useState(null);
   const [editWorkerForm, setEditWorkerForm] = useState(null);
+  const [workerStats, setWorkerStats] = useState([]);
+  const [statsMonth, setStatsMonth] = useState(format(new Date(), "yyyy-MM"));
   
   const [newShift, setNewShift] = useState({
     worker_id: "",
@@ -126,6 +132,22 @@ export const Workers = () => {
   useEffect(() => {
     fetchData();
   }, [selectedLocation]);
+
+  const fetchWorkerStats = async () => {
+    try {
+      const locationParam = selectedLocation !== "all" ? `&location=${selectedLocation}` : "";
+      const res = await axios.get(`${API}/stats/worker-monthly?month=${statsMonth}${locationParam}`, { withCredentials: true });
+      setWorkerStats(res.data);
+    } catch (error) {
+      console.error("Error fetching worker stats:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === "stats") {
+      fetchWorkerStats();
+    }
+  }, [viewMode, statsMonth, selectedLocation]);
 
   const handleCreateShift = async () => {
     try {
@@ -266,6 +288,10 @@ export const Workers = () => {
           <TabsTrigger value="schedule" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
             <CalendarDays className="w-4 h-4 mr-2" />
             Műszakbeosztás
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Statisztika
           </TabsTrigger>
         </TabsList>
 
@@ -742,6 +768,157 @@ export const Workers = () => {
               );
             })}
           </div>
+        </TabsContent>
+
+        {/* Stats Tab */}
+        <TabsContent value="stats" className="mt-6 space-y-4">
+          {/* Month Selector */}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              onClick={() => {
+                const d = new Date(statsMonth + "-01");
+                d.setMonth(d.getMonth() - 1);
+                setStatsMonth(format(d, "yyyy-MM"));
+              }}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-white font-semibold text-lg">
+              {format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu })}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              onClick={() => {
+                const d = new Date(statsMonth + "-01");
+                d.setMonth(d.getMonth() + 1);
+                setStatsMonth(format(d, "yyyy-MM"));
+              }}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="glass-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400">Összes ledolgozott nap</p>
+                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-days-worked">
+                      {workerStats.reduce((sum, w) => sum + w.days_worked, 0)}
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-blue-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400">Összes ledolgozott óra</p>
+                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-hours-worked">
+                      {workerStats.reduce((sum, w) => sum + w.hours_worked, 0).toFixed(1)}
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-purple-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400">Összes elkészített autó</p>
+                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-cars-completed">
+                      {workerStats.reduce((sum, w) => sum + w.cars_completed, 0)}
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                    <Car className="w-5 h-5 text-green-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Worker Stats Table */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="text-lg text-white font-['Manrope']">
+                Dolgozói havi összesítő
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {workerStats.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Nincs adat a kiválasztott hónapban</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-800 hover:bg-transparent">
+                        <TableHead className="text-slate-400">Dolgozó</TableHead>
+                        <TableHead className="text-slate-400">Telephely</TableHead>
+                        <TableHead className="text-slate-400 text-center">Napok</TableHead>
+                        <TableHead className="text-slate-400 text-center">Órák</TableHead>
+                        <TableHead className="text-slate-400 text-center">Autók</TableHead>
+                        <TableHead className="text-slate-400 text-right">Bevétel</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workerStats.map((worker, index) => {
+                        const colors = getWorkerColor(index);
+                        return (
+                          <TableRow key={worker.worker_id} className="border-slate-800 hover:bg-white/5" data-testid={`worker-stat-row-${worker.worker_id}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${colors.bg}`} />
+                                <span className="text-white font-medium">{worker.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {worker.location}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-white font-semibold">{worker.days_worked}</span>
+                              <span className="text-slate-500 text-xs ml-1">nap</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-white font-semibold">{worker.hours_worked}</span>
+                              <span className="text-slate-500 text-xs ml-1">óra</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-green-400 font-semibold">{worker.cars_completed}</span>
+                              <span className="text-slate-500 text-xs ml-1">autó</span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-green-400 font-semibold">{worker.revenue.toLocaleString()} Ft</span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
