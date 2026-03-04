@@ -6,17 +6,21 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 ## Fő funkciók
 ### Megvalósítva
 - **Főoldal (Dashboard)**: KPI kártyák (napi/havi autók, készpénz/kártya bontás), napi munkák lista, havi grafikon
-- **Haladó analitika**: Átl. bevétel/autó, visszatérő ügyfelek, TOP 10 ügyfél, havi összehasonlítás, bevétel dolgozónként, bevétel telephelyenként
+- **Haladó analitika (Statisztika oldalon)**: Átl. bevétel/autó, visszatérő ügyfelek, TOP 10 ügyfél, havi összehasonlítás, bevétel dolgozónként, bevétel telephelyenként
 - **Ügyfelek kezelése**: Lista, részletes profil, előzmények, CRUD műveletek
-- **Dolgozók kezelése**: Dolgozók CRUD (név, telefon, email, beosztás, telephely), táblázatos megjelenítés
-- **Műszakbeosztás**: Heti és havi naptár nézet, műszak hozzáadás/törlés
-- **Készlet kezelés**: Teljes CRUD, alacsony készlet figyelmeztetés, telephely szűrés
-- **Statisztika**: Grafikonok, dolgozói teljesítmény, szolgáltatás népszerűség, telephely bontás, PDF export
-- **Szolgáltatások**: Teljes X-CLEAN árlista, kategória fülekkel, teljes CRUD
-- **Napnyitás/Napzárás**: Nyitó egyenleg, napi összesítő, készpénz/kártya bevétel, zárási megjegyzés
-- **Beállítások**: Felhasználók kezelése (Admin/Dolgozó)
+- **Dolgozók kezelése**: Dolgozók CRUD (név, telefon, email, beosztás, telephely), táblázatos megjelenítés - **mindenki számára elérhető**
+- **Műszakbeosztás**: Heti és havi naptár nézet, műszak hozzáadás/törlés - **mindenki számára elérhető**
+- **Készlet kezelés**: Teljes CRUD, alacsony készlet figyelmeztetés, telephely szűrés - **mindenki számára elérhető**
+- **Statisztika**: Grafikonok, dolgozói teljesítmény, szolgáltatás népszerűség, telephely bontás, PDF export, haladó analitika
+- **Szolgáltatások**: Teljes X-CLEAN árlista, kategória fülekkel, teljes CRUD - **mindenki számára elérhető**
+- **Napnyitás/Napzárás**: Nyitó egyenleg, napi összesítő, készpénz/kártya bevétel, zárási megjegyzés - **mindenki számára elérhető**
+- **Beállítások**: Felhasználók kezelése (csak admin)
 - **Képek**: 9 előtte + 9 utána kép feltöltése munkákhoz, teljes méretű megtekintés, közvetlen fájlfeltöltés
 - **Telephely szűrés**: Budapest, Debrecen, Összes
+
+## Jogosultságok
+- **Összes CRUD művelet** (szolgáltatások, készlet, dolgozók, műszakok, napnyitás/zárás): mindenki számára elérhető
+- **Csak admin**: Felhasználók kezelése (Settings), ügyfél törlés
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI, Recharts, jsPDF, date-fns
@@ -24,34 +28,21 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 - **Database**: MongoDB
 - **Auth**: Emergent Google OAuth
 
-## User Personas
-1. **Admin**: Teljes hozzáférés minden funkcióhoz
-2. **Dolgozó**: Csak saját munkák megtekintése, státusz frissítés
-
 ## API Endpoints
 - `/api/auth/*` - Hitelesítés (session, me, logout)
 - `/api/customers/*` - Ügyfelek CRUD
-- `/api/services/*` - Szolgáltatások CRUD
-- `/api/workers/*` - Dolgozók CRUD
-- `/api/jobs/*` - Munkák CRUD (képekkel)
-- `/api/shifts/*` - Műszakok CRUD
-- `/api/inventory/*` - Készlet CRUD
-- `/api/day-records/*` - Napnyitás/zárás (open, close, today)
+- `/api/services/*` - Szolgáltatások CRUD (mindenki)
+- `/api/workers/*` - Dolgozók CRUD (mindenki)
+- `/api/jobs/*` - Munkák CRUD (mindenki)
+- `/api/shifts/*` - Műszakok CRUD (mindenki)
+- `/api/inventory/*` - Készlet CRUD (mindenki)
+- `/api/day-records/*` - Napnyitás/zárás (mindenki)
 - `/api/stats/*` - Dashboard, daily, monthly, workers, services, locations, advanced
 - `/api/upload` - Képfeltöltés
-- `/api/seed` - Kezdeti adatok
 
-## P0 - Megvalósítva
-- [x] Google OAuth bejelentkezés
-- [x] Dashboard KPI-ok és napi munkák
-- [x] Haladó analitika (átl. bevétel/autó, visszatérő ügyfelek, TOP 10, havi összehasonlítás)
-- [x] Bevétel dolgozónként és telephelyenként
-- [x] Teljes CRUD minden entitásra (szolgáltatások, készlet, dolgozók, műszakok)
-- [x] Napnyitás/Napzárás teljes flow
-- [x] Statisztika grafikonok + PDF export
-- [x] Telephely szűrés minden oldalon
-- [x] Készpénz/kártya bontás
-- [x] Előtte/utána képgaléria (max 9-9 kép, fájlfeltöltés)
+## Tesztelési állapot
+- 5. iteráció: Backend 100% (24/24), Frontend 100%
+- Utolsó teszt: 2026. március 4.
 
 ## P1 - Következő iteráció
 - [ ] Push értesítések alacsony készletről
@@ -63,7 +54,3 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 - [ ] Hűségprogram integráció
 - [ ] Többnyelvű támogatás
 - [ ] Mobilalkalmazás
-
-## Tesztelési állapot
-- 4. iteráció: Backend 100% (30/30), Frontend 100%
-- Utolsó teszt: 2026. március 4.
