@@ -7,13 +7,13 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 ### Megvalósítva ✅
 - **Dashboard**: KPI kártyák (napi/havi autók, **készpénz/kártya bontás**), napi munkák lista státusz színezéssel, havi grafikon
 - **Ügyfelek kezelése**: Lista, részletes profil, előzmények, CRUD műveletek
-- **Dolgozók beosztása**: **Heti ÉS havi naptár nézet**, műszak kezelés
-- **Készlet kezelés**: Termékek táblázat, alacsony készlet figyelmeztetés (piros)
-- **Statisztika**: Napi/havi grafikonok, dolgozói teljesítmény, szolgáltatás népszerűség, telephely bontás
-- **Szolgáltatások**: Teljes X-CLEAN árlista (Eco, Pro, VIP csomagok), CRUD admin számára
+- **Dolgozók beosztása**: **Heti ÉS havi naptár nézet**, műszak kezelés (hozzáadás, törlés)
+- **Készlet kezelés**: Termékek táblázat, **teljes CRUD (hozzáadás, szerkesztés, törlés)**, alacsony készlet figyelmeztetés
+- **Statisztika**: Napi/havi grafikonok, dolgozói teljesítmény, szolgáltatás népszerűség, telephely bontás, **PDF export**
+- **Szolgáltatások**: Teljes X-CLEAN árlista, **teljes CRUD (hozzáadás, szerkesztés, törlés)**
 - **Napnyitás/Napzárás**: Nyitó egyenleg, napi összesítő, készpénz/kártya bevétel
 - **Beállítások**: Felhasználók kezelése (Admin/Dolgozó), dolgozók CRUD
-- **Munkákhoz képek**: **Előtte/utána képek csatolása URL-lel**
+- **Munkákhoz képek**: **Közvetlen képfeltöltés** előtte/utána (nem csak URL)
 
 ### Státusz színek
 - Kész: Zöld
@@ -26,7 +26,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 - Összes
 
 ## Technológia stack
-- **Frontend**: React 19, Tailwind CSS, Shadcn UI, Recharts
+- **Frontend**: React 19, Tailwind CSS, Shadcn UI, Recharts, jsPDF
 - **Backend**: FastAPI, Motor (MongoDB async)
 - **Database**: MongoDB
 - **Auth**: Emergent Google OAuth
@@ -41,37 +41,38 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 - `/api/services/*` - Szolgáltatások CRUD
 - `/api/workers/*` - Dolgozók CRUD
 - `/api/jobs/*` - Munkák CRUD (képekkel)
-- `/api/shifts/*` - Műszakok
-- `/api/inventory/*` - Készlet
+- `/api/shifts/*` - Műszakok CRUD
+- `/api/inventory/*` - Készlet CRUD
 - `/api/day-records/*` - Napnyitás/zárás
 - `/api/stats/*` - Statisztikák (készpénz/kártya bontással)
+- `/api/upload` - Képfeltöltés
 
 ## Implementáció dátuma
 2025. március 4.
 
-## Javított hibák (2. iteráció)
-- [x] Napzárás gomb működik
-- [x] Szolgáltatás hozzáadás működik
-- [x] Havi naptár nézet dolgozóknak
-- [x] Előtte/utána képek munkákhoz
-- [x] Készpénz/kártya bontás dashboard KPI-okon
+## Legutóbbi frissítések (3. iteráció)
+- [x] Közvetlen képfeltöltés (nem csak URL)
+- [x] Készlet teljes CRUD (hozzáadás, szerkesztés, törlés)
+- [x] Szolgáltatások teljes CRUD
+- [x] PDF export statisztikákhoz
+- [x] Műszak hozzáadás/törlés naptárban
 
 ## P0 - Megvalósítva
 - [x] Google OAuth bejelentkezés
 - [x] Dashboard KPI-ok és napi munkák
 - [x] Teljes CRUD minden entitásra
-- [x] Statisztika grafikonok
+- [x] Statisztika grafikonok + PDF export
 - [x] Telephely szűrés
 - [x] Készpénz/kártya bontás
 - [x] Havi naptár nézet
+- [x] Képfeltöltés
 
 ## P1 - Következő iteráció
 - [ ] Push értesítések alacsony készletről
-- [ ] PDF export statisztikákhoz
 - [ ] Ügyfél SMS értesítés munka elkészüléséről
-- [ ] Képfeltöltés közvetlenül (nem csak URL)
+- [ ] Időpontfoglalás publikus felület
 
 ## P2 - Későbbi fejlesztés
-- [ ] Időpontfoglalás publikus felület
 - [ ] Hűségprogram integráció
 - [ ] Többnyelvű támogatás
+- [ ] Mobilalkalmazás
