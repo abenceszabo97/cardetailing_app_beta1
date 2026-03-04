@@ -259,12 +259,12 @@ export const Services = () => {
                   </div>
                   <div>
                     <Label className="text-slate-300">Csomag</Label>
-                    <Select value={formData.package} onValueChange={(v) => setFormData({...formData, package: v})}>
+                    <Select value={formData.package || "none"} onValueChange={(v) => setFormData({...formData, package: v === "none" ? "" : v})}>
                       <SelectTrigger className="bg-slate-950 border-slate-700">
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="" className="text-white">-</SelectItem>
+                        <SelectItem value="none" className="text-white">-</SelectItem>
                         {packages.map(pkg => (
                           <SelectItem key={pkg} value={pkg} className="text-white">{pkg}</SelectItem>
                         ))}
