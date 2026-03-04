@@ -31,7 +31,9 @@ import {
   User,
   MapPin,
   CreditCard,
-  Wallet
+  Wallet,
+  Image,
+  X
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -39,7 +41,10 @@ import { hu } from "date-fns/locale";
 
 export const Dashboard = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, month_cars: 0, month_revenue: 0 });
+  const [stats, setStats] = useState({ 
+    today_cars: 0, today_revenue: 0, today_cash: 0, today_card: 0,
+    month_cars: 0, month_revenue: 0, month_cash: 0, month_card: 0 
+  });
   const [todayJobs, setTodayJobs] = useState([]);
   const [dailyStats, setDailyStats] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -48,6 +53,8 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState("all");
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
   
   // New job form state
   const [newJob, setNewJob] = useState({
@@ -122,6 +129,42 @@ export const Dashboard = () => {
       fetchData();
     } catch (error) {
       toast.error("Hiba a státusz frissítésekor");
+    }
+  };
+
+  const handleAddImage = async (jobId, type, url) => {
+    const job = todayJobs.find(j => j.job_id === jobId);
+    if (!job) return;
+    
+    const currentImages = type === 'before' ? (job.images_before || []) : (job.images_after || []);
+    const updatedImages = [...currentImages, url];
+    
+    try {
+      await axios.put(`${API}/jobs/${jobId}`, {
+        [type === 'before' ? 'images_before' : 'images_after']: updatedImages
+      }, { withCredentials: true });
+      toast.success("Kép hozzáadva!");
+      fetchData();
+    } catch (error) {
+      toast.error("Hiba a kép hozzáadásakor");
+    }
+  };
+
+  const handleRemoveImage = async (jobId, type, index) => {
+    const job = todayJobs.find(j => j.job_id === jobId);
+    if (!job) return;
+    
+    const currentImages = type === 'before' ? (job.images_before || []) : (job.images_after || []);
+    const updatedImages = currentImages.filter((_, i) => i !== index);
+    
+    try {
+      await axios.put(`${API}/jobs/${jobId}`, {
+        [type === 'before' ? 'images_before' : 'images_after']: updatedImages
+      }, { withCredentials: true });
+      toast.success("Kép törölve!");
+      fetchData();
+    } catch (error) {
+      toast.error("Hiba a kép törlésekor");
     }
   };
 
@@ -288,59 +331,87 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards - 6 cards with cash/card breakdown */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card className="glass-card kpi-card" data-testid="kpi-today-cars">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Mai elkészült autók</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.today_cars}</p>
+                <p className="text-xs text-slate-400">Mai autók</p>
+                <p className="text-2xl font-bold text-white mt-1">{stats.today_cars}</p>
               </div>
-              <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                <Car className="w-6 h-6 text-green-400" />
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <Car className="w-5 h-5 text-green-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card kpi-card" data-testid="kpi-today-revenue">
-          <CardContent className="p-6">
+        <Card className="glass-card kpi-card" data-testid="kpi-today-cash">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Mai bevétel</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.today_revenue.toLocaleString()} Ft</p>
+                <p className="text-xs text-slate-400">Mai készpénz</p>
+                <p className="text-2xl font-bold text-green-400 mt-1">{stats.today_cash?.toLocaleString() || 0} Ft</p>
               </div>
-              <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                <Banknote className="w-6 h-6 text-blue-400" />
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card kpi-card" data-testid="kpi-today-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-400">Mai kártya</p>
+                <p className="text-2xl font-bold text-blue-400 mt-1">{stats.today_card?.toLocaleString() || 0} Ft</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-blue-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card kpi-card" data-testid="kpi-month-cars">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Havi elkészült autók</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.month_cars}</p>
+                <p className="text-xs text-slate-400">Havi autók</p>
+                <p className="text-2xl font-bold text-white mt-1">{stats.month_cars}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-purple-400" />
+              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-purple-400" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card kpi-card" data-testid="kpi-month-revenue">
-          <CardContent className="p-6">
+        <Card className="glass-card kpi-card" data-testid="kpi-month-cash">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Havi bevétel</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.month_revenue.toLocaleString()} Ft</p>
+                <p className="text-xs text-slate-400">Havi készpénz</p>
+                <p className="text-2xl font-bold text-green-400 mt-1">{stats.month_cash?.toLocaleString() || 0} Ft</p>
               </div>
-              <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-orange-400" />
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card kpi-card" data-testid="kpi-month-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-400">Havi kártya</p>
+                <p className="text-2xl font-bold text-blue-400 mt-1">{stats.month_card?.toLocaleString() || 0} Ft</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-blue-400" />
               </div>
             </div>
           </CardContent>
@@ -386,6 +457,18 @@ export const Dashboard = () => {
                               <MapPin className="w-3 h-3" />
                               {job.location}
                             </span>
+                          </div>
+                          {/* Images section */}
+                          <div className="flex items-center gap-2 mt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-slate-400 hover:text-white"
+                              onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}
+                            >
+                              <Image className="w-3 h-3 mr-1" />
+                              Képek ({(job.images_before?.length || 0) + (job.images_after?.length || 0)})
+                            </Button>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -443,7 +526,7 @@ export const Dashboard = () => {
             <CardContent>
               {dailyStats.length === 0 ? (
                 <div className="text-center py-8 text-slate-400">
-                  <BarChart className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p>Nincs adat</p>
                 </div>
               ) : (
@@ -473,6 +556,106 @@ export const Dashboard = () => {
           </Card>
         </div>
       </div>
+
+      {/* Image Dialog */}
+      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-['Manrope']">
+              Képek - {selectedJob?.plate_number}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedJob && (
+            <div className="space-y-6 mt-4">
+              {/* Before Images */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-slate-300 text-lg">Előtte</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="before-url"
+                      placeholder="Kép URL..."
+                      className="w-64 bg-slate-950 border-slate-700 text-white text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const input = document.getElementById('before-url');
+                        if (input.value) {
+                          handleAddImage(selectedJob.job_id, 'before', input.value);
+                          input.value = '';
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-500"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(selectedJob.images_before || []).map((url, idx) => (
+                    <div key={idx} className="relative group">
+                      <img src={url} alt={`Előtte ${idx + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                      <button
+                        onClick={() => handleRemoveImage(selectedJob.job_id, 'before', idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(!selectedJob.images_before || selectedJob.images_before.length === 0) && (
+                    <p className="text-slate-500 text-sm col-span-3">Nincs kép</p>
+                  )}
+                </div>
+              </div>
+
+              {/* After Images */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-slate-300 text-lg">Utána</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="after-url"
+                      placeholder="Kép URL..."
+                      className="w-64 bg-slate-950 border-slate-700 text-white text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const input = document.getElementById('after-url');
+                        if (input.value) {
+                          handleAddImage(selectedJob.job_id, 'after', input.value);
+                          input.value = '';
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-500"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(selectedJob.images_after || []).map((url, idx) => (
+                    <div key={idx} className="relative group">
+                      <img src={url} alt={`Utána ${idx + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                      <button
+                        onClick={() => handleRemoveImage(selectedJob.job_id, 'after', idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(!selectedJob.images_after || selectedJob.images_after.length === 0) && (
+                    <p className="text-slate-500 text-sm col-span-3">Nincs kép</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
