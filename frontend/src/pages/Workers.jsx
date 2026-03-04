@@ -140,21 +140,37 @@ export const Workers = () => {
     return doc;
   };
 
+  const savePDF = async (doc, defaultFilename) => {
+    const blob = doc.output("blob");
+    
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: defaultFilename,
+          types: [{
+            description: "PDF dokumentum",
+            accept: { "application/pdf": [".pdf"] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast.success("PDF mentve!");
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+      }
+    }
+    
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    toast.success("PDF megnyitva új ablakban - mentsd el Ctrl+S-sel!");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
   const handleDownloadWorkerPDF = () => {
     const doc = generateWorkerPDF();
-    const filename = `xclean_dolgozoi_riport_${statsMonth}.pdf`;
-    
-    const blob = doc.output("blob");
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    toast.success("PDF letöltve!");
+    savePDF(doc, `xclean_dolgozoi_riport_${statsMonth}.pdf`);
   };
 
   const handleEmailWorkerPDF = async () => {

@@ -87,7 +87,7 @@ export const Statistics = () => {
     fetchStats();
   }, [selectedLocation]);
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     
@@ -246,15 +246,30 @@ export const Statistics = () => {
     // Save
     const fileName = `xclean_statisztika_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
     const blob = doc.output("blob");
+    
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{
+            description: "PDF dokumentum",
+            accept: { "application/pdf": [".pdf"] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast.success('PDF mentve!');
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+      }
+    }
+    
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success('PDF sikeresen letöltve!');
+    window.open(url, "_blank");
+    toast.success('PDF megnyitva új ablakban - mentsd el Ctrl+S-sel!');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const CustomTooltip = ({ active, payload, label, formatter }) => {

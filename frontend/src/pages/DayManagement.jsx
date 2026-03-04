@@ -158,22 +158,40 @@ export const DayManagement = () => {
     return doc;
   };
 
+  const savePDF = async (doc, defaultFilename) => {
+    const blob = doc.output("blob");
+    
+    // Try native "Save As" dialog first
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: defaultFilename,
+          types: [{
+            description: "PDF dokumentum",
+            accept: { "application/pdf": [".pdf"] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast.success("PDF mentve!");
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return; // User cancelled
+      }
+    }
+    
+    // Fallback: open in new tab
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    toast.success("PDF megnyitva új ablakban - mentsd el Ctrl+S-sel!");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
   const handleDownloadPDF = () => {
     const doc = generateDayClosePDF();
     const today = format(new Date(), "yyyy-MM-dd");
-    const filename = `xclean_napzaras_${selectedLocation}_${today}.pdf`;
-    
-    const blob = doc.output("blob");
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    toast.success("PDF letöltve!");
+    savePDF(doc, `xclean_napzaras_${selectedLocation}_${today}.pdf`);
   };
 
   const handleEmailPDF = async () => {
