@@ -1017,6 +1017,112 @@ async def get_location_stats(user: User = Depends(get_current_user)):
     
     return list(location_stats.values())
 
+# ===================== ADVANCED ANALYTICS =====================
+
+@api_router.get("/stats/advanced")
+async def get_advanced_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get advanced analytics"""
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = today.replace(day=1)
+    
+    # Get previous month
+    if month_start.month == 1:
+        prev_month_start = month_start.replace(year=month_start.year - 1, month=12)
+    else:
+        prev_month_start = month_start.replace(month=month_start.month - 1)
+    prev_month_end = month_start
+    
+    query_base = {"status": "kesz"}
+    if location:
+        query_base["location"] = location
+    
+    # Current month jobs
+    current_month_query = {**query_base, "date": {"$gte": month_start.isoformat()}}
+    current_jobs = await db.jobs.find(current_month_query, {"_id": 0}).to_list(10000)
+    
+    # Previous month jobs
+    prev_month_query = {**query_base, "date": {"$gte": prev_month_start.isoformat(), "$lt": prev_month_end.isoformat()}}
+    prev_jobs = await db.jobs.find(prev_month_query, {"_id": 0}).to_list(10000)
+    
+    # All completed jobs for returning customers
+    all_jobs = await db.jobs.find(query_base, {"_id": 0}).to_list(50000)
+    
+    # Calculate metrics
+    current_cars = len(current_jobs)
+    current_revenue = sum(j["price"] for j in current_jobs)
+    prev_cars = len(prev_jobs)
+    prev_revenue = sum(j["price"] for j in prev_jobs)
+    
+    # Average revenue per car
+    avg_revenue_per_car = current_revenue / current_cars if current_cars > 0 else 0
+    
+    # Returning customers (customers with more than 1 job)
+    customer_job_counts = {}
+    for job in all_jobs:
+        cid = job.get("customer_id")
+        if cid:
+            customer_job_counts[cid] = customer_job_counts.get(cid, 0) + 1
+    returning_customers = sum(1 for count in customer_job_counts.values() if count > 1)
+    
+    # Top 10 customers by spending
+    customer_spending = {}
+    for job in all_jobs:
+        cid = job.get("customer_id")
+        cname = job.get("customer_name", "Ismeretlen")
+        if cid:
+            if cid not in customer_spending:
+                customer_spending[cid] = {"customer_id": cid, "name": cname, "total": 0, "jobs": 0}
+            customer_spending[cid]["total"] += job["price"]
+            customer_spending[cid]["jobs"] += 1
+    
+    top_customers = sorted(customer_spending.values(), key=lambda x: x["total"], reverse=True)[:10]
+    
+    # Revenue per employee (current month)
+    employee_revenue = {}
+    for job in current_jobs:
+        wid = job.get("worker_id")
+        wname = job.get("worker_name", "Ismeretlen")
+        if wid:
+            if wid not in employee_revenue:
+                employee_revenue[wid] = {"worker_id": wid, "name": wname, "revenue": 0, "cars": 0}
+            employee_revenue[wid]["revenue"] += job["price"]
+            employee_revenue[wid]["cars"] += 1
+    
+    # Revenue per location (current month)
+    location_revenue = {}
+    for job in current_jobs:
+        loc = job.get("location")
+        if loc:
+            if loc not in location_revenue:
+                location_revenue[loc] = {"location": loc, "revenue": 0, "cars": 0}
+            location_revenue[loc]["revenue"] += job["price"]
+            location_revenue[loc]["cars"] += 1
+    
+    # Month to month comparison
+    cars_change = ((current_cars - prev_cars) / prev_cars * 100) if prev_cars > 0 else 0
+    revenue_change = ((current_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
+    
+    return {
+        "avg_revenue_per_car": round(avg_revenue_per_car, 0),
+        "returning_customers": returning_customers,
+        "total_customers": len(customer_job_counts),
+        "top_customers": top_customers,
+        "month_comparison": {
+            "current_month": {
+                "cars": current_cars,
+                "revenue": current_revenue
+            },
+            "previous_month": {
+                "cars": prev_cars,
+                "revenue": prev_revenue
+            },
+            "cars_change_percent": round(cars_change, 1),
+            "revenue_change_percent": round(revenue_change, 1)
+        },
+        "employee_revenue": list(employee_revenue.values()),
+        "location_revenue": list(location_revenue.values())
+    }
+
 # ===================== SEED DATA =====================
 
 @api_router.post("/seed")
