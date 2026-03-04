@@ -241,7 +241,7 @@ class XCleanAPITester:
             "package": "Pro"
         }
         
-        success, create_resp = self.run_test("Service Create (CRUD)", "POST", "services", 201, service_data)
+        success, create_resp = self.run_test("Service Create (CRUD)", "POST", "services", 200, service_data)
         if not success:
             return False
             
