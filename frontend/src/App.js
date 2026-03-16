@@ -185,6 +185,12 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/booking" element={<BookingPage />} />
+      <Route path="/calendar" element={
+        <ProtectedRoute>
+          <MainLayout><Calendar /></MainLayout>
+        </ProtectedRoute>
+      } />
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <MainLayout><Dashboard /></MainLayout>
