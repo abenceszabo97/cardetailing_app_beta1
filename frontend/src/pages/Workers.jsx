@@ -523,7 +523,7 @@ export const Workers = () => {
                                 <Edit className="w-4 h-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-400"
-                                onClick={() => handleDeleteWorker(worker.worker_id)}>
+                                onClick={() => setDeleteWorkerId(worker.worker_id)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
