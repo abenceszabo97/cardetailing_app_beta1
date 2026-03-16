@@ -285,11 +285,11 @@ export const Workers = () => {
   };
 
   const handleDeleteShift = async (shiftId) => {
-    if (!window.confirm("Biztosan törölni szeretnéd ezt a műszakot?")) return;
     try {
       await axios.delete(`${API}/shifts/${shiftId}`, { withCredentials: true });
       toast.success("Műszak törölve!");
       fetchData();
+      setDeleteShiftId(null);
     } catch (error) {
       toast.error("Hiba a műszak törlésekor");
     }
