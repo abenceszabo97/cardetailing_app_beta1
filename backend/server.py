@@ -1635,6 +1635,33 @@ async def get_low_stock_notifications(user: User = Depends(get_current_user)):
             })
     return low_stock
 
+@api_router.get("/notifications/bookings")
+async def get_booking_notifications(user: User = Depends(get_current_user)):
+    """Get unread booking notifications"""
+    notifications = await db.notifications.find(
+        {"type": "new_booking", "read": False},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return notifications
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, user: User = Depends(get_current_user)):
+    """Mark notification as read"""
+    await db.notifications.update_one(
+        {"notification_id": notification_id},
+        {"$set": {"read": True}}
+    )
+    return {"message": "Értesítés olvasottnak jelölve"}
+
+@api_router.put("/notifications/read-all")
+async def mark_all_notifications_read(user: User = Depends(get_current_user)):
+    """Mark all booking notifications as read"""
+    await db.notifications.update_many(
+        {"type": "new_booking", "read": False},
+        {"$set": {"read": True}}
+    )
+    return {"message": "Összes értesítés olvasottnak jelölve"}
+
 # ===================== SMS (TWILIO) =====================
 
 class SMSRequest(BaseModel):
