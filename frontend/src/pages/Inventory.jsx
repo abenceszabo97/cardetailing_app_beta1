@@ -47,6 +47,7 @@ export const Inventory = () => {
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [deleteItemId, setDeleteItemId] = useState(null);
   
   const [newItem, setNewItem] = useState({
     product_name: "",
