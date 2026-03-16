@@ -509,6 +509,18 @@ const BookingPage = () => {
                     <span className="text-slate-500 text-sm ml-auto">{customerFound.completed_bookings} mosás</span>
                   </div>
                 )}
+                {isBlacklisted && (
+                  <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-400">
+                      <AlertTriangle className="w-5 h-5" />
+                      <span className="font-medium">Ez a rendszám tiltólistán van</span>
+                    </div>
+                    {blacklistReason && (
+                      <p className="text-red-400/70 text-sm mt-1 ml-7">{blacklistReason}</p>
+                    )}
+                    <p className="text-slate-500 text-sm mt-2 ml-7">Kérjük forduljon a mosó személyzetéhez.</p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
