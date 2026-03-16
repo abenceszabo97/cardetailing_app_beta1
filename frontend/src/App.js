@@ -15,6 +15,8 @@ import { Statistics } from "./pages/Statistics";
 import { Services } from "./pages/Services";
 import { DayManagement } from "./pages/DayManagement";
 import { Settings } from "./pages/Settings";
+import BookingPage from "./pages/BookingPage";
+import Calendar from "./pages/Calendar";
 import { Sidebar } from "./components/Sidebar";
 import { NotificationBell } from "./components/NotificationBell";
 
