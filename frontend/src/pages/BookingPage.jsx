@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
-import { Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, ChevronRight, ChevronLeft, Search, Star, Loader2 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -24,6 +24,8 @@ const BookingPage = () => {
     service_id: "", worker_id: "", location: "", date: "", time_slot: "", notes: ""
   });
   const [showInvoice, setShowInvoice] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [customerFound, setCustomerFound] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/bookings/public-locations`).then(r => setLocations(r.data));
@@ -42,6 +44,49 @@ const BookingPage = () => {
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const selectedService = services.find(s => s.service_id === form.service_id);
+
+  // Plate number lookup with debounce
+  const lookupPlate = useCallback(async (plate) => {
+    if (!plate || plate.length < 5) {
+      setCustomerFound(null);
+      return;
+    }
+    
+    setLookingUp(true);
+    try {
+      const response = await axios.get(`${API}/bookings/lookup-plate/${encodeURIComponent(plate)}`);
+      if (response.data.found) {
+        setCustomerFound(response.data);
+        // Auto-fill form with customer data
+        setForm(prev => ({
+          ...prev,
+          customer_name: response.data.customer_name || prev.customer_name,
+          phone: response.data.phone || prev.phone,
+          email: response.data.email || prev.email,
+          car_type: response.data.car_type || prev.car_type,
+          address: response.data.address || prev.address
+        }));
+        toast.success("Visszatérő ügyfél! Adatok betöltve.", { duration: 3000 });
+      } else {
+        setCustomerFound(null);
+      }
+    } catch (error) {
+      setCustomerFound(null);
+    }
+    setLookingUp(false);
+  }, []);
+
+  // Handle plate number change with lookup
+  const handlePlateChange = (value) => {
+    const plate = value.toUpperCase();
+    set("plate_number", plate);
+    
+    // Lookup after user stops typing (debounce effect)
+    if (plate.length >= 5) {
+      const timeoutId = setTimeout(() => lookupPlate(plate), 500);
+      return () => clearTimeout(timeoutId);
+    }
+  };
 
   const canGoNext = () => {
     if (step === 1) return form.location && form.service_id;
@@ -62,6 +107,17 @@ const BookingPage = () => {
     setSubmitting(false);
   };
 
+  const resetForm = () => {
+    setSuccess(false);
+    setStep(1);
+    setCustomerFound(null);
+    setForm({
+      customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
+      address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
+      service_id: "", worker_id: "", location: "", date: "", time_slot: "", notes: ""
+    });
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -78,7 +134,7 @@ const BookingPage = () => {
               <p className="text-lg text-green-400 font-bold mt-2">{selectedService?.price?.toLocaleString()} Ft</p>
             </div>
             <p className="text-slate-500 text-sm">Visszaigazoló e-mailt küldtünk.</p>
-            <Button className="mt-4 bg-green-600 hover:bg-green-700" onClick={() => { setSuccess(false); setStep(1); setForm({ customer_name: "", car_type: "", plate_number: "", email: "", phone: "", address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "", service_id: "", worker_id: "", location: "", date: "", time_slot: "", notes: "" }); }}>
+            <Button className="mt-4 bg-green-600 hover:bg-green-700" onClick={resetForm} data-testid="new-booking-btn">
               Új foglalás
             </Button>
           </CardContent>
@@ -213,7 +269,7 @@ const BookingPage = () => {
           </Card>
         )}
 
-        {/* Step 3: Personal Data */}
+        {/* Step 3: Personal Data with Quick Plate Lookup */}
         {step === 3 && (
           <Card className="bg-slate-900 border-slate-800" data-testid="booking-step-3">
             <CardHeader>
@@ -222,14 +278,48 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Quick Plate Lookup - First field for returning customers */}
+              <div className="bg-slate-950/50 rounded-lg p-3 border border-slate-800">
+                <label className="text-sm text-green-400 mb-2 block flex items-center gap-2">
+                  <Search className="w-4 h-4" /> Gyors foglalás rendszámmal
+                </label>
+                <div className="relative">
+                  <Input 
+                    placeholder="ABC-123" 
+                    value={form.plate_number} 
+                    onChange={e => handlePlateChange(e.target.value)}
+                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono pr-10" 
+                    data-testid="booking-plate"
+                  />
+                  {lookingUp && (
+                    <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Visszatérő ügyfél? Írd be a rendszámot és automatikusan betöltjük az adatokat!</p>
+                
+                {/* Customer found indicator */}
+                {customerFound && (
+                  <div className="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                    <span className="text-green-400 text-sm font-medium">Visszatérő ügyfél!</span>
+                    {customerFound.is_vip && (
+                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 ml-auto">
+                        <Star className="w-3 h-3 mr-1" /> VIP
+                      </Badge>
+                    )}
+                  </div>
+                )}
+                {customerFound && (
+                  <div className="mt-2 text-xs text-slate-400">
+                    {customerFound.completed_bookings} sikeres mosás | Összesen: {customerFound.total_spent?.toLocaleString()} Ft
+                  </div>
+                )}
+              </div>
+
               <Input placeholder="Név *" value={form.customer_name} onChange={e => set("customer_name", e.target.value)}
                 className="bg-slate-950 border-slate-700 text-white" data-testid="booking-name" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Autó típusa *" value={form.car_type} onChange={e => set("car_type", e.target.value)}
-                  className="bg-slate-950 border-slate-700 text-white" data-testid="booking-car-type" />
-                <Input placeholder="Rendszám *" value={form.plate_number} onChange={e => set("plate_number", e.target.value.toUpperCase())}
-                  className="bg-slate-950 border-slate-700 text-white uppercase" data-testid="booking-plate" />
-              </div>
+              <Input placeholder="Autó típusa *" value={form.car_type} onChange={e => set("car_type", e.target.value)}
+                className="bg-slate-950 border-slate-700 text-white" data-testid="booking-car-type" />
               <Input placeholder="E-mail *" type="email" value={form.email} onChange={e => set("email", e.target.value)}
                 className="bg-slate-950 border-slate-700 text-white" data-testid="booking-email" />
               <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
@@ -265,6 +355,13 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {customerFound?.is_vip && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-yellow-400" />
+                  <span className="text-yellow-400 font-medium">VIP ügyfél</span>
+                  <span className="text-slate-400 text-sm ml-auto">{customerFound.completed_bookings}. foglalás</span>
+                </div>
+              )}
               <div className="bg-slate-950/50 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between"><span className="text-slate-400">Szolgáltatás</span><span className="text-white font-medium">{selectedService?.name}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Telephely</span><span className="text-white">{form.location}</span></div>
