@@ -67,7 +67,7 @@ export const Dashboard = () => {
     service_id: "",
     worker_id: "",
     price: 0,
-    location: "Budapest",
+    location: "Debrecen",
     date: new Date().toISOString().slice(0, 16),
     notes: ""
   });
@@ -115,7 +115,7 @@ export const Dashboard = () => {
       await axios.post(`${API}/jobs`, newJob, { withCredentials: true });
       toast.success("Munka sikeresen létrehozva!");
       setIsNewJobOpen(false);
-      setNewJob({ customer_id: "", service_id: "", worker_id: "", price: 0, location: "Budapest", date: new Date().toISOString().slice(0, 16), notes: "" });
+      setNewJob({ customer_id: "", service_id: "", worker_id: "", price: 0, location: "Debrecen", date: new Date().toISOString().slice(0, 16), notes: "" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a munka létrehozásakor");

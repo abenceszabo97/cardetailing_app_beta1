@@ -102,9 +102,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
               <SelectItem value="all" className="text-white hover:bg-slate-800">
                 Összes telephely
               </SelectItem>
-              <SelectItem value="Budapest" className="text-white hover:bg-slate-800">
-                Budapest
-              </SelectItem>
               <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">
                 Debrecen
               </SelectItem>
