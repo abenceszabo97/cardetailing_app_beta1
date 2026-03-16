@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { 
   Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
-  Calendar, Users, Timer
+  Calendar, Users, Timer, AlertTriangle
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
