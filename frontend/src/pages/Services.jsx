@@ -339,14 +339,17 @@ export const Services = () => {
                         </div>
                       </div>
                         <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-400 hover:text-white"
-                            onClick={() => openEditDialog(service)}
+                          <button 
+                            type="button"
+                            className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              openEditDialog(service);
+                            }}
                           >
                             <Edit className="w-4 h-4" />
-                          </Button>
+                          </button>
                           <button 
                             type="button"
                             className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
