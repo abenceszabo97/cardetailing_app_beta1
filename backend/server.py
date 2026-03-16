@@ -919,6 +919,31 @@ async def get_public_locations():
     """Get available locations (public)"""
     return ["Budapest", "Debrecen"]
 
+@api_router.get("/bookings/lookup-plate/{plate_number}")
+async def lookup_customer_by_plate(plate_number: str):
+    """Lookup customer by plate number for quick booking (public)"""
+    plate = plate_number.upper().strip()
+    customer = await db.customers.find_one({"plate_number": plate}, {"_id": 0})
+    if not customer:
+        return {"found": False}
+    
+    # Get booking history stats
+    bookings = await db.bookings.find({"plate_number": plate}, {"_id": 0}).to_list(100)
+    completed_count = len([b for b in bookings if b.get("status") == "kesz"])
+    
+    return {
+        "found": True,
+        "customer_name": customer.get("name", ""),
+        "phone": customer.get("phone", ""),
+        "email": customer.get("email", ""),
+        "car_type": customer.get("car_type", ""),
+        "address": customer.get("address", ""),
+        "total_spent": customer.get("total_spent", 0),
+        "booking_count": customer.get("booking_count", 0),
+        "completed_bookings": completed_count,
+        "is_vip": completed_count >= 5  # VIP after 5 completed bookings
+    }
+
 @api_router.post("/bookings")
 async def create_booking(data: BookingCreate):
     """Create a new booking (public, no auth required)"""
