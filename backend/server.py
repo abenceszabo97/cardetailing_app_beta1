@@ -1078,6 +1078,13 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         worker = await db.workers.find_one({"worker_id": update_data["worker_id"]}, {"_id": 0})
         if worker:
             update_data["worker_name"] = worker["name"]
+    if "service_id" in update_data:
+        service = await db.services.find_one({"service_id": update_data["service_id"]}, {"_id": 0})
+        if service:
+            update_data["service_name"] = service["name"]
+            update_data["price"] = service["price"]
+    if "plate_number" in update_data:
+        update_data["plate_number"] = update_data["plate_number"].upper()
     if not update_data:
         raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
     result = await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
