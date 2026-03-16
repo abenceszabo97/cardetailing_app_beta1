@@ -114,12 +114,11 @@ export const Inventory = () => {
   };
 
   const handleDelete = async (itemId) => {
-    if (!window.confirm("Biztosan törölni szeretnéd ezt a terméket?")) return;
-    
     try {
       await axios.delete(`${API}/inventory/${itemId}`, { withCredentials: true });
       toast.success("Termék törölve!");
       fetchInventory();
+      setDeleteItemId(null);
     } catch (error) {
       toast.error("Hiba a törlés során");
     }
