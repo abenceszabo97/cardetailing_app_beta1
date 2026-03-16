@@ -740,7 +740,6 @@ export const Workers = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-700">
-                          <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                           <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
                         </SelectContent>
                       </Select>
