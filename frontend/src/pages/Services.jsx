@@ -385,6 +385,27 @@ export const Services = () => {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Szolgáltatás törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt a szolgáltatást?</p>
+          <p className="text-white font-medium">
+            {services.find(s => s.service_id === deleteServiceId)?.name}
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteServiceId(null)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button variant="destructive" onClick={() => handleDelete(deleteServiceId)} className="bg-red-600 hover:bg-red-700">
+              Törlés
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
