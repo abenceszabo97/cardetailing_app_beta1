@@ -6,7 +6,13 @@ import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
-import { Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, ChevronRight, ChevronLeft, Search, Star, Loader2 } from "lucide-react";
+import { 
+  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
+  ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
+  Calendar, Users, Timer
+} from "lucide-react";
+import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
+import { hu } from "date-fns/locale";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -26,6 +32,8 @@ const BookingPage = () => {
   const [showInvoice, setShowInvoice] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [customerFound, setCustomerFound] = useState(null);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [serviceCategory, setServiceCategory] = useState("all");
 
   useEffect(() => {
     axios.get(`${API}/bookings/public-locations`).then(r => setLocations(r.data));
@@ -35,29 +43,32 @@ const BookingPage = () => {
   useEffect(() => {
     if (form.location && form.date) {
       setLoadingSlots(true);
-      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}&service_id=${form.service_id || ""}`)
+      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}`)
         .then(r => { setSlots(r.data); setLoadingSlots(false); })
         .catch(() => setLoadingSlots(false));
     }
-  }, [form.location, form.date, form.service_id]);
+  }, [form.location, form.date]);
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const selectedService = services.find(s => s.service_id === form.service_id);
+  
+  const filteredServices = serviceCategory === "all" 
+    ? services 
+    : services.filter(s => s.category === serviceCategory);
 
-  // Plate number lookup with debounce
+  const categories = [...new Set(services.map(s => s.category))];
+
   const lookupPlate = useCallback(async (plate) => {
     if (!plate || plate.length < 5) {
       setCustomerFound(null);
       return;
     }
-    
     setLookingUp(true);
     try {
       const response = await axios.get(`${API}/bookings/lookup-plate/${encodeURIComponent(plate)}`);
       if (response.data.found) {
         setCustomerFound(response.data);
-        // Auto-fill form with customer data
         setForm(prev => ({
           ...prev,
           customer_name: response.data.customer_name || prev.customer_name,
@@ -70,18 +81,15 @@ const BookingPage = () => {
       } else {
         setCustomerFound(null);
       }
-    } catch (error) {
+    } catch {
       setCustomerFound(null);
     }
     setLookingUp(false);
   }, []);
 
-  // Handle plate number change with lookup
   const handlePlateChange = (value) => {
     const plate = value.toUpperCase();
     set("plate_number", plate);
-    
-    // Lookup after user stops typing (debounce effect)
     if (plate.length >= 5) {
       const timeoutId = setTimeout(() => lookupPlate(plate), 500);
       return () => clearTimeout(timeoutId);
@@ -118,24 +126,52 @@ const BookingPage = () => {
     });
   };
 
+  // Get week days for calendar
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
+
+  // Slot availability color
+  const getSlotStyle = (slot) => {
+    if (!slot.is_available) return "bg-slate-800/50 text-slate-600 cursor-not-allowed border-slate-700/50";
+    const percent = slot.availability_percent;
+    if (percent === 100) return "bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30";
+    if (percent >= 50) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30";
+    return "bg-orange-500/20 text-orange-400 border-orange-500/50 hover:bg-orange-500/30";
+  };
+
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtNi42MjcgMC0xMiA1LjM3My0xMiAxMnM1LjM3MyAxMiAxMiAxMiAxMi01LjM3MyAxMi0xMi01LjM3My0xMi0xMi0xMnptMCAyMGMtNC40MTggMC04LTMuNTgyLTgtOHMzLjU4Mi04IDgtOCA4IDMuNTgyIDggOC0zLjU4MiA4LTggOHoiIGZpbGw9IiMxMGIyODEiIGZpbGwtb3BhY2l0eT0iLjAzIi8+PC9nPjwvc3ZnPg==')] opacity-50" />
+        <Card className="w-full max-w-md bg-slate-900/90 border-slate-800 backdrop-blur-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
           <CardContent className="p-8 text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
+            <div className="w-20 h-20 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-green-400" />
+            </div>
             <h2 className="text-2xl font-bold text-white mb-2">Foglalás sikeres!</h2>
             <p className="text-slate-400 mb-2">Kedves {form.customer_name},</p>
-            <p className="text-slate-400 mb-4">Foglalását rögzítettük: <strong className="text-white">{form.date}</strong> - <strong className="text-white">{form.time_slot}</strong></p>
-            <div className="bg-slate-950/50 rounded-lg p-4 mb-6 text-left">
-              <p className="text-sm text-slate-400"><strong className="text-white">{selectedService?.name}</strong></p>
-              <p className="text-sm text-slate-400">Telephely: <strong className="text-white">{form.location}</strong></p>
-              <p className="text-sm text-slate-400">Rendszám: <strong className="text-white">{form.plate_number}</strong></p>
-              <p className="text-lg text-green-400 font-bold mt-2">{selectedService?.price?.toLocaleString()} Ft</p>
+            <p className="text-slate-400 mb-4">
+              Foglalását rögzítettük: <strong className="text-white">{form.date}</strong> - <strong className="text-green-400">{form.time_slot}</strong>
+            </p>
+            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 text-left border border-slate-800">
+              <div className="flex items-center gap-3 mb-3">
+                <Car className="w-5 h-5 text-green-400" />
+                <span className="text-white font-medium">{selectedService?.name}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="text-slate-400">Telephely:</div>
+                <div className="text-white">{form.location}</div>
+                <div className="text-slate-400">Rendszám:</div>
+                <div className="text-white font-mono">{form.plate_number}</div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <span className="text-slate-400">Fizetendő:</span>
+                <span className="text-green-400 text-xl font-bold">{selectedService?.price?.toLocaleString()} Ft</span>
+              </div>
             </div>
-            <p className="text-slate-500 text-sm">Visszaigazoló e-mailt küldtünk.</p>
-            <Button className="mt-4 bg-green-600 hover:bg-green-700" onClick={resetForm} data-testid="new-booking-btn">
-              Új foglalás
+            <p className="text-slate-500 text-sm mb-4">Visszaigazoló e-mailt küldtünk.</p>
+            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium" onClick={resetForm}>
+              <Sparkles className="w-4 h-4 mr-2" /> Új foglalás
             </Button>
           </CardContent>
         </Card>
@@ -144,62 +180,128 @@ const BookingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtNi42MjcgMC0xMiA1LjM3My0xMiAxMnM1LjM3MyAxMiAxMiAxMiAxMi01LjM3MyAxMi0xMi01LjM3My0xMi0xMi0xMnptMCAyMGMtNC40MTggMC04LTMuNTgyLTgtOHMzLjU4Mi04IDgtOCA4IDMuNTgyIDggOC0zLjU4MiA4LTggOHoiIGZpbGw9IiMxMGIyODEiIGZpbGwtb3BhY2l0eT0iLjAzIi8+PC9nPjwvc3ZnPg==')] opacity-50" />
+      
+      <div className="w-full max-w-2xl relative">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-white mb-1">X-CLEAN</h1>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4 shadow-lg shadow-green-500/20">
+            <Car className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">X-CLEAN</h1>
           <p className="text-slate-400">Online időpontfoglalás</p>
         </div>
 
-        {/* Steps indicator */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          {[1, 2, 3, 4].map(s => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= s ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-500'}`} data-testid={`step-${s}`}>
-                {s}
+        {/* Progress Steps */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {[
+            { num: 1, label: "Szolgáltatás", icon: Sparkles },
+            { num: 2, label: "Időpont", icon: Calendar },
+            { num: 3, label: "Adatok", icon: User },
+            { num: 4, label: "Összegzés", icon: CheckCircle2 }
+          ].map((s, i) => (
+            <div key={s.num} className="flex items-center">
+              <div className={`flex flex-col items-center ${step >= s.num ? 'opacity-100' : 'opacity-40'}`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                  step >= s.num 
+                    ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/20' 
+                    : 'bg-slate-800'
+                }`}>
+                  <s.icon className={`w-5 h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
+                </div>
+                <span className={`text-xs mt-1 ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
               </div>
-              {s < 4 && <div className={`w-8 h-0.5 ${step > s ? 'bg-green-500' : 'bg-slate-800'}`} />}
+              {i < 3 && <div className={`w-12 h-0.5 mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
             </div>
           ))}
         </div>
 
         {/* Step 1: Location & Service */}
         {step === 1 && (
-          <Card className="bg-slate-900 border-slate-800" data-testid="booking-step-1">
+          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-1">
+            <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-green-400" /> Telephely és szolgáltatás
+              <CardTitle className="text-white text-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <MapPin className="w-5 h-5 text-green-400" />
+                </div>
+                Telephely és szolgáltatás
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div>
-                <label className="text-sm text-slate-400 mb-1 block">Telephely *</label>
-                <Select value={form.location} onValueChange={v => set("location", v)}>
-                  <SelectTrigger className="bg-slate-950 border-slate-700 text-white" data-testid="booking-location">
-                    <SelectValue placeholder="Válassz telephelyet" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    {locations.map(loc => (
-                      <SelectItem key={loc} value={loc} className="text-white">{loc}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm text-slate-400 mb-2 block">Telephely *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {locations.map(loc => (
+                    <button
+                      key={loc}
+                      onClick={() => set("location", loc)}
+                      className={`p-4 rounded-xl border-2 transition-all ${
+                        form.location === loc 
+                          ? 'border-green-500 bg-green-500/10' 
+                          : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                      }`}
+                      data-testid={`location-${loc}`}
+                    >
+                      <MapPin className={`w-5 h-5 mx-auto mb-2 ${form.location === loc ? 'text-green-400' : 'text-slate-500'}`} />
+                      <span className={`font-medium ${form.location === loc ? 'text-white' : 'text-slate-300'}`}>{loc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div>
-                <label className="text-sm text-slate-400 mb-1 block">Szolgáltatás *</label>
-                <div className="space-y-2 max-h-60 overflow-y-auto" data-testid="booking-services">
-                  {services.map(svc => (
+                <label className="text-sm text-slate-400 mb-2 block">Szolgáltatás *</label>
+                {/* Category Filter */}
+                <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+                  <button
+                    onClick={() => setServiceCategory("all")}
+                    className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all ${
+                      serviceCategory === "all" ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Összes
+                  </button>
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setServiceCategory(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-sm capitalize whitespace-nowrap transition-all ${
+                        serviceCategory === cat ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-thin" data-testid="booking-services">
+                  {filteredServices.map(svc => (
                     <div
                       key={svc.service_id}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${form.service_id === svc.service_id ? 'border-green-500 bg-green-500/10' : 'border-slate-700 hover:border-slate-600'}`}
                       onClick={() => set("service_id", svc.service_id)}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        form.service_id === svc.service_id 
+                          ? 'border-green-500 bg-green-500/10' 
+                          : 'border-slate-700/50 hover:border-slate-600 bg-slate-800/30'
+                      }`}
                     >
                       <div className="flex justify-between items-center">
-                        <span className="text-white font-medium text-sm">{svc.name}</span>
-                        <span className="text-green-400 font-bold">{svc.price?.toLocaleString()} Ft</span>
+                        <div>
+                          <span className="text-white font-medium">{svc.name}</span>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-slate-500 text-xs flex items-center gap-1">
+                              <Timer className="w-3 h-3" /> {svc.duration} perc
+                            </span>
+                            {svc.car_size && (
+                              <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
+                                {svc.car_size}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-green-400 font-bold text-lg">{svc.price?.toLocaleString()} Ft</span>
                       </div>
-                      {svc.duration && <span className="text-slate-500 text-xs">{svc.duration} perc</span>}
                     </div>
                   ))}
                 </div>
@@ -208,54 +310,135 @@ const BookingPage = () => {
           </Card>
         )}
 
-        {/* Step 2: Date & Time */}
+        {/* Step 2: Calendar Date & Time Selection */}
         {step === 2 && (
-          <Card className="bg-slate-900 border-slate-800" data-testid="booking-step-2">
+          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-2">
+            <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
-                <Clock className="w-5 h-5 text-green-400" /> Dátum és időpont
+              <CardTitle className="text-white text-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-green-400" />
+                </div>
+                Válassz időpontot
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-1 block">Dátum *</label>
-                <Input type="date" value={form.date} onChange={e => set("date", e.target.value)}
-                  className="bg-slate-950 border-slate-700 text-white" data-testid="booking-date"
-                  min={new Date().toISOString().split("T")[0]} />
+              {/* Week Navigation */}
+              <div className="flex items-center justify-between">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-slate-700 text-slate-300"
+                  onClick={() => setSelectedWeekStart(addDays(selectedWeekStart, -7))}
+                  disabled={isBefore(selectedWeekStart, new Date())}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-white font-medium">
+                  {format(selectedWeekStart, "yyyy. MMMM", { locale: hu })}
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-slate-700 text-slate-300"
+                  onClick={() => setSelectedWeekStart(addDays(selectedWeekStart, 7))}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
+
+              {/* Week Calendar */}
+              <div className="grid grid-cols-7 gap-2">
+                {weekDays.map(day => {
+                  const dateStr = format(day, "yyyy-MM-dd");
+                  const isPast = isBefore(day, new Date()) && !isToday(day);
+                  const isSelected = form.date === dateStr;
+                  
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => !isPast && set("date", dateStr)}
+                      disabled={isPast}
+                      className={`p-3 rounded-xl text-center transition-all ${
+                        isPast 
+                          ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed' 
+                          : isSelected 
+                            ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
+                            : isToday(day)
+                              ? 'bg-slate-800 text-green-400 border-2 border-green-500/50'
+                              : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                      }`}
+                      data-testid={`date-${dateStr}`}
+                    >
+                      <div className="text-xs opacity-70">{format(day, "EEE", { locale: hu })}</div>
+                      <div className="text-lg font-bold">{format(day, "d")}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Time Slots */}
               {form.date && (
-                <div>
-                  <label className="text-sm text-slate-400 mb-1 block">Időpont *</label>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm text-slate-400">Időpontok - {format(new Date(form.date), "MMMM d.", { locale: hu })}</label>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500/30"></span> Szabad</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-500/30"></span> Korlátozott</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700/50"></span> Foglalt</span>
+                    </div>
+                  </div>
+                  
                   {loadingSlots ? (
-                    <p className="text-slate-500 text-sm py-4 text-center">Betöltés...</p>
-                  ) : slots.length === 0 ? (
-                    <p className="text-slate-500 text-sm py-4 text-center">Nincs szabad időpont ezen a napon</p>
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 mx-auto text-green-400 animate-spin" />
+                      <p className="text-slate-500 text-sm mt-2">Időpontok betöltése...</p>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto" data-testid="booking-slots">
+                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" data-testid="booking-slots">
                       {slots.map(slot => (
                         <button
                           key={slot.time_slot}
-                          className={`p-2 rounded-lg text-sm font-medium transition-colors ${form.time_slot === slot.time_slot ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                           onClick={() => {
-                            set("time_slot", slot.time_slot);
-                            if (slot.available_workers.length > 0 && !form.worker_id) {
-                              set("worker_id", slot.available_workers[0].worker_id);
+                            if (slot.is_available) {
+                              set("time_slot", slot.time_slot);
+                              if (slot.available_workers.length > 0) {
+                                set("worker_id", slot.available_workers[0].worker_id);
+                              }
                             }
                           }}
+                          disabled={!slot.is_available}
+                          className={`p-3 rounded-xl border-2 transition-all ${
+                            form.time_slot === slot.time_slot && slot.is_available
+                              ? 'border-green-400 bg-green-500 text-white shadow-lg shadow-green-500/30'
+                              : getSlotStyle(slot)
+                          }`}
+                          data-testid={`slot-${slot.time_slot}`}
                         >
-                          {slot.time_slot}
+                          <div className="font-bold">{slot.time_slot}</div>
+                          {slot.is_available ? (
+                            <div className="text-xs opacity-70 flex items-center justify-center gap-1 mt-1">
+                              <Users className="w-3 h-3" /> {slot.available_workers.length}
+                            </div>
+                          ) : (
+                            <div className="text-xs opacity-50 mt-1">Foglalt</div>
+                          )}
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
               )}
-              {form.time_slot && slots.length > 0 && (
-                <div>
-                  <label className="text-sm text-slate-400 mb-1 block">Dolgozó (opcionális)</label>
+
+              {/* Worker Selection */}
+              {form.time_slot && slots.find(s => s.time_slot === form.time_slot)?.is_available && (
+                <div className="mt-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                  <label className="text-sm text-slate-400 mb-2 block flex items-center gap-2">
+                    <Users className="w-4 h-4" /> Dolgozó választása (opcionális)
+                  </label>
                   <Select value={form.worker_id} onValueChange={v => set("worker_id", v)}>
-                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white" data-testid="booking-worker">
-                      <SelectValue placeholder="Automatikus" />
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                      <SelectValue placeholder="Automatikus hozzárendelés" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-700">
                       {(slots.find(s => s.time_slot === form.time_slot)?.available_workers || []).map(w => (
@@ -269,17 +452,21 @@ const BookingPage = () => {
           </Card>
         )}
 
-        {/* Step 3: Personal Data with Quick Plate Lookup */}
+        {/* Step 3: Personal Data */}
         {step === 3 && (
-          <Card className="bg-slate-900 border-slate-800" data-testid="booking-step-3">
+          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-3">
+            <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
-                <User className="w-5 h-5 text-green-400" /> Személyes adatok
+              <CardTitle className="text-white text-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <User className="w-5 h-5 text-green-400" />
+                </div>
+                Személyes adatok
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Quick Plate Lookup - First field for returning customers */}
-              <div className="bg-slate-950/50 rounded-lg p-3 border border-slate-800">
+            <CardContent className="space-y-4">
+              {/* Quick Plate Lookup */}
+              <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-xl p-4 border border-green-500/20">
                 <label className="text-sm text-green-400 mb-2 block flex items-center gap-2">
                   <Search className="w-4 h-4" /> Gyors foglalás rendszámmal
                 </label>
@@ -288,93 +475,108 @@ const BookingPage = () => {
                     placeholder="ABC-123" 
                     value={form.plate_number} 
                     onChange={e => handlePlateChange(e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono pr-10" 
+                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-lg tracking-wider pr-10" 
                     data-testid="booking-plate"
                   />
                   {lookingUp && (
-                    <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />
+                    <Loader2 className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Visszatérő ügyfél? Írd be a rendszámot és automatikusan betöltjük az adatokat!</p>
-                
-                {/* Customer found indicator */}
                 {customerFound && (
-                  <div className="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-400" />
-                    <span className="text-green-400 text-sm font-medium">Visszatérő ügyfél!</span>
+                  <div className="mt-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    <span className="text-green-400 font-medium">Visszatérő ügyfél!</span>
                     {customerFound.is_vip && (
                       <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 ml-auto">
                         <Star className="w-3 h-3 mr-1" /> VIP
                       </Badge>
                     )}
-                  </div>
-                )}
-                {customerFound && (
-                  <div className="mt-2 text-xs text-slate-400">
-                    {customerFound.completed_bookings} sikeres mosás | Összesen: {customerFound.total_spent?.toLocaleString()} Ft
+                    <span className="text-slate-500 text-sm ml-auto">{customerFound.completed_bookings} mosás</span>
                   </div>
                 )}
               </div>
 
-              <Input placeholder="Név *" value={form.customer_name} onChange={e => set("customer_name", e.target.value)}
-                className="bg-slate-950 border-slate-700 text-white" data-testid="booking-name" />
-              <Input placeholder="Autó típusa *" value={form.car_type} onChange={e => set("car_type", e.target.value)}
-                className="bg-slate-950 border-slate-700 text-white" data-testid="booking-car-type" />
-              <Input placeholder="E-mail *" type="email" value={form.email} onChange={e => set("email", e.target.value)}
-                className="bg-slate-950 border-slate-700 text-white" data-testid="booking-email" />
-              <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
-                className="bg-slate-950 border-slate-700 text-white" data-testid="booking-phone" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input placeholder="Név *" value={form.customer_name} onChange={e => set("customer_name", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-name" />
+                <Input placeholder="Autó típusa *" value={form.car_type} onChange={e => set("car_type", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-car-type" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input placeholder="E-mail *" type="email" value={form.email} onChange={e => set("email", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-email" />
+                <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-phone" />
+              </div>
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
-                className="bg-slate-950 border-slate-700 text-white" data-testid="booking-address" />
+                className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-address" />
               
-              <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-1">
+              <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-2">
                 <FileText className="w-4 h-4" /> {showInvoice ? "Számla adatok elrejtése" : "Számlát kérek (ÁFÁ-s)"}
               </button>
               {showInvoice && (
-                <div className="space-y-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+                <div className="space-y-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700">
                   <Input placeholder="Számlázási név" value={form.invoice_name} onChange={e => set("invoice_name", e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white" />
+                    className="bg-slate-800/50 border-slate-700 text-white" />
                   <Input placeholder="Adószám" value={form.invoice_tax_number} onChange={e => set("invoice_tax_number", e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white" />
+                    className="bg-slate-800/50 border-slate-700 text-white" />
                   <Input placeholder="Számlázási cím" value={form.invoice_address} onChange={e => set("invoice_address", e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white" />
+                    className="bg-slate-800/50 border-slate-700 text-white" />
                 </div>
               )}
               <textarea placeholder="Megjegyzés (opcionális)" value={form.notes} onChange={e => set("notes", e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-3 text-sm resize-none h-20" data-testid="booking-notes" />
+                className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl p-4 text-sm resize-none h-20" data-testid="booking-notes" />
             </CardContent>
           </Card>
         )}
 
         {/* Step 4: Summary */}
         {step === 4 && (
-          <Card className="bg-slate-900 border-slate-800" data-testid="booking-step-4">
+          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-4">
+            <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-400" /> Összegzés
+              <CardTitle className="text-white text-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                </div>
+                Foglalás összegzése
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               {customerFound?.is_vip && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-400" />
-                  <span className="text-yellow-400 font-medium">VIP ügyfél</span>
-                  <span className="text-slate-400 text-sm ml-auto">{customerFound.completed_bookings}. foglalás</span>
+                <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <Star className="w-5 h-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <span className="text-yellow-400 font-medium">VIP ügyfél</span>
+                    <p className="text-slate-400 text-sm">{customerFound.completed_bookings}. foglalás | Összesen: {customerFound.total_spent?.toLocaleString()} Ft</p>
+                  </div>
                 </div>
               )}
-              <div className="bg-slate-950/50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between"><span className="text-slate-400">Szolgáltatás</span><span className="text-white font-medium">{selectedService?.name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Telephely</span><span className="text-white">{form.location}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Dátum</span><span className="text-white">{form.date} {form.time_slot}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Név</span><span className="text-white">{form.customer_name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Rendszám</span><span className="text-white font-mono">{form.plate_number}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Telefon</span><span className="text-white">{form.phone}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Email</span><span className="text-white">{form.email}</span></div>
-                {form.notes && <div className="flex justify-between"><span className="text-slate-400">Megjegyzés</span><span className="text-white text-sm">{form.notes}</span></div>}
-                <hr className="border-slate-700 my-2" />
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">Fizetendő</span>
-                  <span className="text-green-400 text-xl font-bold">{selectedService?.price?.toLocaleString()} Ft</span>
+              
+              <div className="bg-slate-800/50 rounded-xl p-5 space-y-3 border border-slate-700">
+                <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
+                  <Car className="w-6 h-6 text-green-400" />
+                  <span className="text-white font-semibold text-lg">{selectedService?.name}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-y-3 text-sm">
+                  <div className="text-slate-400 flex items-center gap-2"><MapPin className="w-4 h-4" /> Telephely</div>
+                  <div className="text-white text-right">{form.location}</div>
+                  <div className="text-slate-400 flex items-center gap-2"><Calendar className="w-4 h-4" /> Időpont</div>
+                  <div className="text-white text-right">{form.date} <span className="text-green-400 font-bold">{form.time_slot}</span></div>
+                  <div className="text-slate-400 flex items-center gap-2"><User className="w-4 h-4" /> Név</div>
+                  <div className="text-white text-right">{form.customer_name}</div>
+                  <div className="text-slate-400 flex items-center gap-2"><Car className="w-4 h-4" /> Rendszám</div>
+                  <div className="text-white text-right font-mono">{form.plate_number}</div>
+                  <div className="text-slate-400 flex items-center gap-2"><Phone className="w-4 h-4" /> Telefon</div>
+                  <div className="text-white text-right">{form.phone}</div>
+                  <div className="text-slate-400 flex items-center gap-2"><Mail className="w-4 h-4" /> Email</div>
+                  <div className="text-white text-right truncate">{form.email}</div>
+                </div>
+                <div className="pt-4 mt-3 border-t border-slate-700 flex justify-between items-center">
+                  <span className="text-slate-300 font-medium">Fizetendő összeg</span>
+                  <span className="text-green-400 text-2xl font-bold">{selectedService?.price?.toLocaleString()} Ft</span>
                 </div>
               </div>
             </CardContent>
@@ -382,17 +584,41 @@ const BookingPage = () => {
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between mt-4">
-          <Button variant="outline" className="border-slate-700 text-slate-300" onClick={() => setStep(s => s - 1)} disabled={step === 1} data-testid="booking-prev-btn">
-            <ChevronLeft className="w-4 h-4 mr-1" /> Vissza
+        <div className="flex justify-between mt-6">
+          <Button 
+            variant="outline" 
+            className="border-slate-700 text-slate-300 hover:bg-slate-800" 
+            onClick={() => setStep(s => s - 1)} 
+            disabled={step === 1}
+            data-testid="booking-prev-btn"
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" /> Vissza
           </Button>
           {step < 4 ? (
-            <Button className="bg-green-600 hover:bg-green-700" onClick={() => setStep(s => s + 1)} disabled={!canGoNext()} data-testid="booking-next-btn">
-              Tovább <ChevronRight className="w-4 h-4 ml-1" />
+            <Button 
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
+              onClick={() => setStep(s => s + 1)} 
+              disabled={!canGoNext()}
+              data-testid="booking-next-btn"
+            >
+              Tovább <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleSubmit} disabled={submitting} data-testid="booking-submit-btn">
-              {submitting ? "Foglalás..." : "Foglalás véglegesítése"}
+            <Button 
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
+              onClick={handleSubmit} 
+              disabled={submitting}
+              data-testid="booking-submit-btn"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Foglalás...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" /> Foglalás véglegesítése
+                </>
+              )}
             </Button>
           )}
         </div>
