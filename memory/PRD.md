@@ -27,6 +27,8 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
   - Lépés 3: Személyes adatok (név, autó, rendszám, email, telefon) + opcionális számlázási adatok
   - Lépés 4: Összegzés és foglalás véglegesítése
   - Visszaigazoló képernyő foglalás után
+  - **Rendszám alapú gyors foglalás**: Visszatérő ügyfelek rendszám megadásával automatikusan betöltik korábbi adataikat
+  - **VIP státusz**: 5+ sikeres mosás után VIP badge jelenik meg
 - **Foglalási naptár** (`/calendar`): Napi/heti/havi nézet foglalások kezelésére
   - Telephely és dolgozó szűrés
   - Foglalás részletek megtekintése
@@ -36,6 +38,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
   - `GET /api/bookings/public-locations` - Telephelyek (publikus)
   - `GET /api/bookings/public-services` - Szolgáltatások (publikus)
   - `GET /api/bookings/available-slots` - Szabad időpontok (publikus)
+  - `GET /api/bookings/lookup-plate/{plate}` - Ügyfél keresés rendszám alapján (publikus)
   - `POST /api/bookings` - Új foglalás (publikus)
   - `GET/PUT/DELETE /api/bookings` - Foglalások kezelése (védett)
 
