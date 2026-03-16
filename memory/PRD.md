@@ -22,25 +22,24 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 
 ### V2 Funkciók - Megvalósítva (2025-12-16)
 - **Publikus foglalási oldal** (`/booking`): 4 lépéses wizard bejelentkezés nélkül
-  - Lépés 1: Telephely és szolgáltatás választás
-  - Lépés 2: Dátum és időpont választás szabad dolgozókkal
-  - Lépés 3: Személyes adatok (név, autó, rendszám, email, telefon) + opcionális számlázási adatok
+  - Lépés 1: Telephely és szolgáltatás választás (kategória szűréssel)
+  - Lépés 2: **Naptár szerű időpont választás** - heti nézet, vizuális szabad/foglalt jelzés, dolgozók száma
+  - Lépés 3: Személyes adatok + gyors rendszám keresés
   - Lépés 4: Összegzés és foglalás véglegesítése
-  - Visszaigazoló képernyő foglalás után
-  - **Rendszám alapú gyors foglalás**: Visszatérő ügyfelek rendszám megadásával automatikusan betöltik korábbi adataikat
-  - **VIP státusz**: 5+ sikeres mosás után VIP badge jelenik meg
+  - **Modern, gradient-es dizájn** háttér mintával
+  - **Rendszám alapú gyors foglalás**: Visszatérő ügyfelek automatikus adatbetöltés
+  - **VIP státusz**: 5+ sikeres mosás után VIP badge
+- **Foglalási értesítések**: Új foglaláskor automatikus értesítés a menedzsment rendszerbe
+  - Értesítési harang két füllel: Foglalások + Készlet figyelmeztetések
+  - Olvasottnak jelölés, összes olvasottnak jelölés
+  - 15 másodpercenkénti frissítés
 - **Foglalási naptár** (`/calendar`): Napi/heti/havi nézet foglalások kezelésére
-  - Telephely és dolgozó szűrés
-  - Foglalás részletek megtekintése
-  - Státusz módosítás (foglalt, folyamatban, kész, lemondta, nem jött el)
-  - Dolgozó hozzárendelés
 - **Új API végpontok**:
-  - `GET /api/bookings/public-locations` - Telephelyek (publikus)
-  - `GET /api/bookings/public-services` - Szolgáltatások (publikus)
-  - `GET /api/bookings/available-slots` - Szabad időpontok (publikus)
-  - `GET /api/bookings/lookup-plate/{plate}` - Ügyfél keresés rendszám alapján (publikus)
-  - `POST /api/bookings` - Új foglalás (publikus)
-  - `GET/PUT/DELETE /api/bookings` - Foglalások kezelése (védett)
+  - `GET /api/bookings/available-slots` - Szabad időpontok foglaltsági adatokkal
+  - `GET /api/bookings/lookup-plate/{plate}` - Ügyfél keresés rendszám alapján
+  - `GET /api/notifications/bookings` - Új foglalási értesítések
+  - `PUT /api/notifications/{id}/read` - Értesítés olvasottnak jelölése
+  - `PUT /api/notifications/read-all` - Összes értesítés olvasottnak jelölése
 
 ### Implementálva de API kulcsok szükségesek
 - **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről - szükséges: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
