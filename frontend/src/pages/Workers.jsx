@@ -357,6 +357,7 @@ export const Workers = () => {
       { bg: "bg-pink-500", text: "text-pink-400", light: "bg-pink-500/20" },
       { bg: "bg-cyan-500", text: "text-cyan-400", light: "bg-cyan-500/20" }
     ];
+    if (index < 0 || index === undefined) return colors[0];
     return colors[index % colors.length];
   };
 
