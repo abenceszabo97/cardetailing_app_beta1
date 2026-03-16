@@ -114,7 +114,7 @@ const BookingPage = () => {
   const canGoNext = () => {
     if (step === 1) return form.location && form.service_id;
     if (step === 2) return form.date && form.time_slot;
-    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && form.car_type;
+    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && form.car_type && !isBlacklisted;
     return true;
   };
 
