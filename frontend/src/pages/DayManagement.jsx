@@ -34,7 +34,7 @@ import autoTable from "jspdf-autotable";
 
 export const DayManagement = () => {
   const { user } = useAuth();
-  const [selectedLocation, setSelectedLocation] = useState("Budapest");
+  const [selectedLocation, setSelectedLocation] = useState("Debrecen");
   const [todayRecord, setTodayRecord] = useState(null);
   const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
   const [todayJobs, setTodayJobs] = useState([]);
@@ -245,7 +245,6 @@ export const DayManagement = () => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-slate-900 border-slate-700">
-            <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
             <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
           </SelectContent>
         </Select>
