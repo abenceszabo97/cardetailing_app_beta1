@@ -945,7 +945,7 @@ async def get_public_services():
 @api_router.get("/bookings/public-locations")
 async def get_public_locations():
     """Get available locations (public)"""
-    return ["Budapest", "Debrecen"]
+    return ["Debrecen"]
 
 @api_router.get("/bookings/lookup-plate/{plate_number}")
 async def lookup_customer_by_plate(plate_number: str):
