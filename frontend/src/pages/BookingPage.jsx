@@ -32,6 +32,8 @@ const BookingPage = () => {
   const [showInvoice, setShowInvoice] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [customerFound, setCustomerFound] = useState(null);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
+  const [blacklistReason, setBlacklistReason] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [serviceCategory, setServiceCategory] = useState("all");
 
