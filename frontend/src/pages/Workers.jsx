@@ -89,6 +89,8 @@ export const Workers = () => {
   const [editWorkerForm, setEditWorkerForm] = useState(null);
   const [workerStats, setWorkerStats] = useState([]);
   const [statsMonth, setStatsMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [deleteShiftId, setDeleteShiftId] = useState(null);
+  const [deleteWorkerId, setDeleteWorkerId] = useState(null);
 
   const generateWorkerPDF = () => {
     const doc = new jsPDF();
