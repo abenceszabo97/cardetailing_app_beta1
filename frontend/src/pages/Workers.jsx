@@ -210,7 +210,7 @@ export const Workers = () => {
   
   const [newShift, setNewShift] = useState({
     worker_id: "",
-    location: "Budapest",
+    location: "Debrecen",
     start_time: "",
     end_time: ""
   });

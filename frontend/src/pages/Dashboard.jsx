@@ -228,7 +228,6 @@ export const Dashboard = () => {
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
               <SelectItem value="all" className="text-white">Összes</SelectItem>
-              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
               <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
             </SelectContent>
           </Select>
