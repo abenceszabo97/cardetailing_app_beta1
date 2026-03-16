@@ -899,7 +899,7 @@ export const Workers = () => {
                                         className={`${colors.bg} text-white text-xs p-1 rounded flex items-center justify-between group`}
                                       >
                                         <span>{format(new Date(shift.start_time), 'HH:mm')}-{format(new Date(shift.end_time), 'HH:mm')}</span>
-                                          <button onClick={() => handleDeleteShift(shift.shift_id)} className="opacity-0 group-hover:opacity-100 ml-1">
+                                          <button onClick={() => setDeleteShiftId(shift.shift_id)} className="opacity-0 group-hover:opacity-100 ml-1">
                                             <Trash2 className="w-3 h-3" />
                                           </button>
                                       </div>
