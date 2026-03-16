@@ -43,6 +43,7 @@ export const Services = () => {
   const [loading, setLoading] = useState(true);
   const [isNewServiceOpen, setIsNewServiceOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [deleteServiceId, setDeleteServiceId] = useState(null);
   
   const [formData, setFormData] = useState({
     name: "",
