@@ -837,7 +837,7 @@ export const Workers = () => {
                               >
                                 <span>{shift.worker_name?.split(' ')[0]}</span>
                                   <button
-                                    onClick={() => handleDeleteShift(shift.shift_id)}
+                                    onClick={() => setDeleteShiftId(shift.shift_id)}
                                     className="absolute right-0 top-0 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"
                                   >
                                     <X className="w-2 h-2" />
