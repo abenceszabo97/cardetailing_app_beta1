@@ -56,13 +56,12 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 - Utolsó teszt: 2025. december 16.
 
 ## P0 - Következő iteráció (Kiemelt prioritás)
-- [ ] Foglalás módosítás funkció
+- [x] Foglalás módosítás funkció (naptárban szerkesztés)
+- [x] Blacklist/tiltólista kezelés
+- [ ] Google Calendar integráció
 - [ ] Automatikus PDF napzárás és email küldés
-- [ ] Ügyfél történet (foglalások, lemondások, nem jelenések száma)
-- [ ] Blacklist kezelés
 
 ## P1 - Közepes prioritás
-- [ ] Google Calendar integráció
 - [ ] AI fotó elemzés (Gemini) - árajánlat és szolgáltatás ajánlás
 - [ ] Időbecslés és upsell AI
 
