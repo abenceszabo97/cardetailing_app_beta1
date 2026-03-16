@@ -898,15 +898,22 @@ async def get_available_slots(location: str, date: str, service_id: Optional[str
     all_slots = []
     for hour in range(8, 18):
         for minute in [0, 30]:
-            all_slots.append(f"{hour:02d}:{minute:02d}")
+            slot_time = f"{hour:02d}:{minute:02d}"
+            booked_workers = {bkg["worker_id"] for bkg in existing if bkg.get("time_slot") == slot_time and bkg.get("worker_id")}
+            free_workers = [w for w in workers_list if w["worker_id"] not in booked_workers]
+            booked_count = len(booked_workers)
+            total_workers = len(workers_list)
+            
+            all_slots.append({
+                "time_slot": slot_time,
+                "available_workers": [{"worker_id": w["worker_id"], "name": w["name"]} for w in free_workers],
+                "is_available": len(free_workers) > 0,
+                "booked_count": booked_count,
+                "total_workers": total_workers,
+                "availability_percent": int((len(free_workers) / total_workers * 100)) if total_workers > 0 else 0
+            })
     
-    available = []
-    for slot in all_slots:
-        booked_workers = {bkg["worker_id"] for bkg in existing if bkg.get("time_slot") == slot and bkg.get("worker_id")}
-        free_workers = [w for w in workers_list if w["worker_id"] not in booked_workers]
-        if free_workers:
-            available.append({"time_slot": slot, "available_workers": [{"worker_id": w["worker_id"], "name": w["name"]} for w in free_workers]})
-    return available
+    return all_slots
 
 @api_router.get("/bookings/public-services")
 async def get_public_services():
