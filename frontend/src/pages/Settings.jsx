@@ -50,7 +50,7 @@ export const Settings = () => {
   const [newWorker, setNewWorker] = useState({
     name: "",
     phone: "",
-    location: "Budapest"
+    location: "Debrecen"
   });
 
   const fetchData = async () => {
@@ -263,7 +263,6 @@ export const Settings = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-700">
-                      <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                       <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
                     </SelectContent>
                   </Select>

@@ -53,7 +53,7 @@ export const Inventory = () => {
     current_quantity: 0,
     min_level: 0,
     unit: "db",
-    location: "Budapest"
+    location: "Debrecen"
   });
 
   const fetchInventory = async () => {
@@ -150,7 +150,6 @@ export const Inventory = () => {
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
               <SelectItem value="all" className="text-white">Összes</SelectItem>
-              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
               <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
             </SelectContent>
           </Select>
