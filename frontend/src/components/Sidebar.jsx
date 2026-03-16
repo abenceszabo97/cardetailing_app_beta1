@@ -13,7 +13,8 @@ import {
   Moon,
   MapPin,
   X,
-  Car
+  Car,
+  CalendarDays
 } from "lucide-react";
 import {
   Select,
@@ -29,6 +30,7 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
 
   const navItems = [
     { path: "/dashboard", label: "Főoldal", icon: LayoutDashboard },
+    { path: "/calendar", label: "Naptár", icon: CalendarDays },
     { path: "/customers", label: "Ügyfelek", icon: Users },
     { path: "/workers", label: "Dolgozók", icon: Calendar },
     { path: "/inventory", label: "Készlet", icon: Package },
