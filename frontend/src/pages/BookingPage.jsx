@@ -64,10 +64,23 @@ const BookingPage = () => {
   const lookupPlate = useCallback(async (plate) => {
     if (!plate || plate.length < 5) {
       setCustomerFound(null);
+      setIsBlacklisted(false);
       return;
     }
     setLookingUp(true);
     try {
+      // Check blacklist first
+      const blacklistRes = await axios.get(`${API}/blacklist/check/${encodeURIComponent(plate)}`);
+      if (blacklistRes.data.blacklisted) {
+        setIsBlacklisted(true);
+        setBlacklistReason(blacklistRes.data.reason || "");
+        setCustomerFound(null);
+        setLookingUp(false);
+        return;
+      }
+      setIsBlacklisted(false);
+      
+      // Then lookup customer
       const response = await axios.get(`${API}/bookings/lookup-plate/${encodeURIComponent(plate)}`);
       if (response.data.found) {
         setCustomerFound(response.data);
