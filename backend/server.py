@@ -230,6 +230,27 @@ class BookingUpdate(BaseModel):
     notes: Optional[str] = None
     rating: Optional[int] = None
     review: Optional[str] = None
+    date: Optional[str] = None
+    time_slot: Optional[str] = None
+    service_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    car_type: Optional[str] = None
+    plate_number: Optional[str] = None
+
+class BlacklistEntry(BaseModel):
+    blacklist_id: str = Field(default_factory=lambda: f"bl_{uuid.uuid4().hex[:12]}")
+    plate_number: str
+    customer_name: Optional[str] = None
+    reason: str
+    added_by: str
+    added_by_name: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class BlacklistCreate(BaseModel):
+    plate_number: str
+    reason: str
 
 class Inventory(BaseModel):
     inventory_id: str = Field(default_factory=lambda: f"inv_{uuid.uuid4().hex[:12]}")
