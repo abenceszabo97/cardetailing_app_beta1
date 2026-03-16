@@ -108,12 +108,11 @@ export const Services = () => {
   };
 
   const handleDelete = async (serviceId) => {
-    if (!window.confirm("Biztosan törölni szeretnéd ezt a szolgáltatást?")) return;
-    
     try {
       await axios.delete(`${API}/services/${serviceId}`, { withCredentials: true });
       toast.success("Szolgáltatás törölve!");
       fetchServices();
+      setDeleteServiceId(null);
     } catch (error) {
       toast.error("Hiba a törlés során");
     }
