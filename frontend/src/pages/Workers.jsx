@@ -275,7 +275,7 @@ export const Workers = () => {
       await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
       toast.success("Műszak sikeresen létrehozva!");
       setIsNewShiftOpen(false);
-      setNewShift({ worker_id: "", location: "Budapest", start_time: "", end_time: "" });
+      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a műszak létrehozásakor");
@@ -298,7 +298,7 @@ export const Workers = () => {
       await axios.post(`${API}/workers`, newWorker, { withCredentials: true });
       toast.success("Dolgozó sikeresen hozzáadva!");
       setIsNewWorkerOpen(false);
-      setNewWorker({ name: "", phone: "", email: "", position: "", location: "Budapest" });
+      setNewWorker({ name: "", phone: "", email: "", position: "", location: "Debrecen" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a dolgozó hozzáadásakor");
@@ -393,7 +393,6 @@ export const Workers = () => {
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
               <SelectItem value="all" className="text-white">Összes</SelectItem>
-              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
               <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
             </SelectContent>
           </Select>
