@@ -180,6 +180,57 @@ class ShiftCreate(BaseModel):
     start_time: datetime
     end_time: datetime
 
+# ===================== BOOKING MODELS =====================
+
+class Booking(BaseModel):
+    booking_id: str = Field(default_factory=lambda: f"bkg_{uuid.uuid4().hex[:12]}")
+    customer_name: str
+    car_type: str
+    plate_number: str
+    email: str
+    phone: str
+    address: Optional[str] = None
+    invoice_name: Optional[str] = None
+    invoice_tax_number: Optional[str] = None
+    invoice_address: Optional[str] = None
+    service_id: str
+    service_name: str
+    worker_id: Optional[str] = None
+    worker_name: Optional[str] = None
+    location: str
+    date: str
+    time_slot: str
+    price: float
+    status: str = "foglalt"  # foglalt, folyamatban, kesz, lemondta, nem_jott_el
+    notes: Optional[str] = None
+    rating: Optional[int] = None
+    review: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class BookingCreate(BaseModel):
+    customer_name: str
+    car_type: str
+    plate_number: str
+    email: str
+    phone: str
+    address: Optional[str] = None
+    invoice_name: Optional[str] = None
+    invoice_tax_number: Optional[str] = None
+    invoice_address: Optional[str] = None
+    service_id: str
+    worker_id: Optional[str] = None
+    location: str
+    date: str
+    time_slot: str
+    notes: Optional[str] = None
+
+class BookingUpdate(BaseModel):
+    status: Optional[str] = None
+    worker_id: Optional[str] = None
+    notes: Optional[str] = None
+    rating: Optional[int] = None
+    review: Optional[str] = None
+
 class Inventory(BaseModel):
     inventory_id: str = Field(default_factory=lambda: f"inv_{uuid.uuid4().hex[:12]}")
     product_name: str
@@ -831,6 +882,157 @@ async def delete_inventory(inventory_id: str, user: User = Depends(get_current_u
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Készlet tétel nem található")
     return {"message": "Készlet törölve"}
+
+
+# ===================== BOOKING ROUTES =====================
+
+@api_router.get("/bookings/available-slots")
+async def get_available_slots(location: str, date: str, service_id: Optional[str] = None):
+    """Get available time slots for a given date and location (public)"""
+    workers_list = await db.workers.find({"location": location, "active": True}, {"_id": 0}).to_list(100)
+    existing = await db.bookings.find({
+        "location": location, "date": date,
+        "status": {"$nin": ["lemondta", "nem_jott_el"]}
+    }, {"_id": 0}).to_list(500)
+    
+    all_slots = []
+    for hour in range(8, 18):
+        for minute in [0, 30]:
+            all_slots.append(f"{hour:02d}:{minute:02d}")
+    
+    available = []
+    for slot in all_slots:
+        booked_workers = {bkg["worker_id"] for bkg in existing if bkg.get("time_slot") == slot and bkg.get("worker_id")}
+        free_workers = [w for w in workers_list if w["worker_id"] not in booked_workers]
+        if free_workers:
+            available.append({"time_slot": slot, "available_workers": [{"worker_id": w["worker_id"], "name": w["name"]} for w in free_workers]})
+    return available
+
+@api_router.get("/bookings/public-services")
+async def get_public_services():
+    """Get services list (public, no auth)"""
+    services = await db.services.find({}, {"_id": 0}).to_list(200)
+    return services
+
+@api_router.get("/bookings/public-locations")
+async def get_public_locations():
+    """Get available locations (public)"""
+    return ["Budapest", "Debrecen"]
+
+@api_router.post("/bookings")
+async def create_booking(data: BookingCreate):
+    """Create a new booking (public, no auth required)"""
+    service = await db.services.find_one({"service_id": data.service_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Szolgáltatás nem található")
+    
+    worker_name = None
+    if data.worker_id:
+        worker = await db.workers.find_one({"worker_id": data.worker_id}, {"_id": 0})
+        if worker:
+            worker_name = worker["name"]
+    
+    booking = Booking(
+        customer_name=data.customer_name, car_type=data.car_type,
+        plate_number=data.plate_number.upper(), email=data.email, phone=data.phone,
+        address=data.address, invoice_name=data.invoice_name,
+        invoice_tax_number=data.invoice_tax_number, invoice_address=data.invoice_address,
+        service_id=data.service_id, service_name=service["name"],
+        worker_id=data.worker_id, worker_name=worker_name,
+        location=data.location, date=data.date, time_slot=data.time_slot,
+        price=service["price"], notes=data.notes
+    )
+    
+    doc = booking.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.bookings.insert_one(doc)
+    
+    # Auto-create/update customer
+    existing_cust = await db.customers.find_one({"plate_number": data.plate_number.upper()}, {"_id": 0})
+    if not existing_cust:
+        cust = Customer(name=data.customer_name, phone=data.phone, car_type=data.car_type, plate_number=data.plate_number.upper())
+        cdoc = cust.model_dump()
+        cdoc["created_at"] = cdoc["created_at"].isoformat()
+        cdoc["email"] = data.email
+        cdoc["address"] = data.address
+        cdoc["total_spent"] = 0
+        cdoc["booking_count"] = 1
+        cdoc["no_show_count"] = 0
+        cdoc["cancel_count"] = 0
+        cdoc["blacklisted"] = False
+        await db.customers.insert_one(cdoc)
+    else:
+        await db.customers.update_one(
+            {"plate_number": data.plate_number.upper()},
+            {"$inc": {"booking_count": 1}, "$set": {"email": data.email, "phone": data.phone}}
+        )
+    
+    # Send confirmation email if configured
+    if RESEND_API_KEY:
+        try:
+            import resend
+            await asyncio.to_thread(resend.Emails.send, {
+                "from": SENDER_EMAIL, "to": [data.email],
+                "subject": f"X-CLEAN Foglalás visszaigazolás - {data.date} {data.time_slot}",
+                "html": f"<h2>Foglalás visszaigazolás</h2><p>Kedves {data.customer_name}!</p><p>Foglalása rögzítve: {data.date} {data.time_slot}, {service['name']}, {data.location}, {service['price']} Ft</p><p>Várjuk szeretettel!</p>"
+            })
+        except Exception as e:
+            logging.warning(f"Booking email failed: {e}")
+    
+    return booking.model_dump()
+
+@api_router.get("/bookings")
+async def get_bookings(location: Optional[str] = None, date: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, status: Optional[str] = None, worker_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get bookings with filters"""
+    query = {}
+    if location and location != "all":
+        query["location"] = location
+    if date:
+        query["date"] = date
+    if date_from and date_to:
+        query["date"] = {"$gte": date_from, "$lte": date_to}
+    if status:
+        query["status"] = status
+    if worker_id:
+        query["worker_id"] = worker_id
+    bookings = await db.bookings.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    return bookings
+
+@api_router.get("/bookings/{booking_id}")
+async def get_booking(booking_id: str, user: User = Depends(get_current_user)):
+    booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található")
+    return booking
+
+@api_router.put("/bookings/{booking_id}")
+async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "worker_id" in update_data:
+        worker = await db.workers.find_one({"worker_id": update_data["worker_id"]}, {"_id": 0})
+        if worker:
+            update_data["worker_name"] = worker["name"]
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
+    result = await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Foglalás nem található")
+    
+    booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if data.status == "nem_jott_el" and booking:
+        await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"no_show_count": 1}})
+    elif data.status == "lemondta" and booking:
+        await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"cancel_count": 1}})
+    elif data.status == "kesz" and booking:
+        await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
+    return {"message": "Foglalás frissítve"}
+
+@api_router.delete("/bookings/{booking_id}")
+async def delete_booking(booking_id: str, user: User = Depends(get_current_user)):
+    result = await db.bookings.delete_one({"booking_id": booking_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Foglalás nem található")
+    return {"message": "Foglalás törölve"}
 
 # ===================== DAY RECORD ROUTES =====================
 
