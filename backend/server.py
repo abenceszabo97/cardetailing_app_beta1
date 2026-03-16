@@ -1011,6 +1011,19 @@ async def create_booking(data: BookingCreate):
         except Exception as e:
             logging.warning(f"Booking email failed: {e}")
     
+    # Create notification for management system
+    notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "type": "new_booking",
+        "title": "Új online foglalás",
+        "message": f"{data.customer_name} - {data.plate_number} - {data.date} {data.time_slot}",
+        "booking_id": booking.booking_id,
+        "location": data.location,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notification)
+    
     return booking.model_dump()
 
 @api_router.get("/bookings")
