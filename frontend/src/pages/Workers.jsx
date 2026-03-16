@@ -1104,6 +1104,43 @@ export const Workers = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Shift Confirmation Dialog */}
+      <Dialog open={!!deleteShiftId} onOpenChange={() => setDeleteShiftId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Műszak törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt a műszakot?</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteShiftId(null)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button variant="destructive" onClick={() => handleDeleteShift(deleteShiftId)} className="bg-red-600 hover:bg-red-700">
+              Törlés
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Worker Confirmation Dialog */}
+      <Dialog open={!!deleteWorkerId} onOpenChange={() => setDeleteWorkerId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Dolgozó törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt a dolgozót?</p>
+          <p className="text-white font-medium">{workers.find(w => w.worker_id === deleteWorkerId)?.name}</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteWorkerId(null)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button variant="destructive" onClick={() => handleDeleteWorker(deleteWorkerId)} className="bg-red-600 hover:bg-red-700">
+              Törlés
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
