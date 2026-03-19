@@ -39,6 +39,7 @@ export const DayManagement = () => {
   const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
   const [todayJobs, setTodayJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCloseDayConfirm, setShowCloseDayConfirm] = useState(false);
   
   const [openingBalance, setOpeningBalance] = useState("");
   const [closingNotes, setClosingNotes] = useState("");
