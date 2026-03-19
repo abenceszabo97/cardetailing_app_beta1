@@ -297,7 +297,6 @@ export const Dashboard = () => {
                     <Select value={newJob.location} onValueChange={(v) => setNewJob({...newJob, location: v})}>
                       <SelectTrigger className="bg-slate-950 border-slate-700"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                         <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
                       </SelectContent>
                     </Select>
