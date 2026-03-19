@@ -78,7 +78,7 @@ export const Inventory = () => {
       await axios.post(`${API}/inventory`, newItem, { withCredentials: true });
       toast.success("Készlet tétel létrehozva!");
       setIsNewItemOpen(false);
-      setNewItem({ product_name: "", current_quantity: 0, min_level: 0, unit: "db", location: "Budapest" });
+      setNewItem({ product_name: "", current_quantity: 0, min_level: 0, unit: "db", location: "Debrecen" });
       fetchInventory();
     } catch (error) {
       toast.error("Hiba a készlet létrehozásakor");
@@ -219,7 +219,6 @@ export const Inventory = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-700">
-                          <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                           <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
                         </SelectContent>
                       </Select>

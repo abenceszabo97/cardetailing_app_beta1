@@ -90,7 +90,7 @@ export const Settings = () => {
       await axios.post(`${API}/workers`, newWorker, { withCredentials: true });
       toast.success("Dolgozó sikeresen létrehozva!");
       setIsNewWorkerOpen(false);
-      setNewWorker({ name: "", phone: "", location: "Budapest" });
+      setNewWorker({ name: "", phone: "", location: "Debrecen" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a dolgozó létrehozásakor");
