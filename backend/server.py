@@ -989,7 +989,7 @@ async def get_available_slots(location: str, date: str, service_id: Optional[str
     }, {"_id": 0}).to_list(500)
     
     all_slots = []
-    for hour in range(8, 18):
+    for hour in range(8, 20):
         for minute in [0, 30]:
             slot_time = f"{hour:02d}:{minute:02d}"
             booked_workers = {bkg["worker_id"] for bkg in existing if bkg.get("time_slot") == slot_time and bkg.get("worker_id")}
