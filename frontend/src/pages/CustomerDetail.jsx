@@ -51,8 +51,6 @@ export const CustomerDetail = () => {
   }, [customerId]);
 
   const handleDelete = async () => {
-    if (!window.confirm("Biztosan törölni szeretnéd ezt az ügyfelet?")) return;
-    
     try {
       await axios.delete(`${API}/customers/${customerId}`, { withCredentials: true });
       toast.success("Ügyfél törölve!");
