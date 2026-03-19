@@ -2153,11 +2153,11 @@ Válaszolj JSON formátumban:
 
 app.include_router(api_router)
 
-# CORS middleware
+# CORS middleware - use environment variable for origins
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS != ["*"] else ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
