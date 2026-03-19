@@ -96,7 +96,7 @@ export const CustomerDetail = () => {
         {user?.role === "admin" && (
           <Button 
             variant="destructive" 
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             data-testid="delete-customer-btn"
           >
             <Trash2 className="w-4 h-4 mr-2" />
