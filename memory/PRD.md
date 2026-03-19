@@ -1,7 +1,7 @@
 # X-CLEAN Autómosó Menedzsment Rendszer - PRD
 
 ## Eredeti probléma leírás
-X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telephelyek számára. Magyar nyelvű felület, sötét téma zöld akcentussal, Emergent Google Auth hitelesítéssel.
+X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal, Emergent Google Auth hitelesítéssel.
 
 ## Fő funkciók
 ### Megvalósítva
@@ -15,10 +15,10 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 - **Készlet figyelmeztetések**: Értesítési harang a headerben, alacsony készlet push értesítés valós időben
 - **Statisztika**: Grafikonok, dolgozói teljesítmény, szolgáltatás népszerűség, haladó analitika, PDF export
 - **Szolgáltatások**: Teljes X-CLEAN árlista, kategória fülekkel, teljes CRUD - mindenki számára
-- **Napnyitás/Napzárás**: Teljes flow + PDF export + email küldés, lezárt nap utáni újranyitás
+- **Napnyitás/Napzárás**: Teljes flow + PDF export + email küldés, lezárt nap utáni újranyitás, pénzelvitel, kasszaellenőrzés
 - **Beállítások**: Felhasználók kezelése (csak admin)
 - **Képek**: 9 előtte + 9 utána kép feltöltése munkákhoz
-- **Telephely szűrés**: Budapest, Debrecen, Összes
+- **Telephely**: Csak Debrecen (Budapest eltávolítva)
 
 ### V2 Funkciók - Megvalósítva (2025-12-16)
 - **Publikus foglalási oldal** (`/booking`): 4 lépéses wizard bejelentkezés nélkül
@@ -33,13 +33,14 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
   - Értesítési harang két füllel: Foglalások + Készlet figyelmeztetések
   - Olvasottnak jelölés, összes olvasottnak jelölés
   - 15 másodpercenkénti frissítés
-- **Foglalási naptár** (`/calendar`): Napi/heti/havi nézet foglalások kezelésére
-- **Új API végpontok**:
-  - `GET /api/bookings/available-slots` - Szabad időpontok foglaltsági adatokkal
-  - `GET /api/bookings/lookup-plate/{plate}` - Ügyfél keresés rendszám alapján
-  - `GET /api/notifications/bookings` - Új foglalási értesítések
-  - `PUT /api/notifications/{id}/read` - Értesítés olvasottnak jelölése
-  - `PUT /api/notifications/read-all` - Összes értesítés olvasottnak jelölése
+- **Foglalási naptár** (`/calendar`): Napi/heti/havi nézet foglalások kezelésére, foglalás módosítás
+- **Blacklist/tiltólista**: Problémás ügyfelek kezelése rendszám alapján
+- **AI Backend végpontok**: Upsell, fotó elemzés, árajánlat (Gemini) - backend kész, egyenleg feltöltés szükséges
+
+### V2.1 - Éles indulásra kész (2025-12-19)
+- **Teszt adatok törölve**: Ügyfelek, dolgozók, foglalások, munkák, műszakok, értesítések törölve
+- **Budapest eltávolítva**: Minden UI elemről és statisztikából
+- **Szolgáltatások és készlet megmaradt**: 41 szolgáltatás, 7 készlet tétel
 
 ### Implementálva de API kulcsok szükségesek
 - **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről - szükséges: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
@@ -47,52 +48,67 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Budapest és Debrecen telep
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI, Recharts, jsPDF, date-fns
-- **Backend**: FastAPI, Motor (MongoDB async), Pydantic, Twilio, Resend
+- **Backend**: FastAPI, Motor (MongoDB async), Pydantic, Twilio, Resend, emergentintegrations (Gemini)
 - **Database**: MongoDB
 - **Auth**: Emergent Google OAuth
+- **Deployment**: Railway-ready (Procfile, railway.json)
 
 ## Tesztelési állapot
 - 8. iteráció: Backend 100% (19/19), Frontend 100%
 - Utolsó teszt: 2025. december 16.
+- Adatbázis tisztítás: 2025. december 19.
 
 ## P0 - Következő iteráció (Kiemelt prioritás)
 - [x] Foglalás módosítás funkció (naptárban szerkesztés)
 - [x] Blacklist/tiltólista kezelés
+- [x] Budapest eltávolítása
+- [x] Teszt adatok törlése
 - [ ] Google Calendar integráció
 - [ ] Automatikus PDF napzárás és email küldés
+- [ ] AI funkciók frontend felülete (fotó feltöltés, upsell javaslatok)
+- [ ] Elkészült autó SMS értesítés (Twilio API kulcs szükséges)
 
 ## P1 - Közepes prioritás
-- [ ] AI fotó elemzés (Gemini) - árajánlat és szolgáltatás ajánlás
-- [ ] Időbecslés és upsell AI
+- [ ] AI ügyfélszolgálati chatbot
+- [ ] server.py refaktorálás (routes/, models/ mappák)
 
 ## P2 - Későbbi fejlesztés
 - [ ] AI Marketing (SMS/email emlékeztetők, kuponok, hűségprogram)
-- [ ] AI Chat asszisztens
 - [ ] AI Analytics
-- [ ] Globális telephely szűrő a headerben
+- [ ] Alternatív bejelentkezés (email/jelszó) - később
 
 ## P3 - Backlog
 - [ ] Twilio API kulcsok konfigurálása az SMS küldéshez
 - [ ] Resend API kulcs konfigurálása az email küldéshez
-- [ ] server.py refaktorálás (routes/, models/ mappák)
 
 ## Fájl struktúra
 ```
 /app/
 ├── backend/
-│   ├── server.py          # Fő API (1700+ sor)
-│   ├── .env               # MONGO_URL, TWILIO, RESEND, GEMINI
+│   ├── server.py          # Fő API (2200+ sor)
+│   ├── .env               # MONGO_URL, TWILIO, RESEND, EMERGENT_LLM_KEY
+│   ├── .env.example       # Sablon produkciós env-hez
+│   ├── Procfile           # Railway start command
+│   ├── railway.json       # Railway config
 │   └── requirements.txt
 ├── frontend/src/
 │   ├── pages/
 │   │   ├── BookingPage.jsx   # Publikus foglalás
 │   │   ├── Calendar.jsx      # Foglalási naptár
 │   │   ├── Dashboard.jsx
-│   │   ├── Customers.jsx
+│   │   ├── Customers.jsx     # + Blacklist tab
 │   │   ├── Workers.jsx
+│   │   ├── Statistics.jsx
+│   │   ├── DayManagement.jsx # Pénzelvitel, kasszaellenőrzés
 │   │   └── ...
 │   └── components/
 │       ├── Sidebar.jsx
+│       ├── NotificationBell.jsx
 │       └── ui/
+├── DEPLOYMENT.md          # Telepítési útmutató
 └── memory/PRD.md
 ```
+
+## Fontos megjegyzések
+- **Emergent LLM Key egyenleg kimerült**: Az AI funkciók (upsell, fotó elemzés, árajánlat) nem működnek, amíg nem töltöd fel az egyenleget a Profil → Universal Key → Add Balance menüpontban.
+- **Google Auth marad**: Az alternatív bejelentkezési módot (email/jelszó) későbbre halasztottuk.

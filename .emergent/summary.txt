@@ -1,158 +1,188 @@
 <analysis>**original_problem_statement:**
-The user initially requested a comprehensive car wash management system named X-CLEAN. After multiple iterations of building core features (dashboard, customers, workers, inventory, stats), the user has now provided a massive new specification for a V2 of the application.
+The user initially requested a comprehensive car wash management system named X-CLEAN. After building the core V1 application, the user specified a large set of V2 features, including a public-facing booking system, advanced calendar management, Google Calendar integration, and numerous AI-powered features using Gemini (photo analysis, upsell recommendations, etc.).
 
-**New High-Level Requirements (V2):**
-1.  **Public Booking & Advanced Customer Management:** A public-facing booking page with detailed customer fields (name, car, contact, address, billing info). The system should track customer history (bookings, cancellations, no-shows), support a blacklist, and allow for post-service reviews.
-2.  **Advanced Calendar & Scheduling:** Multi-view (day, week, month) calendar showing detailed booking info. It should support worker assignments, a No-show/Cancelled status, and a separate, editable daily schedule view. The calendar must filter by location.
-3.  **Google Calendar Integration:** Bookings should automatically sync to both the worker's and the customer's Google Calendar.
-4.  **AI-Powered Features (using Gemini):**
-    *   **Photo Analysis:** Analyze car photos for damage/dirt to generate quotes and recommend services.
-    *   **Time & Upsell AI:** Estimate job duration and suggest add-on services during booking.
-    *   **License Plate Recognition:** Quickly load customer data from their license plate.
-    *   **Customer Chat Assistant:** Handle booking, pricing, and business hour queries.
-    *   **Photo Documentation:** Organize before/after photos into galleries.
-    *   **Analytics AI:** Analyze revenue, service popularity, and customer retention.
-    *   **Marketing AI:** Automate email/SMS reminders, generate coupons, and manage a loyalty program (e.g., 10% off every 5th wash).
-5.  **Global Location Filter:** A main filter in the header/sidebar that sets the location context for all pages, so the user doesn't have to re-select it in each menu.
-6.  **Automated PDF Reports:** Generate a detailed PDF report upon Day Close containing worker activity, finances, and stats, which can be downloaded or emailed.
+Throughout the session, the user has continuously provided feedback and new requests, such as:
+- Making the booking page more interactive with a visual calendar for time slots.
+- Adding in-app notifications for new bookings and day closures.
+- Implementing a license plate lookup for returning customers.
+- Adding booking modification and a customer blacklist.
+- Removing the Budapest location to focus solely on Debrecen.
+- Fixing a recurring deletion bug across the entire application.
+- Adding a cash withdrawal feature and a cash audit system to the Day Close process.
+- Syncing new bookings with the main dashboard.
+- Enhancing the statistics page.
+- Preparing the entire project for production deployment.
+- A final set of cleanup tasks: removing all test data (customers, workers, bookings), resetting the cash register to zero, and exploring alternative login methods to Google Auth.
 
 **User's preferred language**: Hungarian. The next agent MUST respond in Hungarian.
 
 **what currently exists?**
-A full-stack car wash management application with a FastAPI backend, React frontend, and MongoDB database. It includes a dashboard, customer/worker/inventory/service management, and statistics. User authentication is handled by Emergent-managed Google Auth. The system supports multiple locations (Budapest, Debrecen). The latest additions included worker performance statistics, PDF exports for daily and monthly reports, and low-inventory push notifications. The application's UI is now mobile-responsive.
+A full-stack application using FastAPI, React, and MongoDB. The application is named X-CLEAN (internally Clean Fleet Hub).
 
-The agent has just begun implementing the new V2 requirements. It has added backend models and API endpoints for a new booking system and configured the environment for Gemini, Twilio, and Resend integrations.
+- **Backend:** A large  file contains all API logic. It includes endpoints for managing customers, workers, services, inventory, shifts, day records, statistics, and a complete booking system (creation, modification, cancellation). It also features several AI endpoints (, , ) using  for Gemini. The backend has been prepared for deployment with a  and environment variable support for Railway.
+
+- **Frontend:** A React application with pages for a Dashboard, Customers (with a blacklist tab), Workers (with shift management), Services, Inventory, Statistics, Settings, a detailed admin Calendar (with booking modification), and a public-facing Booking Page. The UI uses Tailwind CSS and Shadcn components. The  calls have been universally replaced with custom dialogs to fix a deletion bug. The application has been scrubbed of the Budapest location, leaving only Debrecen.
+
+- **Integrations:** Emergent-managed Google Auth is used for login. Gemini is configured for AI tasks, though the budget is currently depleted. Twilio and Resend are configured but await API keys.
 
 **Last working item**:
-*   **Last item agent was working:** The agent was starting the implementation of the new, public-facing booking system (Priority #1 from the user's V2 spec). It successfully added new Pydantic models (, , ) and created the corresponding API endpoints in . It then created two new, empty placeholder files for the frontend:  and .
-*   **Status:** IN PROGRESS
-*   **Agent Testing Done:** N
-*   **Which testing method agent to use?** both
-*   **User Testing Done:** N
+The agent was addressing the user's final set of cleanup and preparation requests before launch.
+- **Last item agent was working:** The user reported that Budapest was still visible in the Telephely bontás havi (Monthly location breakdown) statistic. The agent located the relevant code in  and was about to implement a filter to remove the unwanted data from the  variable before it's rendered.
+- **Status:** IN PROGRESS
+- **Agent Testing Done:** N
+- **User Testing Done:** N
+- **Which testing method agent to use?** frontend testing agent. The agent should verify that the Telephely bontás havi chart and the corresponding PDF export on the Statistics page no longer show Budapest.
 
 **All Pending/In progress Issue list**:
-There are no pending bugs. All previously reported issues (PDF downloads, mobile responsiveness, runtime errors) have been fixed and verified by the user. The current focus is entirely on new feature development.
+- **Issue 1 (P0): Telephely bontás havi still shows Budapest.**
+  - **Attempted fixes:** The agent identified the frontend component responsible for rendering the chart.
+  - **Next debug checklist:**
+    1.  In , find where the  are being mapped for the Telephely bontás havi chart.
+    2.  Apply a  or similar logic before mapping the data to ensure only Debrecen is displayed.
+    3.  Verify if this data is also used in a PDF export from that page and ensure the fix applies there as well. The backend endpoint  may also need to be checked to see if it's still returning Budapest data.
+  - **Why fix this issue and what will be achieved with the fix?** To ensure data consistency across the app, which should only operate for the Debrecen location.
+  - **Status:** IN PROGRESS
+  - **Is recurring issue?** Y (The Budapest removal has been a multi-step process).
+  - **Should Test frontend/backend/both after fix?** Both. Check the UI on the Statistics page and the backend endpoint response.
+
+- **Issue 2 (P1): Depleted Emergent LLM Key Budget.**
+  - **Attempted fixes:** The agent correctly identified the issue is not a code bug but a budget problem and informed the user.
+  - **Next debug checklist:** This is not a bug to fix. The agent must remind the user that all AI features are currently non-functional and will return errors until the budget is refilled in their Emergent profile.
+  - **Why fix this issue and what will be achieved with the fix?** To re-enable all AI functionalities (upsell, photo analysis, quote generation).
+  - **Status:** BLOCKED (on user action).
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** Backend (by testing the AI endpoints).
+  - **Blocked on other issue:** User needs to add balance to their Universal Key.
 
 **In progress Task List**:
-*   **Task 1: Implement V2 Public Booking System** (Priority: P0)
-    *   **Where to resume:** The backend models and API endpoints for booking are created but untested. The frontend files (, ) are empty placeholders. The next step is to build the public booking form UI in  and connect it to the new  endpoint.
-    *   **What will be achieved with this?** This will deliver the first and highest-priority feature from the user's new V2 specification, allowing customers to book appointments online.
-    *   **Status:** IN PROGRESS
-    *   **Should Test frontend/backend/both after fix?** Both
-    *   **Blocked on something:** The user needs to provide API keys for Gemini, Twilio, and Resend. The agent has added placeholders to the  file.
+- **Task 1: Production Data Cleanup** (Priority: P0)
+  - **Where to resume:** This task has not been started. The agent needs to create a script or a series of database commands to clear production data.
+  - **What will be achieved with this?** The application will have a clean slate, ready for real-world use, with only essential configuration data (services, inventory items) remaining.
+  - **Checklist:**
+    1.  Write and execute MongoDB commands to delete all documents from the , , , , , and  collections.
+    2.  Write and execute a command to reset the cash-related fields in the relevant collection (likely a settings or single  document) to zero.
+    3.  Confirm that the  and  collections are NOT cleared.
+  - **Status:** NOT STARTED
+  - **Should Test frontend/backend/both after fix?** Both. Verify that the UI correctly shows empty lists for customers, workers, bookings, etc., and that the cash register is at zero.
 
 **Upcoming and Future Tasks**
-These tasks are derived from the user's prioritized list in message #402.
-
 *   **Upcoming Tasks:**
-    *   **(P0) Task: Complete Booking & Customer Management:** Build the frontend for . Implement customer history tracking (cancellations, no-shows, blacklist) and post-service reviews.
-    *   **(P1) Task: Build Advanced Calendar:** Implement the new  with daily, weekly, and monthly views, detailed booking information, worker assignments, and No-show/Cancelled functionality.
-    *   **(P2) Task: Booking Modification & Automated PDF:** Add functionality to modify bookings and implement the automated PDF generation and email for the Day Close process.
-    *   **(P3) Task: Google Calendar Integration:** Connect the booking system to Google Calendar to automatically create events for customers and workers.
-    *   **(P4) Task: AI Photo Analysis (Gemini):** Implement the first AI feature: photo upload and analysis for generating quotes and service recommendations.
+    *   **(P0) Discuss & Implement Alternative Login:** The user has requested an alternative to Google-only login. Propose a standard email/password authentication system using JWT tokens and implement it if the user agrees.
+    *   **(P1) Google Calendar Integration:** Connect the booking system to Google Calendar to automatically create events for customers and workers.
+    *   **(P2) Automated PDF Report on Day Close:** Implement the automated generation and emailing of the daily PDF report when a day is closed.
+    *   **(P3) Frontend for AI Features:** Build the UI components within the booking page to allow users to upload photos for analysis and to display AI-generated upsell suggestions.
+
 *   **Future Tasks:**
-    *   (P5) AI Features: Time Estimator, Upsell AI.
-    *   (P6) AI Marketing: Automated reminders, coupons, loyalty program.
-    *   (P7) AI Features: Customer Chat Assistant, Before/After photo galleries.
-    *   (P8) AI Analytics: In-depth revenue and statistics analysis.
-    *   (P9) UI Enhancement: Implement the global location filter in the main application layout.
+    *   AI Customer Chat Assistant for handling queries.
+    *   AI Marketing features (automated reminders, coupons, loyalty program).
+    *   AI-powered photo galleries for before/after shots.
+    *   Advanced AI analytics for business intelligence.
+    *   Refactor the monolithic  into a modular structure (e.g., , ).
 
 **Completed work in this session**
-*   **PDF Export Fix:** Resolved a critical bug where PDF downloads failed. The implementation was updated to use  for a reliable Save As dialog.
-*   **Mobile Responsiveness:** Fixed UI issues on the Customers and Workers pages by implementing a responsive, card-based layout for mobile screens.
-*   **Runtime Error Fix:** Corrected a JavaScript error on the Workers page that occurred when filtering by location (Debrecen) in the calendar view.
-*   **Worker Statistics:** Implemented a new Statistics tab on the Workers page, showing monthly performance data (days/hours worked, cars completed, revenue generated) with a PDF export option.
-*   **Day Management Enhanced:** Added a feature to allow re-opening a closed day.
-*   **Notification System:** Implemented a notification bell in the header that alerts users to low inventory levels.
-*   **Role Permissions Removed:** As per user request, removed admin-only restrictions from most CRUD operations (services, inventory, workers), making them accessible to all users.
-*   **V2 Foundation:** Laid the groundwork for the major V2 update by adding backend models and endpoints for the new booking system and configuring the environment for Gemini, Twilio, and Resend integrations.
+- **Public Booking System:** Created and refined the public  with an interactive weekly calendar, visual time-slot availability (free/busy), and a license plate lookup for returning customers.
+- **Admin Management:** Implemented booking modification in the  and a customer blacklist feature in .
+- **Deletion Bug Fixed:** Replaced all  instances across the app with custom Shadcn dialogs, fixing a recurring deletion issue.
+- **Location Focus:** Removed the Budapest location from all UI components, backend logic, and static data, making Debrecen the sole operational site.
+- **Financial Features:** Implemented a cash withdrawal function and a cash audit system into the Day Close page.
+- **Statistics Enhanced:** The statistics page now correctly calculates and displays the strongest business days of the week in ranked order.
+- **Calendar Hours Adjusted:** The booking calendar now operates from 8:00 to 19:00, with new bookings restricted after 18:00.
+- **Deployment Readiness:** Prepared the project for production by creating , ,  files, and a  guide.
+- **AI Backend:** Created and tested backend endpoints for AI-powered upsell suggestions, photo analysis, and quote generation.
 
 **Earlier issues found/mentioned but not fixed**
-*   None. All prior issues were resolved in this session.
+*   None. All previously identified code bugs have been addressed. The only outstanding issue is the external dependency on the LLM key budget.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-*   **Backend:** FastAPI, Pydantic, MongoDB (motor)
-*   **Frontend:** React, Tailwind CSS, , Shadcn/UI
-*   **PDF Generation:** , 
-*   **Integrations (Implemented/Planned):**
-    *   Emergent-managed Google Auth
-    *   Gemini (AI Features)
-    *   Twilio (SMS Notifications)
-    *   Resend (Email Notifications)
-    *   Google Calendar
+*   **Backend:** FastAPI, Pydantic, Motor (async MongoDB driver)
+*   **Frontend:** React, Tailwind CSS, Shadcn/UI, , 
+*   **Database:** MongoDB
+*   **AI:**  library for Gemini.
+*   **Deployment:** Configured for Railway.
 
 **key DB schema**
-*   , , , , , ,  (Existing)
-*   ****: {customer_details, service_id, worker_id, location, start_time, end_time, price, status, notes, billing_details}
-*   ****: {booking_id, customer_id, rating, comment}
+*   ****: {customer_details, service_id, worker_id, location, start_time, end_time, price, status, notes}
+*   ****: {customer_id, name, car_details, contact_info, booking_history}
 *   ****: {customer_id, reason, added_by}
+*   ****: {date, location, status, opening_cash, closing_cash, cash_income, card_income, total_revenue, **cash_withdrawals**, **discrepancy_amount**}
+*   ****: {message, type, read, timestamp}
+*   , , , , 
 
 **changes in tech stack**
-*    (for Gemini) added to .
-*   ,  added to .
+*   No changes to the core stack.
+*   Added  for AI features.
+*   Added deployment configuration files (, ).
 
 **All files of reference**
-*   : Heavily modified. Added models and endpoints for bookings, reviews, blacklist, worker stats, notifications (SMS/email), and PDF generation. Removed  decorators.
-*   : Major updates for mobile responsiveness, bug fixes, and the new worker statistics tab with PDF export.
-*   : Updated for mobile responsiveness.
-*   : Updated to fix PDF export and allow re-opening a closed day.
-*   : Updated to fix PDF export.
-*   : Added the  component.
-*   : New component for low-stock alerts.
-*   : New placeholder file for the public booking form.
-*   : New placeholder file for the advanced calendar view.
+*   : The monolithic heart of the application. Contains all business logic, database interactions, and API endpoints. Grew significantly during the session.
+*   : The public-facing booking page. Completely rewritten to include a modern calendar UI and license plate lookup.
+*   : The internal admin calendar. Rewritten to support detailed booking modification.
+*   : Updated with tabs to manage active customers and the new blacklist.
+*   , , , , : All updated to use a custom dialog for deletion instead of .
+*   : Updated with UI for cash withdrawal and display of cash audit results.
+*   : Updated to display new Busiest Days stats.
+*   : Updated to include  and placeholders for all required keys.
+*   : New file with deployment instructions.
 
 **Areas that need refactoring**:
-*   The  file has become a monolith containing all application logic (over 1500 lines). It desperately needs to be broken down into a more structured project with separate modules for routes (e.g., , ) and models (). This will be critical for maintainability as the V2 features are added.
+*   ** is critically oversized (>2200 lines).** It contains all models, routes, and business logic. It urgently needs to be broken down into a proper Python project structure (e.g., a  file with routers from a  directory and models from a  directory). This is the most significant technical debt.
 
 **key api endpoints**
-*   , : CRUD for new booking system.
-*   : GET worker performance data for a given month.
-*   : POST to re-open a previously closed day.
-*   : GET low-stock notifications.
-*   : POST to send emails via Resend (used for PDF reports).
-*   : POST to send SMS via Twilio.
+*   : POST - Get AI-powered service suggestions.
+*   : POST - Analyze uploaded car photos.
+*   : POST - Generate a price quote based on AI analysis.
+*   : POST, GET, PUT - Full CRUD for bookings.
+*   : POST, GET, DELETE - Manage blacklisted customers.
+*   : GET - Look up customer by license plate.
+*   : POST - Closes the day, now includes cash withdrawal and audit logic.
+*   : GET - Returns advanced statistics, including busiest days.
+*   : GET - Now includes bookings scheduled for the current day.
+*   : GET, POST - Manage in-app notifications.
 
 **Critical Info for New Agent**
-*   You are at the beginning of a major application overhaul (V2). The user has provided a detailed, prioritized list of features. **You must follow this priority order.**
-*   The immediate task is to build the frontend for the public booking page () and connect it to the new backend endpoints.
-*   The application stack is fixed: **React, FastAPI, MongoDB**. Do not attempt to use Next.js or Supabase as the user initially mentioned.
-*   The user needs to provide API keys for **Gemini, Twilio, and Resend**. The code currently uses placeholder values in . Remind the user if these features are worked on.
-*   Strongly consider refactoring  into smaller, feature-specific files (e.g.,  and  directories) before adding more complex logic. Propose this to the user as a necessary step for future scalability.
-
-**documents and test reports created in this job**
-*   /app/memory/PRD.md (updated multiple times)
-*   /app/test_reports/iteration_4.json
-*   /app/test_reports/iteration_5.json
-*   /app/test_reports/iteration_6.json
-*   /app/integrations/gemini_integration_guide.md
+*   The user's primary goal is to **launch the application**. The immediate next steps involve data cleanup and fixing the last remaining UI inconsistency.
+*   **Login Method:** The user wants to move away from Google-only login. You must proactively propose and be ready to implement an alternative, such as a traditional email/password system using JWT.
+*   **AI Budget:** The Emergent LLM Key budget is **depleted**. You must inform the user that all AI features are currently disabled and will not work until they add funds to their account via their profile page.
+*   **Technical Debt:** The  monolith is a major risk to future development. After completing the user's immediate launch requests, you should strongly advocate for refactoring it.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Requests a massive V2 feature set, including a public booking page, Google Calendar integration, and numerous AI features, providing a clear priority list. **Status: IN PROGRESS**.
-2.  **Agent:** Presents a plan to tackle the V2 features, confirming the tech stack and asking for the user's choice of AI/SMS providers. **Status: AWAITING USER FEEDBACK**.
-3.  **User:** Confirms choices (Gemini for AI, Twilio for SMS) and approves the agent's plan. **Status: DONE**.
-4.  **Agent:** Begins implementation of the V2 booking system.
-5.  ... (Previous messages relate to bug fixes and feature enhancements that are now complete and verified)
+1.  **User (msg #330):** Requests many new features at once: sync bookings to dashboard, cash audit system, day-close notifications, advanced stats, and two new AI features (upsell & photo analysis), and reports a bug in Day Close.
+2.  **Agent (msg #331):** Prioritizes the requests, starting with the bug fix.
+3.  *(Agent implements the fixes and features)*
+4.  **User (msg #406):** Asks the agent to switch focus to preparing the project for production deployment (structure, env vars, CORS, etc.), explicitly telling it NOT to rewrite features.
+5.  *(Agent implements deployment readiness tasks)*
+6.  **User (msg #444):** Clarifies that all AI logic must be in the backend, not the frontend.
+7.  *(Agent confirms/implements AI backend endpoints)*
+8.  **User (msg #466):** Requests final UI tweaks: remove Budapest completely, adjust stats display, and change calendar hours.
+9.  *(Agent implements UI tweaks)*
+10. **User (msg #494):** Fine-tunes the calendar hours (booking until 18:00) and asks to remove Budapest from revenue stats.
+11. *(Agent implements final time tweaks)*
+12. **User (msg #507):** **(LATEST & PENDING)** Reports Budapest is still in Telephely bontás havi, asks to delete all test data (customers/workers), reset the cash register, and asks for alternative login methods.
 
 **Project Health Check:**
-*   **Stable:** The core V1 application is functional, responsive, and bug-free.
-*   **In Development:** A major V2 feature-build is underway. New backend code has been added but is not yet connected to a functional frontend or tested.
+*   **Broken:**
+    *   The Telephely bontás havi statistic on the  page is showing outdated Budapest data.
+    *   The database is populated with test data (customers, workers, bookings) that needs to be cleared before launch.
+*   **Mocked:**
+    *   All AI features are non-functional due to a depleted Emergent LLM Key budget.
 
 **3rd Party Integrations**
-*   **Emergent-managed Google Auth:** (Active) For user login.
-*   **Gemini (via ):** (Configured, needs key) For all upcoming AI features.
-*   **Twilio:** (Configured, needs key) For SMS notifications.
-*   **Resend:** (Configured, needs key) For email notifications and reports.
-*   **Google Calendar:** (Planned) For booking synchronization.
+*   **Emergent-managed Google Auth:** (Active) Used for login. User wants an alternative.
+*   **Gemini (via ):** (Configured, **BLOCKED**) Used for AI features. Requires user to add funds to their Emergent LLM Key.
+*   **Twilio:** (Configured, needs User API Key) For planned SMS notifications.
+*   **Resend:** (Configured, needs User API Key) For planned email notifications.
+*   **Google Calendar:** (Planned) Not yet implemented.
 
 **Testing status**
-*   **Testing agent used after significant changes:** YES. The agent was used successfully to validate all bug fixes and features implemented prior to the V2 request.
-*   **Test files created:** None.
-*   **Known regressions:** None.
+- **Testing agent used after significant changes:** YES, for the initial booking system implementation.
+- **Troubleshoot agent used after agent stuck in loop:** NO
+- **Test files created:** None.
+- **Known regressions:** The removal of Budapest was not fully completed, as it still appears in one statistic.
 
-**Credentials to test flow:**
-*   Use Emergent-managed Google Auth to log in.
-*   The agent has added , , , , and  to . These are currently empty placeholders and will need to be populated with real keys from the user to test the corresponding integrations.</analysis>
+**What agent forgot to execute**
+- The agent was in the process of fixing the Telephely bontás havi statistic but hasn't completed the code change.
+- The agent has not yet executed the database cleanup tasks requested by the user.
+- The agent has acknowledged the request for alternative logins but has not yet proposed a solution.</analysis>

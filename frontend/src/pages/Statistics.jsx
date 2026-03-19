@@ -75,7 +75,8 @@ export const Statistics = () => {
       setMonthlyStats(monthlyRes.data);
       setWorkerStats(workerRes.data);
       setServiceStats(serviceRes.data.slice(0, 10));
-      setLocationStats(locationRes.data);
+      // Only show Debrecen location
+      setLocationStats(locationRes.data.filter(loc => loc.location === 'Debrecen'));
       setDashboardStats(dashRes.data);
       setAdvancedStats(advancedRes.data);
     } catch (error) {
@@ -216,8 +217,9 @@ export const Statistics = () => {
       yPos = 20;
     }
     
-    // Location stats
-    if (locationStats.length > 0) {
+    // Location stats - only Debrecen
+    const filteredLocationStats = locationStats.filter(l => l.location === 'Debrecen');
+    if (filteredLocationStats.length > 0) {
       doc.setFontSize(14);
       doc.text('Telephely bontás (havi)', 14, yPos);
       yPos += 10;
@@ -225,7 +227,7 @@ export const Statistics = () => {
       autoTable(doc, {
         startY: yPos,
         head: [['Telephely', 'Autók száma', 'Bevétel']],
-        body: locationStats.map(l => [
+        body: filteredLocationStats.map(l => [
           l.location,
           l.count.toString(),
           `${l.revenue.toLocaleString()} Ft`
