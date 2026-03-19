@@ -2002,6 +2002,141 @@ async def root():
     return {"message": "X-CLEAN API", "version": "1.0.0"}
 
 # Include router
+# ===================== AI ROUTES =====================
+
+class UpsellRequest(BaseModel):
+    service_id: str
+    car_type: str
+
+class PhotoAnalysisRequest(BaseModel):
+    images: List[str]  # List of base64 encoded images
+
+@api_router.post("/ai/upsell")
+async def get_upsell_suggestions(data: UpsellRequest):
+    """AI-powered upsell suggestions based on service and car type"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="AI szolgáltatás nem elérhető")
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        # Get all services
+        services = await db.services.find({}, {"_id": 0}).to_list(100)
+        service_list = "\n".join([f"- {s['name']}: {s.get('price', 0)} Ft" for s in services])
+        
+        # Get selected service
+        selected = await db.services.find_one({"service_id": data.service_id}, {"_id": 0})
+        selected_name = selected["name"] if selected else "Ismeretlen"
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"upsell_{uuid.uuid4().hex[:8]}",
+            system_message="Te egy autómosó szakértő vagy. Magyar nyelven válaszolj, röviden és tömören."
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        prompt = f"""Az ügyfél autója: {data.car_type}
+Kiválasztott szolgáltatás: {selected_name}
+
+Elérhető szolgáltatások:
+{service_list}
+
+Javasolj maximum 2 kiegészítő szolgáltatást, ami illeszkedik az autó típusához és a kiválasztott szolgáltatáshoz. 
+Válaszolj JSON formátumban: {{"suggestions": [{{"name": "szolgáltatás neve", "reason": "miért ajánlod röviden"}}]}}"""
+
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        # Parse response
+        try:
+            # Try to extract JSON from response
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                result = json.loads(response[json_start:json_end])
+                return result
+        except:
+            pass
+        
+        return {"suggestions": [], "raw_response": response}
+        
+    except Exception as e:
+        logging.error(f"AI upsell error: {e}")
+        return {"suggestions": [], "error": str(e)}
+
+@api_router.post("/ai/photo-analysis")
+async def analyze_car_photos(data: PhotoAnalysisRequest):
+    """AI-powered car photo analysis for service recommendations"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="AI szolgáltatás nem elérhető")
+    
+    if not data.images or len(data.images) == 0:
+        raise HTTPException(status_code=400, detail="Legalább egy kép szükséges")
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+        
+        # Get all services for recommendations
+        services = await db.services.find({}, {"_id": 0}).to_list(100)
+        service_list = "\n".join([f"- {s['name']}: {s.get('price', 0)} Ft ({s.get('category', '')})" for s in services])
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"photo_{uuid.uuid4().hex[:8]}",
+            system_message="Te egy autómosó szakértő vagy aki képek alapján felméri az autó állapotát. Magyar nyelven válaszolj."
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        # Create image contents
+        image_contents = []
+        for img_base64 in data.images[:5]:  # Max 5 images
+            # Remove data URL prefix if present
+            if "," in img_base64:
+                img_base64 = img_base64.split(",")[1]
+            image_contents.append(ImageContent(image_base64=img_base64))
+        
+        prompt = f"""Elemezd ezeket az autófotókat és adj állapotfelmérést!
+
+Értékeld:
+1. Külső szennyezettség (1-10 skála, 10=nagyon koszos)
+2. Belső szennyezettség (ha látható, 1-10)
+3. Autó mérete (S/M/L/XL/XXL)
+4. Lakk állapota (jó/közepes/rossz)
+5. Felni állapota (ha látható)
+
+Elérhető szolgáltatásaink:
+{service_list}
+
+Válaszolj JSON formátumban:
+{{
+  "exterior_dirt_level": 1-10,
+  "interior_dirt_level": 1-10 vagy null,
+  "car_size": "S/M/L/XL/XXL",
+  "paint_condition": "jó/közepes/rossz",
+  "wheel_condition": "jó/közepes/rossz" vagy null,
+  "analysis_text": "Rövid szöveges értékelés",
+  "recommended_services": ["szolgáltatás1", "szolgáltatás2"],
+  "estimated_price_range": {{"min": szám, "max": szám}}
+}}"""
+
+        response = await chat.send_message(UserMessage(
+            text=prompt,
+            image_contents=image_contents
+        ))
+        
+        # Parse response
+        try:
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                result = json.loads(response[json_start:json_end])
+                return result
+        except:
+            pass
+        
+        return {"analysis_text": response, "recommended_services": []}
+        
+    except Exception as e:
+        logging.error(f"AI photo analysis error: {e}")
+        raise HTTPException(status_code=500, detail=f"Hiba a képelemzéskor: {str(e)}")
+
 app.include_router(api_router)
 
 # CORS middleware
