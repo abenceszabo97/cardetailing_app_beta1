@@ -7,6 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { 
   ArrowLeft, 
   Phone, 
   Car, 
@@ -25,6 +31,7 @@ export const CustomerDetail = () => {
   const [customer, setCustomer] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const fetchCustomer = async () => {
     try {
