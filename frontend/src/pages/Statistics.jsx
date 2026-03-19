@@ -23,7 +23,9 @@ import {
   ArrowDownRight,
   Trophy,
   Repeat,
-  Wallet
+  Wallet,
+  Calendar,
+  TrendingDown
 } from "lucide-react";
 import { 
   BarChart, 
