@@ -46,6 +46,7 @@ export const Settings = () => {
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isNewWorkerOpen, setIsNewWorkerOpen] = useState(false);
+  const [deleteWorkerId, setDeleteWorkerId] = useState(null);
   
   const [newWorker, setNewWorker] = useState({
     name: "",
