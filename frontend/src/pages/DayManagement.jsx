@@ -103,18 +103,56 @@ export const DayManagement = () => {
   };
 
   const handleCloseDay = async () => {
+    const closingVal = parseFloat(closingBalance) || 0;
     try {
-      await axios.post(`${API}/day-records/close`, {
+      const response = await axios.post(`${API}/day-records/close`, {
         location: selectedLocation,
+        closing_balance: closingVal,
         notes: closingNotes
       }, { withCredentials: true });
       
-      toast.success("Nap sikeresen lezárva!");
+      const { discrepancy } = response.data;
+      if (Math.abs(discrepancy) > 0) {
+        toast.warning(`Nap lezárva! Kassza eltérés: ${discrepancy > 0 ? '+' : ''}${discrepancy.toLocaleString()} Ft`);
+      } else {
+        toast.success("Nap sikeresen lezárva! Kassza egyezik.");
+      }
+      
       setClosingNotes("");
+      setClosingBalance("");
       setShowCloseDayConfirm(false);
+      setActiveTab("today"); // Switch back to day opening tab
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba a napzárásnál");
+    }
+  };
+
+  const handleWithdrawal = async () => {
+    const amount = parseFloat(withdrawalAmount);
+    if (!amount || amount <= 0) {
+      toast.error("Érvényes összeget adj meg");
+      return;
+    }
+    if (!withdrawalReason.trim()) {
+      toast.error("Add meg a pénzelvitel okát");
+      return;
+    }
+    
+    try {
+      await axios.post(`${API}/day-records/withdraw`, {
+        location: selectedLocation,
+        amount,
+        reason: withdrawalReason
+      }, { withCredentials: true });
+      
+      toast.success(`Pénzelvitel rögzítve: ${amount.toLocaleString()} Ft`);
+      setWithdrawalAmount("");
+      setWithdrawalReason("");
+      setShowWithdrawalDialog(false);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a pénzelvitelnél");
     }
   };
 
