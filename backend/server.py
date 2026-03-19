@@ -2151,6 +2151,94 @@ Válaszolj JSON formátumban:
         logging.error(f"AI photo analysis error: {e}")
         raise HTTPException(status_code=500, detail=f"Hiba a képelemzéskor: {str(e)}")
 
+class QuoteRequest(BaseModel):
+    car_type: str
+    car_size: Optional[str] = None  # S/M/L/XL/XXL
+    exterior_dirt_level: Optional[int] = None  # 1-10
+    interior_dirt_level: Optional[int] = None  # 1-10
+    services_requested: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+@api_router.post("/ai/quote")
+async def generate_quote(data: QuoteRequest):
+    """AI-powered quote generation based on car details"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="AI szolgáltatás nem elérhető")
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        # Get all services with prices
+        services = await db.services.find({}, {"_id": 0}).to_list(100)
+        service_list = "\n".join([f"- {s['name']}: {s.get('price', 0)} Ft (kategória: {s.get('category', 'egyéb')}, méret: {s.get('car_size', 'mind')})" for s in services])
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"quote_{uuid.uuid4().hex[:8]}",
+            system_message="Te egy autómosó árajánlat készítő szakértő vagy. Magyar nyelven válaszolj, pontosan és részletesen."
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        # Build context
+        context_parts = [f"Autó típusa: {data.car_type}"]
+        if data.car_size:
+            context_parts.append(f"Autó mérete: {data.car_size}")
+        if data.exterior_dirt_level:
+            context_parts.append(f"Külső szennyezettség: {data.exterior_dirt_level}/10")
+        if data.interior_dirt_level:
+            context_parts.append(f"Belső szennyezettség: {data.interior_dirt_level}/10")
+        if data.services_requested:
+            context_parts.append(f"Kért szolgáltatások: {', '.join(data.services_requested)}")
+        if data.notes:
+            context_parts.append(f"Megjegyzés: {data.notes}")
+        
+        context = "\n".join(context_parts)
+        
+        prompt = f"""Készíts részletes árajánlatot az alábbi autóhoz:
+
+{context}
+
+Elérhető szolgáltatásaink és áraink:
+{service_list}
+
+Készíts árajánlatot JSON formátumban:
+{{
+  "recommended_package": {{
+    "name": "ajánlott csomag neve",
+    "services": ["szolgáltatás1", "szolgáltatás2"],
+    "total_price": összár,
+    "estimated_duration_minutes": becsült idő percben,
+    "reason": "miért ezt ajánlod"
+  }},
+  "alternatives": [
+    {{
+      "name": "alternatív csomag",
+      "services": ["szolgáltatás"],
+      "total_price": ár,
+      "estimated_duration_minutes": idő
+    }}
+  ],
+  "extras_suggested": ["opcionális extra1", "extra2"],
+  "notes": "egyéb megjegyzés az ügyfélnek"
+}}"""
+
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        # Parse response
+        try:
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                result = json.loads(response[json_start:json_end])
+                return result
+        except:
+            pass
+        
+        return {"raw_response": response, "error": "Could not parse AI response"}
+        
+    except Exception as e:
+        logging.error(f"AI quote error: {e}")
+        raise HTTPException(status_code=500, detail=f"Hiba az árajánlat készítéskor: {str(e)}")
+
 app.include_router(api_router)
 
 # CORS middleware - use environment variable for origins
