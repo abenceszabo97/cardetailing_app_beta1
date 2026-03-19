@@ -290,6 +290,15 @@ class DayRecord(BaseModel):
     closed_by: Optional[str] = None
     opened_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: Optional[datetime] = None
+    withdrawals: list = Field(default_factory=list)  # List of cash withdrawals
+    expected_closing: Optional[float] = None  # Expected closing balance
+    discrepancy: Optional[float] = None  # Difference between expected and actual
+
+class CashWithdrawal(BaseModel):
+    amount: float
+    reason: str
+    withdrawn_by: Optional[str] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DayOpenCreate(BaseModel):
     location: str
@@ -297,7 +306,13 @@ class DayOpenCreate(BaseModel):
 
 class DayCloseCreate(BaseModel):
     location: str
+    closing_balance: float
     notes: Optional[str] = None
+
+class CashWithdrawalCreate(BaseModel):
+    location: str
+    amount: float
+    reason: str
 
 # ===================== AUTH HELPERS =====================
 
