@@ -26,8 +26,22 @@ db = client[os.environ['DB_NAME']]
 # Emergent LLM Key for AI features
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 
-app = FastAPI()
+# CORS configuration from environment
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+
+app = FastAPI(title="X-CLEAN API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
+
+# Health check endpoint (no auth required)
+@app.get("/api/health")
+async def health_check():
+    """Health check for deployment"""
+    try:
+        # Test MongoDB connection
+        await db.command("ping")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "database": str(e)}
 
 # Twilio SMS config
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
