@@ -1676,6 +1676,31 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
     cars_change = ((current_cars - prev_cars) / prev_cars * 100) if prev_cars > 0 else 0
     revenue_change = ((current_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
     
+    # Day of week performance (0=Monday, 6=Sunday)
+    day_performance = {i: {"day": i, "revenue": 0, "cars": 0, "count": 0} for i in range(7)}
+    day_names = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"]
+    
+    for job in all_jobs:
+        try:
+            job_date = datetime.fromisoformat(job["date"].replace("Z", "+00:00"))
+            dow = job_date.weekday()
+            day_performance[dow]["revenue"] += job["price"]
+            day_performance[dow]["cars"] += 1
+            day_performance[dow]["count"] += 1
+        except:
+            pass
+    
+    # Calculate averages and find strongest/weakest days
+    for i in range(7):
+        d = day_performance[i]
+        d["name"] = day_names[i]
+        d["avg_revenue"] = round(d["revenue"] / max(d["count"], 1), 0)
+        d["avg_cars"] = round(d["cars"] / max(d["count"], 1), 1)
+    
+    sorted_by_revenue = sorted(day_performance.values(), key=lambda x: x["avg_revenue"], reverse=True)
+    strongest_days = sorted_by_revenue[:2]  # Top 2 strongest days
+    weakest_days = sorted_by_revenue[-2:]  # Bottom 2 weakest days
+    
     return {
         "avg_revenue_per_car": round(avg_revenue_per_car, 0),
         "returning_customers": returning_customers,
@@ -1694,7 +1719,10 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
             "revenue_change_percent": round(revenue_change, 1)
         },
         "employee_revenue": list(employee_revenue.values()),
-        "location_revenue": list(location_revenue.values())
+        "location_revenue": list(location_revenue.values()),
+        "day_performance": list(day_performance.values()),
+        "strongest_days": strongest_days,
+        "weakest_days": weakest_days
     }
 
 # ===================== SEED DATA =====================
