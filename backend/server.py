@@ -1680,11 +1680,11 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
             employee_revenue[wid]["revenue"] += job["price"]
             employee_revenue[wid]["cars"] += 1
     
-    # Revenue per location (current month)
+    # Revenue per location (current month) - Only Debrecen
     location_revenue = {}
     for job in current_jobs:
         loc = job.get("location")
-        if loc:
+        if loc and loc == "Debrecen":  # Only include Debrecen
             if loc not in location_revenue:
                 location_revenue[loc] = {"location": loc, "revenue": 0, "cars": 0}
             location_revenue[loc]["revenue"] += job["price"]
