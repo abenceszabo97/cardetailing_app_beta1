@@ -92,8 +92,6 @@ export const DayManagement = () => {
   };
 
   const handleCloseDay = async () => {
-    if (!window.confirm("Biztosan le szeretnéd zárni a mai napot?")) return;
-    
     try {
       await axios.post(`${API}/day-records/close`, {
         location: selectedLocation,
@@ -102,6 +100,7 @@ export const DayManagement = () => {
       
       toast.success("Nap sikeresen lezárva!");
       setClosingNotes("");
+      setShowCloseDayConfirm(false);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba a napzárásnál");
