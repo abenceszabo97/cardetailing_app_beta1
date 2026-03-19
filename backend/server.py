@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
 import base64
+import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -21,6 +22,9 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Emergent LLM Key for AI features
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
