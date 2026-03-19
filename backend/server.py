@@ -648,9 +648,10 @@ async def get_jobs(
 
 @api_router.get("/jobs/today")
 async def get_today_jobs(location: Optional[str] = None, user: User = Depends(get_current_user)):
-    """Get today's jobs"""
+    """Get today's jobs including bookings"""
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today + timedelta(days=1)
+    today_str = today.strftime("%Y-%m-%d")
     
     query = {
         "date": {
@@ -668,6 +669,44 @@ async def get_today_jobs(location: Optional[str] = None, user: User = Depends(ge
             query["worker_id"] = worker["worker_id"]
     
     jobs = await db.jobs.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    
+    # Also get today's bookings and convert them to job-like format
+    booking_query = {"date": today_str, "status": {"$nin": ["lemondta", "nem_jott_el"]}}
+    if location:
+        booking_query["location"] = location
+    if user.role == "dolgozo":
+        worker = await db.workers.find_one({"user_id": user.user_id}, {"_id": 0})
+        if worker:
+            booking_query["worker_id"] = worker["worker_id"]
+    
+    bookings = await db.bookings.find(booking_query, {"_id": 0}).to_list(500)
+    
+    # Convert bookings to job format for display
+    for b in bookings:
+        # Check if already converted to job (by booking_id)
+        existing_job = next((j for j in jobs if j.get("booking_id") == b["booking_id"]), None)
+        if not existing_job:
+            jobs.append({
+                "job_id": f"bkg_{b['booking_id']}",
+                "booking_id": b["booking_id"],
+                "customer_name": b["customer_name"],
+                "plate_number": b["plate_number"],
+                "service_id": b.get("service_id"),
+                "service_name": b.get("service_name"),
+                "worker_id": b.get("worker_id"),
+                "worker_name": b.get("worker_name"),
+                "location": b["location"],
+                "date": f"{b['date']}T{b['time_slot']}:00",
+                "time_slot": b.get("time_slot"),
+                "price": b.get("price", 0),
+                "status": "foglalt" if b.get("status") == "foglalt" else b.get("status", "foglalt"),
+                "is_booking": True,
+                "phone": b.get("phone"),
+                "car_type": b.get("car_type")
+            })
+    
+    # Sort by time
+    jobs.sort(key=lambda x: x.get("date", "") or x.get("time_slot", ""))
     return jobs
 
 @api_router.post("/jobs")
