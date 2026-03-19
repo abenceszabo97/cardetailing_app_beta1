@@ -46,9 +46,14 @@ export const DayManagement = () => {
   const [todayJobs, setTodayJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCloseDayConfirm, setShowCloseDayConfirm] = useState(false);
+  const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("today"); // today or close
   
   const [openingBalance, setOpeningBalance] = useState("");
+  const [closingBalance, setClosingBalance] = useState("");
   const [closingNotes, setClosingNotes] = useState("");
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [withdrawalReason, setWithdrawalReason] = useState("");
 
   const fetchData = async () => {
     try {
