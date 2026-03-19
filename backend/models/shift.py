@@ -1,0 +1,18 @@
+from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+import uuid
+
+class Shift(BaseModel):
+    shift_id: str = Field(default_factory=lambda: f"shft_{uuid.uuid4().hex[:12]}")
+    worker_id: str
+    worker_name: str
+    location: str
+    start_time: datetime
+    end_time: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ShiftCreate(BaseModel):
+    worker_id: str
+    location: str
+    start_time: datetime
+    end_time: datetime

@@ -63,6 +63,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [x] Blacklist/tiltólista kezelés
 - [x] Budapest eltávolítása
 - [x] Teszt adatok törlése
+- [x] **server.py refaktorálás** (2255 sor → moduláris struktúra)
 - [ ] Google Calendar integráció
 - [ ] Automatikus PDF napzárás és email küldés
 - [ ] AI funkciók frontend felülete (fotó feltöltés, upsell javaslatok)
@@ -70,6 +71,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 
 ## P1 - Közepes prioritás
 - [ ] AI ügyfélszolgálati chatbot
+- [ ] Foglalás visszaigazoló email (user-defined sablon, Resend API kulcs szükséges)
 - [ ] server.py refaktorálás (routes/, models/ mappák)
 
 ## P2 - Későbbi fejlesztés
@@ -81,31 +83,42 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [ ] Twilio API kulcsok konfigurálása az SMS küldéshez
 - [ ] Resend API kulcs konfigurálása az email küldéshez
 
-## Fájl struktúra
+## Fájl struktúra (Refaktorálva 2025-12-19)
 ```
 /app/
 ├── backend/
-│   ├── server.py          # Fő API (2200+ sor)
-│   ├── .env               # MONGO_URL, TWILIO, RESEND, EMERGENT_LLM_KEY
-│   ├── .env.example       # Sablon produkciós env-hez
-│   ├── Procfile           # Railway start command
-│   ├── railway.json       # Railway config
+│   ├── server.py          # Entry point (64 sor)
+│   ├── server_old.py      # Backup (eredeti 2255 soros monolitikus)
+│   ├── config.py          # Konfiguráció
+│   ├── database.py        # MongoDB kapcsolat
+│   ├── dependencies.py    # Auth függőségek
+│   ├── models/            # Pydantic modellek (11 fájl)
+│   │   ├── user.py, customer.py, service.py
+│   │   ├── job.py, worker.py, shift.py
+│   │   ├── booking.py, inventory.py
+│   │   ├── day_record.py, blacklist.py
+│   │   └── __init__.py
+│   ├── routes/            # API útvonalak (15 fájl)
+│   │   ├── auth.py, users.py, customers.py
+│   │   ├── services.py, workers.py, jobs.py
+│   │   ├── shifts.py, bookings.py, inventory.py
+│   │   ├── day_records.py, stats.py
+│   │   ├── notifications.py, blacklist.py
+│   │   ├── ai.py, misc.py
+│   │   └── __init__.py
+│   ├── .env, .env.example
+│   ├── Procfile, railway.json
 │   └── requirements.txt
 ├── frontend/src/
 │   ├── pages/
-│   │   ├── BookingPage.jsx   # Publikus foglalás
-│   │   ├── Calendar.jsx      # Foglalási naptár
-│   │   ├── Dashboard.jsx
-│   │   ├── Customers.jsx     # + Blacklist tab
-│   │   ├── Workers.jsx
-│   │   ├── Statistics.jsx
-│   │   ├── DayManagement.jsx # Pénzelvitel, kasszaellenőrzés
-│   │   └── ...
+│   │   ├── BookingPage.jsx, Calendar.jsx
+│   │   ├── Dashboard.jsx, Customers.jsx
+│   │   ├── Workers.jsx, Statistics.jsx
+│   │   ├── DayManagement.jsx, ...
 │   └── components/
-│       ├── Sidebar.jsx
-│       ├── NotificationBell.jsx
+│       ├── Sidebar.jsx, NotificationBell.jsx
 │       └── ui/
-├── DEPLOYMENT.md          # Telepítési útmutató
+├── DEPLOYMENT.md
 └── memory/PRD.md
 ```
 
