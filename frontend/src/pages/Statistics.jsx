@@ -501,6 +501,68 @@ export const Statistics = () => {
               </CardContent>
             </Card>
 
+            {/* Strongest Days */}
+            <Card className="glass-card" data-testid="strongest-days-card">
+              <CardHeader>
+                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-400" />
+                  Legerősebb napok
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(advancedStats.strongest_days || []).length === 0 ? (
+                  <p className="text-slate-500 text-sm text-center py-4">Nincs elég adat</p>
+                ) : (
+                  <div className="space-y-3">
+                    {advancedStats.strongest_days.map((day, idx) => (
+                      <div key={day.day} className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            idx === 0 ? 'bg-green-500/30 text-green-400' : 'bg-slate-800 text-slate-400'
+                          }`}>{idx + 1}</span>
+                          <div>
+                            <p className="text-white font-medium">{day.name}</p>
+                            <p className="text-slate-500 text-xs">Átl. {day.avg_cars} autó/nap</p>
+                          </div>
+                        </div>
+                        <p className="text-green-400 font-bold">{day.avg_revenue?.toLocaleString()} Ft</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Weakest Days */}
+            <Card className="glass-card" data-testid="weakest-days-card">
+              <CardHeader>
+                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
+                  <TrendingDown className="w-5 h-5 text-red-400" />
+                  Leggyengébb napok
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(advancedStats.weakest_days || []).length === 0 ? (
+                  <p className="text-slate-500 text-sm text-center py-4">Nincs elég adat</p>
+                ) : (
+                  <div className="space-y-3">
+                    {advancedStats.weakest_days.map((day, idx) => (
+                      <div key={day.day} className="flex items-center justify-between p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="w-5 h-5 text-slate-500" />
+                          <div>
+                            <p className="text-white font-medium">{day.name}</p>
+                            <p className="text-slate-500 text-xs">Átl. {day.avg_cars} autó/nap</p>
+                          </div>
+                        </div>
+                        <p className="text-red-400 font-bold">{day.avg_revenue?.toLocaleString()} Ft</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="glass-card" data-testid="top-customers-card">
               <CardHeader>
                 <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
