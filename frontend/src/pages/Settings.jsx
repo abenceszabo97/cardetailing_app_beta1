@@ -98,12 +98,11 @@ export const Settings = () => {
   };
 
   const handleDeleteWorker = async (workerId) => {
-    if (!window.confirm("Biztosan törölni szeretnéd ezt a dolgozót?")) return;
-    
     try {
       await axios.delete(`${API}/workers/${workerId}`, { withCredentials: true });
       toast.success("Dolgozó törölve!");
       fetchData();
+      setDeleteWorkerId(null);
     } catch (error) {
       toast.error("Hiba a dolgozó törlésekor");
     }
