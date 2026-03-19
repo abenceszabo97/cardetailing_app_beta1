@@ -1265,7 +1265,7 @@ async def open_day(data: DayOpenCreate, user: User = Depends(get_current_user)):
 
 @api_router.post("/day-records/close")
 async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)):
-    """Close day"""
+    """Close day with cash audit"""
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today + timedelta(days=1)
     
@@ -1294,7 +1294,15 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
     total_cars = len(jobs)
     cash_total = sum(j["price"] for j in jobs if j.get("payment_method") == "keszpenz")
     card_total = sum(j["price"] for j in jobs if j.get("payment_method") == "kartya")
-    closing_balance = record["opening_balance"] + cash_total
+    
+    # Calculate withdrawals
+    withdrawals = record.get("withdrawals", [])
+    total_withdrawals = sum(w.get("amount", 0) for w in withdrawals)
+    
+    # Expected closing balance = opening + cash revenue - withdrawals
+    expected_closing = record["opening_balance"] + cash_total - total_withdrawals
+    actual_closing = data.closing_balance
+    discrepancy = actual_closing - expected_closing
     
     await db.day_records.update_one(
         {"record_id": record["record_id"]},
@@ -1303,14 +1311,71 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
             "total_cars": total_cars,
             "cash_total": cash_total,
             "card_total": card_total,
-            "closing_balance": closing_balance,
+            "closing_balance": actual_closing,
+            "expected_closing": expected_closing,
+            "discrepancy": discrepancy,
             "notes": data.notes,
             "closed_by": user.user_id,
             "closed_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     
-    return {"message": "Nap lezárva", "total_cars": total_cars, "cash_total": cash_total, "card_total": card_total}
+    # Create notification for day close
+    notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "type": "day_closed",
+        "title": "Nap lezárva",
+        "message": f"{data.location} - {total_cars} autó - {cash_total + card_total:,.0f} Ft bevétel",
+        "location": data.location,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    if abs(discrepancy) > 0:
+        notification["message"] += f" | Eltérés: {discrepancy:+,.0f} Ft"
+    await db.notifications.insert_one(notification)
+    
+    return {
+        "message": "Nap lezárva", 
+        "total_cars": total_cars, 
+        "cash_total": cash_total, 
+        "card_total": card_total,
+        "expected_closing": expected_closing,
+        "actual_closing": actual_closing,
+        "discrepancy": discrepancy
+    }
+
+@api_router.post("/day-records/withdraw")
+async def add_cash_withdrawal(data: CashWithdrawalCreate, user: User = Depends(get_current_user)):
+    """Add cash withdrawal from register"""
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+    
+    record = await db.day_records.find_one({
+        "location": data.location,
+        "status": "open",
+        "date": {
+            "$gte": today.isoformat(),
+            "$lt": tomorrow.isoformat()
+        }
+    }, {"_id": 0})
+    
+    if not record:
+        raise HTTPException(status_code=400, detail="Nincs nyitott nap")
+    
+    withdrawal = {
+        "withdrawal_id": f"wd_{uuid.uuid4().hex[:8]}",
+        "amount": data.amount,
+        "reason": data.reason,
+        "withdrawn_by": user.name,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.day_records.update_one(
+        {"record_id": record["record_id"]},
+        {"$push": {"withdrawals": withdrawal}}
+    )
+    
+    return {"message": "Pénzelvitel rögzítve", "withdrawal": withdrawal}
 
 # ===================== STATISTICS ROUTES =====================
 
