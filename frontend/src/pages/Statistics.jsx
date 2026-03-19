@@ -501,61 +501,40 @@ export const Statistics = () => {
               </CardContent>
             </Card>
 
-            {/* Strongest Days */}
-            <Card className="glass-card" data-testid="strongest-days-card">
+            {/* Strongest Days - All 7 days sorted */}
+            <Card className="glass-card col-span-2" data-testid="strongest-days-card">
               <CardHeader>
                 <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-400" />
-                  Legerősebb napok
+                  Napok teljesítménye
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {(advancedStats.strongest_days || []).length === 0 ? (
+                {(advancedStats.day_performance || []).length === 0 ? (
                   <p className="text-slate-500 text-sm text-center py-4">Nincs elég adat</p>
                 ) : (
-                  <div className="space-y-3">
-                    {advancedStats.strongest_days.map((day, idx) => (
-                      <div key={day.day} className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                  <div className="space-y-2">
+                    {[...advancedStats.day_performance].sort((a, b) => b.avg_revenue - a.avg_revenue).map((day, idx) => (
+                      <div key={day.day} className={`flex items-center justify-between p-3 rounded-lg border ${
+                        idx < 2 ? 'bg-green-500/10 border-green-500/20' : 
+                        idx >= 5 ? 'bg-red-500/10 border-red-500/20' : 
+                        'bg-slate-800/50 border-slate-700/50'
+                      }`}>
                         <div className="flex items-center gap-3">
                           <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            idx === 0 ? 'bg-green-500/30 text-green-400' : 'bg-slate-800 text-slate-400'
+                            idx === 0 ? 'bg-green-500/30 text-green-400' : 
+                            idx === 1 ? 'bg-green-500/20 text-green-400' :
+                            idx >= 5 ? 'bg-red-500/20 text-red-400' :
+                            'bg-slate-800 text-slate-400'
                           }`}>{idx + 1}</span>
                           <div>
                             <p className="text-white font-medium">{day.name}</p>
                             <p className="text-slate-500 text-xs">Átl. {day.avg_cars} autó/nap</p>
                           </div>
                         </div>
-                        <p className="text-green-400 font-bold">{day.avg_revenue?.toLocaleString()} Ft</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Weakest Days */}
-            <Card className="glass-card" data-testid="weakest-days-card">
-              <CardHeader>
-                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
-                  <TrendingDown className="w-5 h-5 text-red-400" />
-                  Leggyengébb napok
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(advancedStats.weakest_days || []).length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">Nincs elég adat</p>
-                ) : (
-                  <div className="space-y-3">
-                    {advancedStats.weakest_days.map((day, idx) => (
-                      <div key={day.day} className="flex items-center justify-between p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                        <div className="flex items-center gap-3">
-                          <Calendar className="w-5 h-5 text-slate-500" />
-                          <div>
-                            <p className="text-white font-medium">{day.name}</p>
-                            <p className="text-slate-500 text-xs">Átl. {day.avg_cars} autó/nap</p>
-                          </div>
-                        </div>
-                        <p className="text-red-400 font-bold">{day.avg_revenue?.toLocaleString()} Ft</p>
+                        <p className={`font-bold ${idx < 2 ? 'text-green-400' : idx >= 5 ? 'text-red-400' : 'text-white'}`}>
+                          {day.avg_revenue?.toLocaleString()} Ft
+                        </p>
                       </div>
                     ))}
                   </div>
