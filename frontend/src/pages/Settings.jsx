@@ -321,7 +321,7 @@ export const Settings = () => {
                           variant="ghost" 
                           size="icon" 
                           className="text-slate-400 hover:text-red-400"
-                          onClick={() => handleDeleteWorker(worker.worker_id)}
+                          onClick={() => setDeleteWorkerId(worker.worker_id)}
                           data-testid={`delete-worker-${worker.worker_id}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -335,6 +335,25 @@ export const Settings = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Worker Confirmation Dialog */}
+      <Dialog open={!!deleteWorkerId} onOpenChange={() => setDeleteWorkerId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Dolgozó törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt a dolgozót?</p>
+          <p className="text-white font-medium">{workers.find(w => w.worker_id === deleteWorkerId)?.name}</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteWorkerId(null)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button variant="destructive" onClick={() => handleDeleteWorker(deleteWorkerId)} className="bg-red-600 hover:bg-red-700">
+              Törlés
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
