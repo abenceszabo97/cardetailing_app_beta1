@@ -209,6 +209,26 @@ export const CustomerDetail = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Customer Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Ügyfél törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt az ügyfelet?</p>
+          <p className="text-white font-medium">{customer?.name}</p>
+          <p className="text-slate-500 text-sm">{customer?.plate_number}</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Törlés
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
