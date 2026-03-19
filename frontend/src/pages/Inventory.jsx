@@ -422,6 +422,25 @@ export const Inventory = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteItemId} onOpenChange={() => setDeleteItemId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Termék törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt a terméket?</p>
+          <p className="text-white font-medium">{inventory.find(i => i.inventory_id === deleteItemId)?.product_name}</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteItemId(null)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button variant="destructive" onClick={() => handleDelete(deleteItemId)} className="bg-red-600 hover:bg-red-700">
+              Törlés
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
