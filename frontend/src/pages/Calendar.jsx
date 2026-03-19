@@ -187,7 +187,7 @@ const Calendar = () => {
   };
 
   const renderDayView = () => {
-    const hours = Array.from({ length: 11 }, (_, i) => i + 8);
+    const hours = Array.from({ length: 12 }, (_, i) => i + 8);
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <div className="grid grid-cols-[80px_1fr] divide-x divide-slate-800">
@@ -229,7 +229,7 @@ const Calendar = () => {
   const renderWeekView = () => {
     const startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
     const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
-    const hours = Array.from({ length: 11 }, (_, i) => i + 8);
+    const hours = Array.from({ length: 12 }, (_, i) => i + 8);
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <div className="grid grid-cols-[60px_repeat(7,1fr)] divide-x divide-slate-800">
