@@ -475,7 +475,7 @@ export const DayManagement = () => {
                   />
                 </div>
                 <Button 
-                  onClick={handleCloseDay}
+                  onClick={() => setShowCloseDayConfirm(true)}
                   className="w-full bg-blue-600 hover:bg-blue-500"
                   data-testid="close-day-btn"
                 >
@@ -487,6 +487,26 @@ export const DayManagement = () => {
           )}
         </>
       )}
+
+      {/* Close Day Confirmation Dialog */}
+      <Dialog open={showCloseDayConfirm} onOpenChange={setShowCloseDayConfirm}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-blue-400">Nap lezárása</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan le szeretnéd zárni a mai napot?</p>
+          <p className="text-white">Telephely: <strong>{selectedLocation}</strong></p>
+          <p className="text-green-400 font-bold">Bevétel: {stats.today_revenue.toLocaleString()} Ft</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowCloseDayConfirm(false)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button onClick={handleCloseDay} className="bg-blue-600 hover:bg-blue-700">
+              Nap lezárása
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
