@@ -406,7 +406,7 @@ export const Inventory = () => {
                                   variant="ghost" 
                                   size="icon" 
                                   className="h-8 w-8 text-slate-400 hover:text-red-400"
-                                  onClick={() => handleDelete(item.inventory_id)}
+                                  onClick={() => setDeleteItemId(item.inventory_id)}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
