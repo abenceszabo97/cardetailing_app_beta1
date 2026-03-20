@@ -60,6 +60,14 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
   - CustomerDetail: Mobil-barát kártya elrendezés
   - Booking: Skálázódó lépések, naptár, időpontok
 
+### V2.4 - AI Chatbot (2025-12-20)
+- **✅ AI Chatbot hozzáadva a foglalási oldalhoz**
+  - Lebegő chat gomb jobb alsó sarokban
+  - Valós idejű beszélgetés a Gemini AI-val
+  - Szolgáltatásokról, árakról, nyitvatartásról informál
+  - Gyors kérdés gombok (Szolgáltatások, Árak, Nyitvatartás, Foglalás)
+  - Session kezelés a folyamatos beszélgetéshez
+
 ### Implementálva de API kulcsok szükségesek
 - **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről
 - **Email küldés (Resend)**: PDF riportok és foglalás visszaigazolás emailben
@@ -89,17 +97,19 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [x] Dolgozó megjelenítés dashboard és naptárban
 - [x] Ebédszünet felvitele műszakhoz
 - [x] Settings mindenki számára elérhető
+- [x] AI Chatbot a foglalási oldalon
 
 ## P0 - Következő iteráció (Kiemelt prioritás)
-- [ ] Google Calendar integráció
-- [ ] Automatikus PDF napzárás és email küldés
-- [ ] Elkészült autó SMS értesítés (Twilio API kulcs szükséges)
-- [ ] Foglalás visszaigazoló email (Resend API kulcs szükséges)
+- [ ] Google Naptár integráció - Foglalások automatikus szinkronizálása
+- [ ] Foglalás megerősítő automatikus email küldés (Resend API kulcs szükséges)
 
-## P1 - Közepes prioritás
-- [ ] AI ügyfélszolgálati chatbot
+## P1 - Közepes prioritás  
+- [ ] Számlázás integráció (pl. Billingo, számlázz.hu)
+- [ ] E-nyugta integráció
+- [ ] Elkészült autó SMS értesítés (Twilio API kulcs szükséges)
 
 ## P2 - Későbbi fejlesztés
+- [ ] Automatikus PDF napzárás és email küldés
 - [ ] AI Marketing (SMS/email emlékeztetők, kuponok, hűségprogram)
 - [ ] AI Analytics
 
@@ -152,6 +162,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Felhasználó kezelés**: Settings oldalon (/settings) admin jogosultsággal
 
 ## Changelog
+- 2025-12-20: V2.4 - AI Chatbot hozzáadva a foglalási oldalhoz
 - 2025-12-20: V2.3 - Frontend refaktorálás: Admin és Booking app szétválasztása, teljes mobil reszponzivitás
 - 2025-12-20: V2.2 - Dolgozó megjelenítés, ebédszünet, Settings mindenki számára
 - 2025-12-20: V2.1 - Username/password auth, two car booking, notifications, AI frontend

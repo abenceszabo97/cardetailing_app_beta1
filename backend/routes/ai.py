@@ -24,6 +24,55 @@ class QuoteRequest(BaseModel):
     services_requested: List[str]
     notes: Optional[str] = None
 
+class ChatMessage(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+@router.post("/ai/chat")
+async def chat_with_assistant(data: ChatMessage):
+    """Chat with AI assistant about car wash services"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        services = await db.services.find({}, {"_id": 0}).to_list(100)
+        services_text = "\n".join([f"- {s['name']}: {s['price']} Ft ({s.get('category', 'egyéb')}) - {s.get('description', '')}" for s in services])
+        
+        system_prompt = f"""Te az X-CLEAN autómosó AI asszisztense vagy. Segíts az ügyfeleknek a szolgáltatásokkal kapcsolatos kérdésekben.
+
+Elérhető szolgáltatások:
+{services_text}
+
+Fontos információk:
+- Telephely: Debrecen
+- Nyitvatartás: H-P 8:00-18:00, Sz 8:00-14:00
+- Foglalás az oldalon keresztül lehetséges
+- VIP státusz 5+ sikeres mosás után jár
+
+Legyél kedves, segítőkész és tömör. Válaszolj magyarul. Ha nem tudsz valamit, ajánld fel, hogy az ügyfél hívja a telephelyet."""
+        
+        session_id = data.session_id or f"chat_{uuid.uuid4().hex[:8]}"
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=session_id,
+            system_message=system_prompt
+        ).with_model("gemini", "gemini-2.0-flash")
+        
+        user_message = UserMessage(text=data.message)
+        response = await chat.send_message(user_message)
+        
+        return {
+            "response": response,
+            "session_id": session_id
+        }
+        
+    except Exception as e:
+        logging.error(f"AI chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI hiba: {str(e)}")
+
 @router.post("/ai/upsell")
 async def get_upsell_suggestions(data: UpsellRequest):
     """Get AI-powered upsell suggestions"""

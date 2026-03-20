@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { API } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -8,8 +8,159 @@ import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 import { 
   Sparkles, Camera, Loader2, AlertCircle, 
-  TrendingUp, ChevronDown, ChevronUp, Upload, X
+  TrendingUp, ChevronDown, ChevronUp, Upload, X,
+  MessageCircle, Send, Bot, User
 } from "lucide-react";
+
+// AI Chatbot Component
+export const AIChatbot = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "Szia! Én vagyok az X-CLEAN AI asszisztense. Miben segíthetek? Kérdezhetsz a szolgáltatásainkról, árainkról vagy a foglalásról!" }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async (e) => {
+    e?.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const userMessage = input.trim();
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    setLoading(true);
+
+    try {
+      const response = await axios.post(`${API}/ai/chat`, {
+        message: userMessage,
+        session_id: sessionId
+      });
+      
+      setSessionId(response.data.session_id);
+      setMessages(prev => [...prev, { role: "assistant", content: response.data.response }]);
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || "Hiba történt, próbáld újra!";
+      setMessages(prev => [...prev, { role: "assistant", content: `Sajnálom, ${errorMsg}` }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Chat Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-lg shadow-green-500/30 flex items-center justify-center hover:scale-105 transition-transform"
+        data-testid="chatbot-toggle"
+      >
+        {isOpen ? (
+          <X className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+        ) : (
+          <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+        )}
+      </button>
+
+      {/* Chat Window */}
+      {isOpen && (
+        <div className="fixed bottom-20 sm:bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-96 max-h-[70vh] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden" data-testid="chatbot-window">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold">X-CLEAN Asszisztens</h3>
+              <p className="text-green-100 text-xs">Online - válaszolok azonnal</p>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[45vh]">
+            {messages.map((msg, i) => (
+              <div 
+                key={i}
+                className={`flex items-start gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  msg.role === "user" ? "bg-blue-500/20" : "bg-green-500/20"
+                }`}>
+                  {msg.role === "user" ? (
+                    <User className="w-4 h-4 text-blue-400" />
+                  ) : (
+                    <Bot className="w-4 h-4 text-green-400" />
+                  )}
+                </div>
+                <div className={`max-w-[75%] p-3 rounded-2xl text-sm ${
+                  msg.role === "user" 
+                    ? "bg-blue-500 text-white rounded-br-md" 
+                    : "bg-slate-800 text-slate-200 rounded-bl-md"
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-green-400" />
+                </div>
+                <div className="bg-slate-800 p-3 rounded-2xl rounded-bl-md">
+                  <Loader2 className="w-5 h-5 text-green-400 animate-spin" />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <form onSubmit={sendMessage} className="p-3 border-t border-slate-700 flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Írj üzenetet..."
+              className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 text-sm"
+              disabled={loading}
+              data-testid="chatbot-input"
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={loading || !input.trim()}
+              className="bg-green-500 hover:bg-green-400"
+              data-testid="chatbot-send"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </form>
+
+          {/* Quick Actions */}
+          <div className="px-3 pb-3 flex flex-wrap gap-1.5">
+            {["Szolgáltatások", "Árak", "Nyitvatartás", "Foglalás"].map(q => (
+              <button
+                key={q}
+                onClick={() => { setInput(q); }}
+                className="px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-full transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 // AI Upsell Suggestions Component
 export const AIUpsellSuggestions = ({ carType, currentService, onSelectService }) => {
@@ -388,4 +539,4 @@ export const AIQuoteGenerator = ({ carType, condition, services, notes }) => {
   );
 };
 
-export default { AIUpsellSuggestions, AIPhotoAnalysis, AIQuoteGenerator };
+export default { AIUpsellSuggestions, AIPhotoAnalysis, AIQuoteGenerator, AIChatbot };

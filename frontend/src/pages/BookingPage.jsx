@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
+import { AIChatbot } from "../components/AIComponents";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -758,6 +759,9 @@ const BookingPage = () => {
           )}
         </div>
       </div>
+      
+      {/* AI Chatbot */}
+      <AIChatbot />
     </div>
   );
 };
