@@ -7,9 +7,23 @@ from datetime import datetime, timezone, timedelta
 from dependencies import get_current_user
 from database import db
 from models.user import User
-from models.job import Job, JobCreate, JobUpdate
+from models.job import Job, JobCreate, JobUpdate, IMAGE_SLOT_LABELS_BEFORE, IMAGE_SLOT_LABELS_AFTER, IMAGE_SLOTS_BEFORE, IMAGE_SLOTS_AFTER
 
 router = APIRouter()
+
+@router.get("/jobs/image-slots")
+async def get_image_slots():
+    """Get image slot definitions for before/after photos"""
+    return {
+        "before": {
+            "slots": IMAGE_SLOTS_BEFORE,
+            "labels": IMAGE_SLOT_LABELS_BEFORE
+        },
+        "after": {
+            "slots": IMAGE_SLOTS_AFTER,
+            "labels": IMAGE_SLOT_LABELS_AFTER
+        }
+    }
 
 @router.get("/jobs")
 async def get_jobs(

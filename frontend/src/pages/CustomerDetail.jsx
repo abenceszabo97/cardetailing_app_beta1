@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
   Dialog,
   DialogContent,
@@ -25,10 +26,26 @@ import {
   Trash2,
   Save,
   X,
-  Loader2
+  Loader2,
+  Image,
+  ZoomIn,
+  ArrowLeftRight,
+  Camera
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
+
+// Image slot labels for comparison view
+const IMAGE_COMPARISON_PAIRS = [
+  { beforeId: "kulter_elol_jobb", afterId: "elol_jobb", label: "Elől jobboldal" },
+  { beforeId: "kulter_elol_bal", afterId: "elol_bal", label: "Elől baloldal" },
+  { beforeId: "kulter_hatul_jobb", afterId: "hatul_jobb", label: "Hátul jobboldal" },
+  { beforeId: "kulter_hatul_bal", afterId: "hatul_bal", label: "Hátul baloldal" },
+  { beforeId: "belter_elol_bal", afterId: "belter_elol_bal", label: "Beltér elől bal" },
+  { beforeId: "belter_elol_jobb", afterId: "belter_elol_jobb", label: "Beltér elől jobb" },
+  { beforeId: "belter_hatul_bal", afterId: "belter_hatul_bal", label: "Beltér hátul bal" },
+  { beforeId: "belter_hatul_jobb", afterId: "belter_hatul_jobb", label: "Beltér hátul jobb" },
+];
 
 export const CustomerDetail = () => {
   const { customerId } = useParams();
@@ -38,6 +55,8 @@ export const CustomerDetail = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedJobImages, setSelectedJobImages] = useState(null);
+  const [fullscreenImage, setFullscreenImage] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -238,7 +257,10 @@ export const CustomerDetail = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {jobs.map((job) => (
+              {jobs.map((job) => {
+                const hasImages = job.images_before && Object.keys(job.images_before).length > 0 || 
+                                  job.images_after && Object.keys(job.images_after).length > 0;
+                return (
                 <div 
                   key={job.job_id}
                   className="bg-slate-950/50 rounded-xl p-4 border border-slate-800"
@@ -254,6 +276,17 @@ export const CustomerDetail = () => {
                         {format(new Date(job.date), 'yyyy. MMMM d. HH:mm', { locale: hu })}
                       </p>
                       <p className="text-slate-600 text-xs mt-1">{job.location}</p>
+                      {hasImages && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs text-slate-400 hover:text-white mt-2 px-2"
+                          onClick={() => setSelectedJobImages(job)}
+                        >
+                          <Image className="w-3 h-3 mr-1" />
+                          Képek megtekintése
+                        </Button>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold text-green-400">{job.price.toLocaleString()} Ft</p>
@@ -265,7 +298,7 @@ export const CustomerDetail = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>
@@ -362,6 +395,115 @@ export const CustomerDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Job Images Dialog */}
+      <Dialog open={!!selectedJobImages} onOpenChange={() => setSelectedJobImages(null)}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-['Manrope'] flex items-center gap-2">
+              <Camera className="w-5 h-5 text-green-400" />
+              Képek - {selectedJobImages?.service_name}
+              <span className="text-slate-400 text-sm ml-2">
+                ({selectedJobImages && format(new Date(selectedJobImages.date), 'yyyy. MM. d.', { locale: hu })})
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedJobImages && (
+            <div className="space-y-4 mt-4">
+              <p className="text-slate-400 text-sm">Előtte és utána képek összehasonlítása</p>
+              
+              {IMAGE_COMPARISON_PAIRS.map((pair) => {
+                const beforeImage = selectedJobImages.images_before?.[pair.beforeId];
+                const afterImage = selectedJobImages.images_after?.[pair.afterId];
+                
+                if (!beforeImage && !afterImage) return null;
+                
+                return (
+                  <div key={pair.beforeId} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <ArrowLeftRight className="w-4 h-4 text-green-400" />
+                      {pair.label}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Before */}
+                      <div>
+                        <p className="text-orange-400 text-xs mb-2 flex items-center gap-1">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Előtte
+                        </p>
+                        {beforeImage ? (
+                          <img 
+                            src={beforeImage} 
+                            alt={`Előtte - ${pair.label}`} 
+                            className="w-full aspect-[4/3] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setFullscreenImage(beforeImage)}
+                          />
+                        ) : (
+                          <div className="w-full aspect-[4/3] bg-slate-700/50 rounded-lg flex items-center justify-center">
+                            <span className="text-slate-500 text-sm">Nincs kép</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* After */}
+                      <div>
+                        <p className="text-green-400 text-xs mb-2 flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          Utána
+                        </p>
+                        {afterImage ? (
+                          <img 
+                            src={afterImage} 
+                            alt={`Utána - ${pair.label}`} 
+                            className="w-full aspect-[4/3] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setFullscreenImage(afterImage)}
+                          />
+                        ) : (
+                          <div className="w-full aspect-[4/3] bg-slate-700/50 rounded-lg flex items-center justify-center">
+                            <span className="text-slate-500 text-sm">Nincs kép</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Show message if no images */}
+              {IMAGE_COMPARISON_PAIRS.every(pair => 
+                !selectedJobImages.images_before?.[pair.beforeId] && !selectedJobImages.images_after?.[pair.afterId]
+              ) && (
+                <div className="text-center py-8 text-slate-400">
+                  <Camera className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Ehhez a munkához nem tartoznak képek</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Fullscreen Image Viewer */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" 
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30" 
+            onClick={() => setFullscreenImage(null)}
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <img 
+            src={fullscreenImage} 
+            alt="Teljes méret" 
+            className="max-w-full max-h-full object-contain" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
     </div>
   );
 };

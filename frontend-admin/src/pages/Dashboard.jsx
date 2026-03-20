@@ -21,6 +21,7 @@ import {
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
   Car, 
   Calendar, 
@@ -34,11 +35,37 @@ import {
   Image,
   X,
   Upload,
-  ZoomIn
+  ZoomIn,
+  Camera,
+  Check,
+  ArrowLeftRight
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
+
+// Image slot definitions
+const IMAGE_SLOTS_BEFORE = [
+  { id: "kulter_elol_jobb", label: "Kültér Előlről jobboldal", category: "kulter" },
+  { id: "kulter_elol_bal", label: "Kültér Elől baloldal", category: "kulter" },
+  { id: "kulter_hatul_jobb", label: "Kültér Hátul jobboldal", category: "kulter" },
+  { id: "kulter_hatul_bal", label: "Kültér Hátul baloldal", category: "kulter" },
+  { id: "belter_elol_bal", label: "Beltér elől baloldal", category: "belter" },
+  { id: "belter_elol_jobb", label: "Beltér elől jobboldal", category: "belter" },
+  { id: "belter_hatul_bal", label: "Beltér hátul baloldal", category: "belter" },
+  { id: "belter_hatul_jobb", label: "Beltér hátul jobboldal", category: "belter" },
+];
+
+const IMAGE_SLOTS_AFTER = [
+  { id: "elol_jobb", label: "Előlről jobboldal", category: "kulter", matchBefore: "kulter_elol_jobb" },
+  { id: "elol_bal", label: "Elől baloldal", category: "kulter", matchBefore: "kulter_elol_bal" },
+  { id: "hatul_jobb", label: "Hátul jobboldal", category: "kulter", matchBefore: "kulter_hatul_jobb" },
+  { id: "hatul_bal", label: "Hátul baloldal", category: "kulter", matchBefore: "kulter_hatul_bal" },
+  { id: "belter_elol_bal", label: "Beltér elől baloldal", category: "belter", matchBefore: "belter_elol_bal" },
+  { id: "belter_elol_jobb", label: "Beltér elől jobboldal", category: "belter", matchBefore: "belter_elol_jobb" },
+  { id: "belter_hatul_bal", label: "Beltér hátul baloldal", category: "belter", matchBefore: "belter_hatul_bal" },
+  { id: "belter_hatul_jobb", label: "Beltér hátul jobboldal", category: "belter", matchBefore: "belter_hatul_jobb" },
+];
 
 export const Dashboard = () => {
   const { user } = useAuth();
@@ -56,11 +83,12 @@ export const Dashboard = () => {
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(null); // slot id being uploaded
   const [fullscreenImage, setFullscreenImage] = useState(null);
+  const [imageViewMode, setImageViewMode] = useState("slots"); // slots or comparison
   
-  const beforeFileRef = useRef(null);
-  const afterFileRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [currentUploadSlot, setCurrentUploadSlot] = useState(null);
   
   const [newJob, setNewJob] = useState({
     customer_id: "",
@@ -134,18 +162,21 @@ export const Dashboard = () => {
     }
   };
 
-  const handleFileUpload = async (file, type) => {
-    if (!file || !selectedJob) return;
+  const handleSlotUploadClick = (slotId, type) => {
+    setCurrentUploadSlot({ slotId, type });
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedJob || !currentUploadSlot) return;
     
+    e.target.value = '';
+    
+    const { slotId, type } = currentUploadSlot;
     const job = todayJobs.find(j => j.job_id === selectedJob.job_id);
-    const currentImages = type === 'before' ? (job?.images_before || []) : (job?.images_after || []);
     
-    if (currentImages.length >= 9) {
-      toast.error("Maximum 9 kép tölthető fel!");
-      return;
-    }
-    
-    setUploading(true);
+    setUploading(slotId);
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -156,10 +187,16 @@ export const Dashboard = () => {
       });
       
       const imageUrl = uploadRes.data.url;
-      const updatedImages = [...currentImages, imageUrl];
+      const currentImages = type === 'before' 
+        ? (job?.images_before || {})
+        : (job?.images_after || {});
+      
+      // Convert array to object if needed (backwards compatibility)
+      const imagesObj = Array.isArray(currentImages) ? {} : { ...currentImages };
+      imagesObj[slotId] = imageUrl;
       
       await axios.put(`${API}/jobs/${selectedJob.job_id}`, {
-        [type === 'before' ? 'images_before' : 'images_after']: updatedImages
+        [type === 'before' ? 'images_before' : 'images_after']: imagesObj
       }, { withCredentials: true });
       
       toast.success("Kép feltöltve!");
@@ -167,26 +204,49 @@ export const Dashboard = () => {
     } catch (error) {
       toast.error("Hiba a kép feltöltésekor");
     } finally {
-      setUploading(false);
+      setUploading(null);
+      setCurrentUploadSlot(null);
     }
   };
 
-  const handleRemoveImage = async (jobId, type, index) => {
+  const handleRemoveImage = async (jobId, type, slotId) => {
     const job = todayJobs.find(j => j.job_id === jobId);
     if (!job) return;
     
-    const currentImages = type === 'before' ? (job.images_before || []) : (job.images_after || []);
-    const updatedImages = currentImages.filter((_, i) => i !== index);
+    const currentImages = type === 'before' 
+      ? (job.images_before || {})
+      : (job.images_after || {});
+    
+    // Convert array to object if needed
+    const imagesObj = Array.isArray(currentImages) ? {} : { ...currentImages };
+    delete imagesObj[slotId];
     
     try {
       await axios.put(`${API}/jobs/${jobId}`, {
-        [type === 'before' ? 'images_before' : 'images_after']: updatedImages
+        [type === 'before' ? 'images_before' : 'images_after']: imagesObj
       }, { withCredentials: true });
       toast.success("Kép törölve!");
       fetchData();
     } catch (error) {
       toast.error("Hiba a kép törlésekor");
     }
+  };
+
+  const getImageCount = (job) => {
+    const beforeCount = job?.images_before 
+      ? (Array.isArray(job.images_before) ? job.images_before.length : Object.keys(job.images_before).length)
+      : 0;
+    const afterCount = job?.images_after 
+      ? (Array.isArray(job.images_after) ? job.images_after.length : Object.keys(job.images_after).length)
+      : 0;
+    return beforeCount + afterCount;
+  };
+
+  const getSlotImage = (job, type, slotId) => {
+    const images = type === 'before' ? job?.images_before : job?.images_after;
+    if (!images) return null;
+    if (Array.isArray(images)) return null; // Old format
+    return images[slotId] || null;
   };
 
   const getStatusBadge = (status) => {
@@ -451,7 +511,7 @@ export const Dashboard = () => {
                           </div>
                           <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-400 hover:text-white mt-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
                             <Image className="w-3 h-3 mr-1" />
-                            Képek ({(job.images_before?.length || 0) + (job.images_after?.length || 0)})
+                            Képek ({getImageCount(job)})
                           </Button>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -507,75 +567,227 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Image Dialog with Gallery */}
-      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-['Manrope']">Képek - {selectedJob?.plate_number}</DialogTitle>
-          </DialogHeader>
-          {selectedJob && (
-            <div className="space-y-6 mt-4">
-              {/* Before Images */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-slate-300 text-lg font-semibold">Előtte ({selectedJob.images_before?.length || 0}/9)</Label>
-                  <div>
-                    <input type="file" ref={beforeFileRef} className="hidden" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) { handleFileUpload(e.target.files[0], 'before'); e.target.value = ''; }}} />
-                    <Button size="sm" onClick={() => beforeFileRef.current?.click()} className="bg-green-600 hover:bg-green-500" disabled={uploading || (selectedJob.images_before?.length || 0) >= 9}>
-                      <Upload className="w-4 h-4 mr-1" />{uploading ? "..." : "Feltöltés"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {(selectedJob.images_before || []).map((url, idx) => (
-                    <div key={idx} className="relative group aspect-square">
-                      <img src={url} alt={`Előtte ${idx + 1}`} className="w-full h-full object-cover rounded-lg cursor-pointer" onClick={() => setFullscreenImage(url)} />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                        <button onClick={() => setFullscreenImage(url)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
-                          <ZoomIn className="w-4 h-4 text-white" />
-                        </button>
-                        <button onClick={() => handleRemoveImage(selectedJob.job_id, 'before', idx)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
-                          <X className="w-4 h-4 text-white" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {(!selectedJob.images_before || selectedJob.images_before.length === 0) && (
-                    <p className="text-slate-500 text-sm col-span-3 text-center py-4">Nincs kép</p>
-                  )}
-                </div>
-              </div>
+      {/* Hidden file input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*" 
+        onChange={handleFileSelected}
+      />
 
-              {/* After Images */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-slate-300 text-lg font-semibold">Utána ({selectedJob.images_after?.length || 0}/9)</Label>
+      {/* Image Dialog with Named Slots */}
+      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-['Manrope'] flex items-center gap-2">
+              <Camera className="w-5 h-5 text-green-400" />
+              Képek - {selectedJob?.plate_number}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedJob && (
+            <div className="mt-4">
+              {/* View Mode Tabs */}
+              <Tabs value={imageViewMode} onValueChange={setImageViewMode} className="w-full">
+                <TabsList className="bg-slate-800 border border-slate-700 mb-4">
+                  <TabsTrigger value="slots" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Feltöltés
+                  </TabsTrigger>
+                  <TabsTrigger value="comparison" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+                    <ArrowLeftRight className="w-4 h-4 mr-2" />
+                    Előtte-Utána
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Slots Upload View */}
+                <TabsContent value="slots" className="space-y-6">
+                  {/* Before Images */}
                   <div>
-                    <input type="file" ref={afterFileRef} className="hidden" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) { handleFileUpload(e.target.files[0], 'after'); e.target.value = ''; }}} />
-                    <Button size="sm" onClick={() => afterFileRef.current?.click()} className="bg-green-600 hover:bg-green-500" disabled={uploading || (selectedJob.images_after?.length || 0) >= 9}>
-                      <Upload className="w-4 h-4 mr-1" />{uploading ? "..." : "Feltöltés"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {(selectedJob.images_after || []).map((url, idx) => (
-                    <div key={idx} className="relative group aspect-square">
-                      <img src={url} alt={`Utána ${idx + 1}`} className="w-full h-full object-cover rounded-lg cursor-pointer" onClick={() => setFullscreenImage(url)} />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                        <button onClick={() => setFullscreenImage(url)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
-                          <ZoomIn className="w-4 h-4 text-white" />
-                        </button>
-                        <button onClick={() => handleRemoveImage(selectedJob.job_id, 'after', idx)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
-                          <X className="w-4 h-4 text-white" />
-                        </button>
-                      </div>
+                    <Label className="text-slate-300 text-lg font-semibold flex items-center gap-2 mb-4">
+                      <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
+                      Előtte képek
+                    </Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {IMAGE_SLOTS_BEFORE.map((slot) => {
+                        const imageUrl = getSlotImage(selectedJob, 'before', slot.id);
+                        return (
+                          <div key={slot.id} className="relative">
+                            <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
+                              {imageUrl ? (
+                                <div className="relative w-full h-full group">
+                                  <img 
+                                    src={imageUrl} 
+                                    alt={slot.label} 
+                                    className="w-full h-full object-cover cursor-pointer"
+                                    onClick={() => setFullscreenImage(imageUrl)}
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
+                                      <ZoomIn className="w-4 h-4 text-white" />
+                                    </button>
+                                    <button onClick={() => handleRemoveImage(selectedJob.job_id, 'before', slot.id)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
+                                      <X className="w-4 h-4 text-white" />
+                                    </button>
+                                  </div>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                    <Check className="w-3 h-3 text-green-400 inline mr-1" />
+                                    <span className="text-[10px] text-white">{slot.label}</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => handleSlotUploadClick(slot.id, 'before')}
+                                  disabled={uploading === slot.id}
+                                  className="w-full h-full flex flex-col items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+                                >
+                                  {uploading === slot.id ? (
+                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-500 border-t-green-400" />
+                                  ) : (
+                                    <>
+                                      <Camera className="w-6 h-6 mb-1" />
+                                      <span className="text-[10px] text-center px-1">{slot.label}</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                  {(!selectedJob.images_after || selectedJob.images_after.length === 0) && (
-                    <p className="text-slate-500 text-sm col-span-3 text-center py-4">Nincs kép</p>
+                  </div>
+
+                  {/* After Images */}
+                  <div>
+                    <Label className="text-slate-300 text-lg font-semibold flex items-center gap-2 mb-4">
+                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                      Utána képek
+                    </Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {IMAGE_SLOTS_AFTER.map((slot) => {
+                        const imageUrl = getSlotImage(selectedJob, 'after', slot.id);
+                        return (
+                          <div key={slot.id} className="relative">
+                            <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
+                              {imageUrl ? (
+                                <div className="relative w-full h-full group">
+                                  <img 
+                                    src={imageUrl} 
+                                    alt={slot.label} 
+                                    className="w-full h-full object-cover cursor-pointer"
+                                    onClick={() => setFullscreenImage(imageUrl)}
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
+                                      <ZoomIn className="w-4 h-4 text-white" />
+                                    </button>
+                                    <button onClick={() => handleRemoveImage(selectedJob.job_id, 'after', slot.id)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
+                                      <X className="w-4 h-4 text-white" />
+                                    </button>
+                                  </div>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                    <Check className="w-3 h-3 text-green-400 inline mr-1" />
+                                    <span className="text-[10px] text-white">{slot.label}</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => handleSlotUploadClick(slot.id, 'after')}
+                                  disabled={uploading === slot.id}
+                                  className="w-full h-full flex flex-col items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+                                >
+                                  {uploading === slot.id ? (
+                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-500 border-t-green-400" />
+                                  ) : (
+                                    <>
+                                      <Camera className="w-6 h-6 mb-1" />
+                                      <span className="text-[10px] text-center px-1">{slot.label}</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Comparison View */}
+                <TabsContent value="comparison" className="space-y-4">
+                  <p className="text-slate-400 text-sm mb-4">Előtte és utána képek egymás mellett az összehasonlításhoz.</p>
+                  
+                  {IMAGE_SLOTS_AFTER.map((afterSlot) => {
+                    const beforeSlot = IMAGE_SLOTS_BEFORE.find(s => s.id === afterSlot.matchBefore);
+                    const beforeImage = beforeSlot ? getSlotImage(selectedJob, 'before', beforeSlot.id) : null;
+                    const afterImage = getSlotImage(selectedJob, 'after', afterSlot.id);
+                    
+                    if (!beforeImage && !afterImage) return null;
+                    
+                    return (
+                      <div key={afterSlot.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                        <h4 className="text-white font-medium mb-3">{afterSlot.label}</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Before */}
+                          <div>
+                            <p className="text-orange-400 text-xs mb-2 flex items-center gap-1">
+                              <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                              Előtte
+                            </p>
+                            {beforeImage ? (
+                              <img 
+                                src={beforeImage} 
+                                alt={`Előtte - ${afterSlot.label}`} 
+                                className="w-full aspect-[4/3] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setFullscreenImage(beforeImage)}
+                              />
+                            ) : (
+                              <div className="w-full aspect-[4/3] bg-slate-700/50 rounded-lg flex items-center justify-center">
+                                <span className="text-slate-500 text-sm">Nincs kép</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* After */}
+                          <div>
+                            <p className="text-green-400 text-xs mb-2 flex items-center gap-1">
+                              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                              Utána
+                            </p>
+                            {afterImage ? (
+                              <img 
+                                src={afterImage} 
+                                alt={`Utána - ${afterSlot.label}`} 
+                                className="w-full aspect-[4/3] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setFullscreenImage(afterImage)}
+                              />
+                            ) : (
+                              <div className="w-full aspect-[4/3] bg-slate-700/50 rounded-lg flex items-center justify-center">
+                                <span className="text-slate-500 text-sm">Nincs kép</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Show message if no comparison images */}
+                  {IMAGE_SLOTS_AFTER.every(slot => {
+                    const beforeSlot = IMAGE_SLOTS_BEFORE.find(s => s.id === slot.matchBefore);
+                    return !getSlotImage(selectedJob, 'before', beforeSlot?.id) && !getSlotImage(selectedJob, 'after', slot.id);
+                  }) && (
+                    <div className="text-center py-8 text-slate-400">
+                      <ArrowLeftRight className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Nincs még összehasonlítható kép</p>
+                      <p className="text-sm mt-1">Tölts fel képeket a "Feltöltés" fülön</p>
+                    </div>
                   )}
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </DialogContent>
