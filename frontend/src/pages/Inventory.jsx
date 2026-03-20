@@ -135,16 +135,16 @@ export const Inventory = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="inventory-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="inventory-page">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Készlet</h1>
-          <p className="text-slate-400 mt-1">{inventory.length} termék összesen</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Készlet</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">{inventory.length} termék összesen</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-[150px] bg-slate-900 border-slate-700 text-white">
+            <SelectTrigger className="w-full sm:w-[150px] bg-slate-900 border-slate-700 text-white text-sm">
               <MapPin className="w-4 h-4 mr-2 text-green-400" />
               <SelectValue placeholder="Telephely" />
             </SelectTrigger>
@@ -156,7 +156,7 @@ export const Inventory = () => {
           
           <Dialog open={isNewItemOpen} onOpenChange={setIsNewItemOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-500" data-testid="new-inventory-btn">
+                <Button className="bg-green-600 hover:bg-green-500 w-full sm:w-auto" data-testid="new-inventory-btn">
                   <Plus className="w-4 h-4 mr-2" />
                   Új termék
                 </Button>

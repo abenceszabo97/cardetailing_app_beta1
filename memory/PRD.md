@@ -48,6 +48,18 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **✅ Ebédszünet felvitele műszakhoz**: Kezdete/Vége időpontok, megjelenítés a naptárban
 - **✅ Settings menüpont mindenki számára**: Profil és jelszóváltás minden felhasználónak elérhető
 
+### V2.3 - Frontend refaktorálás és mobiloptimalizálás (2025-12-20)
+- **✅ Frontend szétválasztás két alkalmazásra**:
+  - `/app/frontend-admin` - Admin dashboard (védett útvonalak)
+  - `/app/frontend-booking` - Publikus foglalási oldal (auth nélkül)
+- **✅ Céglogó hozzáadva**: Login és Booking oldalon, zöld háttérrel
+- **✅ Teljes mobil reszponzivitás**: Minden admin oldal optimalizálva mobilra és tabletre
+  - Dashboard: 2 oszlopos KPI kártyák mobilon
+  - Naptár: Kompakt szűrők, kisebb gombok
+  - Workers, Statistics, Inventory, Services, DayManagement, Settings: Mind reszponzív
+  - CustomerDetail: Mobil-barát kártya elrendezés
+  - Booking: Skálázódó lépések, naptár, időpontok
+
 ### Implementálva de API kulcsok szükségesek
 - **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről
 - **Email küldés (Resend)**: PDF riportok és foglalás visszaigazolás emailben
@@ -140,7 +152,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Felhasználó kezelés**: Settings oldalon (/settings) admin jogosultsággal
 
 ## Changelog
-- 2025-12-20: V2.3 - Frontend refaktorálás: Admin és Booking app szétválasztása
+- 2025-12-20: V2.3 - Frontend refaktorálás: Admin és Booking app szétválasztása, teljes mobil reszponzivitás
 - 2025-12-20: V2.2 - Dolgozó megjelenítés, ebédszünet, Settings mindenki számára
 - 2025-12-20: V2.1 - Username/password auth, two car booking, notifications, AI frontend
 - 2025-12-19: Server.py refactor, data cleanup, Budapest removed

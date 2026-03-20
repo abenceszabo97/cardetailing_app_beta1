@@ -382,17 +382,17 @@ export const Workers = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="workers-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="workers-page">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Dolgozók</h1>
-          <p className="text-slate-400 mt-1">Dolgozók és műszakok kezelése</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Dolgozók</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Dolgozók és műszakok kezelése</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-[150px] bg-slate-900 border-slate-700 text-white">
-              <MapPin className="w-4 h-4 mr-2 text-green-400" />
+            <SelectTrigger className="w-[130px] sm:w-[150px] bg-slate-900 border-slate-700 text-white text-sm">
+              <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
               <SelectValue placeholder="Telephely" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
@@ -405,29 +405,32 @@ export const Workers = () => {
 
       {/* Main Tabs */}
       <Tabs value={viewMode} onValueChange={setViewMode} className="w-full">
-        <TabsList className="bg-slate-900 border border-slate-800">
-          <TabsTrigger value="workers" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
-            <Users className="w-4 h-4 mr-2" />
-            Dolgozók
+        <TabsList className="bg-slate-900 border border-slate-800 w-full sm:w-auto flex-wrap h-auto p-1">
+          <TabsTrigger value="workers" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-xs sm:text-sm px-2 sm:px-3">
+            <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Dolgozók</span>
+            <span className="sm:hidden">Lista</span>
           </TabsTrigger>
-          <TabsTrigger value="schedule" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
-            <CalendarDays className="w-4 h-4 mr-2" />
-            Műszakbeosztás
+          <TabsTrigger value="schedule" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-xs sm:text-sm px-2 sm:px-3">
+            <CalendarDays className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Műszakbeosztás</span>
+            <span className="sm:hidden">Műszak</span>
           </TabsTrigger>
-          <TabsTrigger value="stats" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Statisztika
+          <TabsTrigger value="stats" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-xs sm:text-sm px-2 sm:px-3">
+            <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Statisztika</span>
+            <span className="sm:hidden">Stat</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Workers Tab */}
-        <TabsContent value="workers" className="mt-6">
+        <TabsContent value="workers" className="mt-4 sm:mt-6">
           <Card className="glass-card">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-xl text-white font-['Manrope']">Dolgozók listája</CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl text-white font-['Manrope']">Dolgozók listája</CardTitle>
               <Dialog open={isNewWorkerOpen} onOpenChange={setIsNewWorkerOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-green-600 hover:bg-green-500" data-testid="new-worker-btn">
+                    <Button className="bg-green-600 hover:bg-green-500 w-full sm:w-auto" data-testid="new-worker-btn">
                       <UserPlus className="w-4 h-4 mr-2" />
                       Új dolgozó
                     </Button>

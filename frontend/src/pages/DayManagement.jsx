@@ -279,17 +279,17 @@ export const DayManagement = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="day-management-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="day-management-page">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Napnyitás / Napzárás</h1>
-          <p className="text-slate-400 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Napnyitás / Napzárás</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">
             {format(new Date(), 'yyyy. MMMM d. EEEE', { locale: hu })}
           </p>
         </div>
         <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-          <SelectTrigger className="w-[180px] bg-slate-900 border-slate-700 text-white" data-testid="day-location-select">
+          <SelectTrigger className="w-full sm:w-[180px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="day-location-select">
             <MapPin className="w-4 h-4 mr-2 text-green-400" />
             <SelectValue />
           </SelectTrigger>
@@ -301,36 +301,36 @@ export const DayManagement = () => {
 
       {/* Day Status Card */}
       <Card className={`glass-card ${todayRecord?.status === 'closed' ? 'border-green-500/30' : todayRecord ? 'border-orange-500/30' : 'border-red-500/30'}`}>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             {todayRecord?.status === 'closed' ? (
               <>
-                <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                  <Lock className="w-6 h-6 text-green-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-green-400 font-semibold">Nap lezárva</p>
-                  <p className="text-slate-400 text-sm">A mai nap le van zárva a(z) {selectedLocation} telephelyen</p>
+                  <p className="text-green-400 font-semibold text-sm sm:text-base">Nap lezárva</p>
+                  <p className="text-slate-400 text-xs sm:text-sm">A mai nap le van zárva a(z) {selectedLocation} telephelyen</p>
                 </div>
               </>
             ) : todayRecord ? (
               <>
-                <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                  <Sun className="w-6 h-6 text-orange-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Sun className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-orange-400 font-semibold">Nap nyitva</p>
-                  <p className="text-slate-400 text-sm">Nyitó egyenleg: {todayRecord.opening_balance.toLocaleString()} Ft</p>
+                  <p className="text-orange-400 font-semibold text-sm sm:text-base">Nap nyitva</p>
+                  <p className="text-slate-400 text-xs sm:text-sm">Nyitó egyenleg: {todayRecord.opening_balance.toLocaleString()} Ft</p>
                 </div>
               </>
             ) : (
               <>
-                <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
-                  <Moon className="w-6 h-6 text-red-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Moon className="w-5 h-5 sm:w-6 sm:h-6 text-red-400" />
                 </div>
                 <div>
-                  <p className="text-red-400 font-semibold">Nap nincs nyitva</p>
-                  <p className="text-slate-400 text-sm">Nyisd meg a napot a munkavégzés megkezdéséhez</p>
+                  <p className="text-red-400 font-semibold text-sm sm:text-base">Nap nincs nyitva</p>
+                  <p className="text-slate-400 text-xs sm:text-sm">Nyisd meg a napot a munkavégzés megkezdéséhez</p>
                 </div>
               </>
             )}

@@ -129,32 +129,34 @@ export const CustomerDetail = () => {
   if (!customer) return null;
 
   return (
-    <div className="space-y-6" data-testid="customer-detail-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="customer-detail-page">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <Link to="/customers">
           <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">{customer.name}</h1>
-          <p className="text-slate-400 mt-1">Ügyfél részletei</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">{customer.name}</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Ügyfél részletei</p>
         </div>
         {user?.role === "admin" && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button 
               variant="outline" 
               onClick={startEditing}
-              className="border-slate-700 text-slate-300 hover:text-white"
+              className="border-slate-700 text-slate-300 hover:text-white flex-1 sm:flex-none"
               data-testid="edit-customer-btn"
             >
               <Edit className="w-4 h-4 mr-2" />
-              Szerkesztés
+              <span className="hidden sm:inline">Szerkesztés</span>
+              <span className="sm:hidden">Szerk.</span>
             </Button>
             <Button 
               variant="destructive" 
               onClick={() => setShowDeleteConfirm(true)}
+              className="flex-1 sm:flex-none"
               data-testid="delete-customer-btn"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -165,30 +167,30 @@ export const CustomerDetail = () => {
       </div>
 
       {/* Customer Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
         <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <Phone className="w-5 h-5 text-blue-400" />
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Telefonszám</p>
-                <p className="text-white font-medium">{customer.phone}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Telefonszám</p>
+                <p className="text-white font-medium text-sm sm:text-base truncate">{customer.phone}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                <Car className="w-5 h-5 text-purple-400" />
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                <Car className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Autó típusa</p>
-                <p className="text-white font-medium">{customer.car_type || "-"}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Autó típusa</p>
+                <p className="text-white font-medium text-sm sm:text-base truncate">{customer.car_type || "-"}</p>
               </div>
             </div>
           </CardContent>

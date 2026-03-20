@@ -278,40 +278,40 @@ export const Settings = () => {
   if (user?.role !== "admin") {
     // Non-admin users can only see their own profile and change password
     return (
-      <div className="space-y-6" data-testid="settings-page">
+      <div className="space-y-4 sm:space-y-6" data-testid="settings-page">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Beállítások</h1>
-          <p className="text-slate-400 mt-1">Személyes beállítások</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Beállítások</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Személyes beállítások</p>
         </div>
         
         {/* Profile Card */}
         <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
-              <UserCog className="w-5 h-5 text-green-400" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+              <UserCog className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               Profil
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center">
-                <span className="text-white text-2xl font-medium">{user?.name?.charAt(0) || 'U'}</span>
+          <CardContent className="space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-700 rounded-full flex items-center justify-center">
+                <span className="text-white text-xl sm:text-2xl font-medium">{user?.name?.charAt(0) || 'U'}</span>
               </div>
               <div>
-                <p className="text-white font-medium text-lg">{user?.name}</p>
-                <p className="text-slate-400">@{user?.username || 'n/a'}</p>
-                <Badge className="mt-1 bg-blue-500/20 text-blue-300">{user?.role === 'admin' ? 'Admin' : 'Dolgozó'}</Badge>
+                <p className="text-white font-medium text-base sm:text-lg">{user?.name}</p>
+                <p className="text-slate-400 text-sm">@{user?.username || 'n/a'}</p>
+                <Badge className="mt-1 bg-blue-500/20 text-blue-300 text-xs">{user?.role === 'admin' ? 'Admin' : 'Dolgozó'}</Badge>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4 border-t border-slate-700">
               <div>
-                <span className="text-slate-400 text-sm">Email</span>
-                <p className="text-white">{user?.email || '-'}</p>
+                <span className="text-slate-400 text-xs sm:text-sm">Email</span>
+                <p className="text-white text-sm sm:text-base">{user?.email || '-'}</p>
               </div>
               <div>
-                <span className="text-slate-400 text-sm">Telephely</span>
-                <p className="text-white">{user?.location || 'Nincs megadva'}</p>
+                <span className="text-slate-400 text-xs sm:text-sm">Telephely</span>
+                <p className="text-white text-sm sm:text-base">{user?.location || 'Nincs megadva'}</p>
               </div>
             </div>
           </CardContent>
@@ -319,13 +319,13 @@ export const Settings = () => {
         
         {/* Change Password Card */}
         <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
-              <Key className="w-5 h-5 text-yellow-400" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+              <Key className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
               Jelszó megváltoztatása
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             <ChangePasswordForm />
           </CardContent>
         </Card>
@@ -342,22 +342,22 @@ export const Settings = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="settings-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="settings-page">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Beállítások</h1>
-          <p className="text-slate-400 mt-1">Admin jogosultságú beállítások</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Beállítások</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Admin jogosultságú beállítások</p>
         </div>
-        <Button onClick={handleSeedData} variant="outline" className="border-slate-700 text-slate-300 hover:text-white" data-testid="seed-data-btn">
+        <Button onClick={handleSeedData} variant="outline" className="border-slate-700 text-slate-300 hover:text-white w-full sm:w-auto" data-testid="seed-data-btn">
           Minta adatok betöltése
         </Button>
       </div>
 
       {/* Users Management */}
       <Card className="glass-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
             <Users className="w-5 h-5 text-green-400" />
             Felhasználók kezelése
           </CardTitle>

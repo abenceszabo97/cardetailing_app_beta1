@@ -171,12 +171,12 @@ export const Services = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="services-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="services-page">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Szolgáltatások</h1>
-          <p className="text-slate-400 mt-1">{services.length} szolgáltatás</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Szolgáltatások</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">{services.length} szolgáltatás</p>
         </div>
         <Dialog open={isNewServiceOpen} onOpenChange={(open) => {
             setIsNewServiceOpen(open);

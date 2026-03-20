@@ -319,42 +319,44 @@ const Calendar = () => {
   };
 
   return (
-    <div className="space-y-4" data-testid="calendar-page">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <CalendarIcon className="w-7 h-7 text-green-400" />
+    <div className="space-y-3 sm:space-y-4" data-testid="calendar-page">
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5 sm:w-7 sm:h-7 text-green-400" />
           Foglalási naptár
         </h1>
         
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={location} onValueChange={setLocation}>
-            <SelectTrigger className="w-36 bg-slate-900 border-slate-700 text-white">
-              <MapPin className="w-4 h-4 mr-2 text-green-400" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              {LOCATIONS.map(loc => (
-                <SelectItem key={loc} value={loc} className="text-white">{loc === "all" ? "Minden telephely" : loc}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
+          <div className="flex gap-2">
+            <Select value={location} onValueChange={setLocation}>
+              <SelectTrigger className="w-full sm:w-36 bg-slate-900 border-slate-700 text-white text-sm">
+                <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                {LOCATIONS.map(loc => (
+                  <SelectItem key={loc} value={loc} className="text-white">{loc === "all" ? "Minden telephely" : loc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={selectedWorker} onValueChange={setSelectedWorker}>
-            <SelectTrigger className="w-40 bg-slate-900 border-slate-700 text-white">
-              <User className="w-4 h-4 mr-2 text-green-400" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              <SelectItem value="all" className="text-white">Minden dolgozó</SelectItem>
-              {workers.map(w => (
-                <SelectItem key={w.worker_id} value={w.worker_id} className="text-white">{w.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={selectedWorker} onValueChange={setSelectedWorker}>
+              <SelectTrigger className="w-full sm:w-40 bg-slate-900 border-slate-700 text-white text-sm">
+                <User className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all" className="text-white">Minden dolgozó</SelectItem>
+                {workers.map(w => (
+                  <SelectItem key={w.worker_id} value={w.worker_id} className="text-white">{w.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="flex bg-slate-900 rounded-lg border border-slate-700 p-1">
             {[{ id: "day", label: "Nap" }, { id: "week", label: "Hét" }, { id: "month", label: "Hónap" }].map(v => (
-              <button key={v.id} onClick={() => setView(v.id)} className={`px-3 py-1 rounded text-sm ${view === v.id ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              <button key={v.id} onClick={() => setView(v.id)} className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${view === v.id ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {v.label}
               </button>
             ))}
@@ -363,18 +365,18 @@ const Calendar = () => {
       </div>
 
       <div className="flex items-center justify-between">
-        <Button variant="outline" size="sm" onClick={() => navigate("prev")} className="border-slate-700 text-white">
+        <Button variant="outline" size="sm" onClick={() => navigate("prev")} className="border-slate-700 text-white px-2 sm:px-3">
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <h2 className="text-lg font-semibold text-white capitalize">{renderTitle()}</h2>
-        <Button variant="outline" size="sm" onClick={() => navigate("next")} className="border-slate-700 text-white">
+        <h2 className="text-sm sm:text-lg font-semibold text-white capitalize">{renderTitle()}</h2>
+        <Button variant="outline" size="sm" onClick={() => navigate("next")} className="border-slate-700 text-white px-2 sm:px-3">
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1 sm:gap-2">
         {Object.entries(STATUS_LABELS).map(([status, label]) => (
-          <Badge key={status} className={STATUS_COLORS[status]}>{label}</Badge>
+          <Badge key={status} className={`${STATUS_COLORS[status]} text-[10px] sm:text-xs px-1.5 sm:px-2`}>{label}</Badge>
         ))}
       </div>
 
