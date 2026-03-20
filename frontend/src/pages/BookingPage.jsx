@@ -218,8 +218,8 @@ const BookingPage = () => {
       
       <div className="w-full max-w-2xl relative">
         {/* Header with Company Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4 shadow-lg shadow-green-500/20 p-3">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 md:w-32 sm:h-28 md:h-32 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg shadow-green-500/20 p-2 sm:p-3">
             <img 
               src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
               alt="X-CLEAN Logo" 
@@ -227,29 +227,29 @@ const BookingPage = () => {
               data-testid="company-logo"
             />
           </div>
-          <p className="text-slate-400">Online időpontfoglalás</p>
+          <p className="text-slate-400 text-sm sm:text-base">Online időpontfoglalás</p>
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6 sm:mb-8 overflow-x-auto px-2">
           {[
             { num: 1, label: "Szolgáltatás", icon: Sparkles },
             { num: 2, label: "Időpont", icon: Calendar },
             { num: 3, label: "Adatok", icon: User },
             { num: 4, label: "Összegzés", icon: CheckCircle2 }
           ].map((s, i) => (
-            <div key={s.num} className="flex items-center">
+            <div key={s.num} className="flex items-center flex-shrink-0">
               <div className={`flex flex-col items-center ${step >= s.num ? 'opacity-100' : 'opacity-40'}`}>
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center transition-all duration-300 ${
                   step >= s.num 
                     ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/20' 
                     : 'bg-slate-800'
                 }`}>
-                  <s.icon className={`w-5 h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
+                  <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
                 </div>
-                <span className={`text-xs mt-1 ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
+                <span className={`text-[10px] sm:text-xs mt-1 ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
               </div>
-              {i < 3 && <div className={`w-12 h-0.5 mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
+              {i < 3 && <div className={`w-6 sm:w-12 h-0.5 mx-0.5 sm:mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
             </div>
           ))}
         </div>
@@ -385,7 +385,7 @@ const BookingPage = () => {
               </div>
 
               {/* Week Calendar */}
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1 sm:gap-2">
                 {weekDays.map(day => {
                   const dateStr = format(day, "yyyy-MM-dd");
                   const isPast = isBefore(day, new Date()) && !isToday(day);
@@ -396,7 +396,7 @@ const BookingPage = () => {
                       key={dateStr}
                       onClick={() => !isPast && set("date", dateStr)}
                       disabled={isPast}
-                      className={`p-3 rounded-xl text-center transition-all ${
+                      className={`p-1.5 sm:p-3 rounded-lg sm:rounded-xl text-center transition-all ${
                         isPast 
                           ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed' 
                           : isSelected 
@@ -407,8 +407,8 @@ const BookingPage = () => {
                       }`}
                       data-testid={`date-${dateStr}`}
                     >
-                      <div className="text-xs opacity-70">{format(day, "EEE", { locale: hu })}</div>
-                      <div className="text-lg font-bold">{format(day, "d")}</div>
+                      <div className="text-[10px] sm:text-xs opacity-70">{format(day, "EEE", { locale: hu })}</div>
+                      <div className="text-sm sm:text-lg font-bold">{format(day, "d")}</div>
                     </button>
                   );
                 })}
@@ -417,12 +417,12 @@ const BookingPage = () => {
               {/* Time Slots */}
               {form.date && (
                 <div className="mt-4">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
                     <label className="text-sm text-slate-400">Időpontok - {format(new Date(form.date), "MMMM d.", { locale: hu })}</label>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500/30"></span> Szabad</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-500/30"></span> Korlátozott</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700/50"></span> Foglalt</span>
+                    <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-green-500/30"></span> Szabad</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-yellow-500/30"></span> Korlátozott</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-slate-700/50"></span> Foglalt</span>
                     </div>
                   </div>
                   
@@ -432,7 +432,7 @@ const BookingPage = () => {
                       <p className="text-slate-500 text-sm mt-2">Időpontok betöltése...</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" data-testid="booking-slots">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 sm:gap-2" data-testid="booking-slots">
                       {slots.map(slot => (
                         <button
                           key={slot.time_slot}
@@ -445,20 +445,20 @@ const BookingPage = () => {
                             }
                           }}
                           disabled={!slot.is_available}
-                          className={`p-3 rounded-xl border-2 transition-all ${
+                          className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all ${
                             form.time_slot === slot.time_slot && slot.is_available
                               ? 'border-green-400 bg-green-500 text-white shadow-lg shadow-green-500/30'
                               : getSlotStyle(slot)
                           }`}
                           data-testid={`slot-${slot.time_slot}`}
                         >
-                          <div className="font-bold">{slot.time_slot}</div>
+                          <div className="font-bold text-sm sm:text-base">{slot.time_slot}</div>
                           {slot.is_available ? (
-                            <div className="text-xs opacity-70 flex items-center justify-center gap-1 mt-1">
-                              <Users className="w-3 h-3" /> {slot.available_workers.length}
+                            <div className="text-[10px] sm:text-xs opacity-70 flex items-center justify-center gap-1 mt-0.5 sm:mt-1">
+                              <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {slot.available_workers.length}
                             </div>
                           ) : (
-                            <div className="text-xs opacity-50 mt-1">Foglalt</div>
+                            <div className="text-[10px] sm:text-xs opacity-50 mt-0.5 sm:mt-1">Foglalt</div>
                           )}
                         </button>
                       ))}
@@ -719,39 +719,39 @@ const BookingPage = () => {
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between mt-6">
+        <div className="flex justify-between mt-4 sm:mt-6 gap-2">
           <Button 
             variant="outline" 
-            className="border-slate-700 text-slate-300 hover:bg-slate-800" 
+            className="border-slate-700 text-slate-300 hover:bg-slate-800 text-sm sm:text-base" 
             onClick={() => setStep(s => s - 1)} 
             disabled={step === 1}
             data-testid="booking-prev-btn"
           >
-            <ChevronLeft className="w-4 h-4 mr-2" /> Vissza
+            <ChevronLeft className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Vissza</span>
           </Button>
           {step < 4 ? (
             <Button 
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 sm:px-8 text-sm sm:text-base" 
               onClick={() => setStep(s => s + 1)} 
               disabled={!canGoNext()}
               data-testid="booking-next-btn"
             >
-              Tovább <ChevronRight className="w-4 h-4 ml-2" />
+              Tovább <ChevronRight className="w-4 h-4 ml-1 sm:ml-2" />
             </Button>
           ) : (
             <Button 
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 sm:px-8 text-sm sm:text-base" 
               onClick={handleSubmit} 
               disabled={submitting}
               data-testid="booking-submit-btn"
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Foglalás...
+                  <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /> <span className="hidden sm:inline">Foglalás...</span><span className="sm:hidden">...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 mr-2" /> Foglalás véglegesítése
+                  <CheckCircle2 className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Foglalás véglegesítése</span><span className="sm:hidden">Foglalás</span>
                 </>
               )}
             </Button>
