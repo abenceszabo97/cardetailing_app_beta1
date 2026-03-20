@@ -75,12 +75,14 @@ export const Login = () => {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500 rounded-2xl mb-4 shadow-lg shadow-green-500/30">
-            <Car className="w-10 h-10 text-slate-900" />
+          <div className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4 shadow-lg shadow-green-500/30 p-2">
+            <img 
+              src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
+              alt="X-CLEAN Logo" 
+              className="w-full h-full object-contain mix-blend-multiply"
+              data-testid="login-logo"
+            />
           </div>
-          <h1 className="text-4xl font-bold text-white font-['Manrope'] tracking-tight">
-            X-CLEAN
-          </h1>
           <p className="text-slate-400 mt-2 flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-green-400" />
             <span>Garantált Tisztaság</span>

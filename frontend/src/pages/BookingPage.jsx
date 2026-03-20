@@ -219,12 +219,14 @@ const BookingPage = () => {
       <div className="w-full max-w-2xl relative">
         {/* Header with Company Logo */}
         <div className="text-center mb-8">
-          <img 
-            src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
-            alt="X-CLEAN Logo" 
-            className="h-32 mx-auto mb-4"
-            data-testid="company-logo"
-          />
+          <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4 shadow-lg shadow-green-500/20 p-3">
+            <img 
+              src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
+              alt="X-CLEAN Logo" 
+              className="w-full h-full object-contain mix-blend-multiply"
+              data-testid="company-logo"
+            />
+          </div>
           <p className="text-slate-400">Online időpontfoglalás</p>
         </div>
 
