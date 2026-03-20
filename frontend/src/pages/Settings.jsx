@@ -448,14 +448,80 @@ export const Settings = () => {
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-0">
           {users.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>Nincs felhasználó</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Mobile Card View */}
+              <div className="sm:hidden space-y-3 p-4">
+                {users.map((u) => (
+                  <div 
+                    key={u.user_id}
+                    className="p-4 rounded-xl border border-slate-700 bg-slate-800/50"
+                    data-testid={`user-card-${u.user_id}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        {u.picture ? (
+                          <img src={u.picture} alt={u.name} className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm">{u.name?.charAt(0) || 'U'}</span>
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="text-white font-semibold">{u.name}</h3>
+                          <p className="text-slate-400 text-xs font-mono">@{u.username || "n/a"}</p>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={u.active !== false ? "default" : "destructive"}
+                        className={`${u.active !== false ? "bg-green-600" : "bg-red-600"} text-xs`}
+                      >
+                        {u.active !== false ? "Aktív" : "Inaktív"}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-slate-400 mb-3">{u.email || "Nincs email"}</div>
+                    <div className="flex items-center justify-between">
+                      <Select 
+                        value={u.role} 
+                        onValueChange={(v) => handleUpdateRole(u.user_id, v)}
+                        disabled={u.user_id === user.user_id}
+                      >
+                        <SelectTrigger className="w-[100px] h-8 bg-slate-950 border-slate-700 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="admin" className="text-white">Admin</SelectItem>
+                          <SelectItem value="dolgozo" className="text-white">Dolgozó</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="w-8 h-8 text-slate-400 hover:text-yellow-400" onClick={() => setResetPasswordUserId(u.user_id)}>
+                          <Key className="w-4 h-4" />
+                        </Button>
+                        {u.user_id !== user.user_id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`w-8 h-8 ${u.active !== false ? "text-slate-400 hover:text-red-400" : "text-slate-400 hover:text-green-400"}`}
+                            onClick={() => handleToggleUserActive(u.user_id)}
+                          >
+                            {u.active !== false ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-800 hover:bg-transparent">
@@ -541,21 +607,22 @@ export const Settings = () => {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* Workers Management */}
       <Card className="glass-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-blue-400" />
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+            <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
             Dolgozók kezelése
           </CardTitle>
           <Dialog open={isNewWorkerOpen} onOpenChange={setIsNewWorkerOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-500" data-testid="new-worker-btn">
+              <Button className="bg-green-600 hover:bg-green-500 w-full sm:w-auto" data-testid="new-worker-btn">
                 <Plus className="w-4 h-4 mr-2" />
                 Új dolgozó
               </Button>
@@ -615,7 +682,39 @@ export const Settings = () => {
               <p>Nincs dolgozó</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Mobile Card View */}
+              <div className="sm:hidden space-y-3 p-4">
+                {workers.map((worker) => (
+                  <div 
+                    key={worker.worker_id}
+                    className="p-4 rounded-xl border border-slate-700 bg-slate-800/50 flex items-center justify-between"
+                    data-testid={`worker-card-${worker.worker_id}`}
+                  >
+                    <div>
+                      <h3 className="text-white font-semibold">{worker.name}</h3>
+                      <p className="text-slate-400 text-xs flex items-center gap-1 mt-1">
+                        <Phone className="w-3 h-3" /> {worker.phone || "-"}
+                      </p>
+                      <Badge variant="outline" className="border-slate-600 text-slate-300 text-xs mt-2">
+                        <MapPin className="w-3 h-3 mr-1" />
+                        {worker.location}
+                      </Badge>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="w-8 h-8 text-slate-400 hover:text-red-400"
+                      onClick={() => setDeleteWorkerId(worker.worker_id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-800 hover:bg-transparent">
@@ -660,7 +759,8 @@ export const Settings = () => {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

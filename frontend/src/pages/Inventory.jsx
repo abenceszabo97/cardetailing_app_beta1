@@ -255,16 +255,68 @@ export const Inventory = () => {
         </Card>
       )}
 
-      {/* Inventory Table */}
+      {/* Inventory Table/Cards */}
       <Card className="glass-card">
-        <CardContent className="p-0">
+        <CardContent className="p-0 sm:p-0">
           {inventory.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>Nincs készlet adat</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Mobile Card View */}
+              <div className="sm:hidden space-y-3 p-4">
+                {inventory.map((item) => {
+                  const isLow = item.current_quantity < item.min_level;
+                  return (
+                    <div 
+                      key={item.inventory_id}
+                      className={`p-4 rounded-xl border ${isLow ? 'border-red-500/50 bg-red-500/10' : 'border-slate-700 bg-slate-800/50'}`}
+                      data-testid={`inventory-card-${item.inventory_id}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="text-white font-semibold">{item.product_name}</h3>
+                          <p className="text-slate-400 text-xs flex items-center gap-1 mt-1">
+                            <MapPin className="w-3 h-3" /> {item.location}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-slate-400 hover:text-white" onClick={() => startEdit(item)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-slate-400 hover:text-red-400" onClick={() => setDeleteItemId(item.inventory_id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-slate-900/50 rounded-lg p-2">
+                          <p className="text-[10px] text-slate-500">Aktuális</p>
+                          <p className={`text-lg font-bold ${isLow ? 'text-red-400' : 'text-white'}`}>{item.current_quantity}</p>
+                        </div>
+                        <div className="bg-slate-900/50 rounded-lg p-2">
+                          <p className="text-[10px] text-slate-500">Minimum</p>
+                          <p className="text-lg font-bold text-slate-400">{item.min_level}</p>
+                        </div>
+                        <div className="bg-slate-900/50 rounded-lg p-2">
+                          <p className="text-[10px] text-slate-500">Egység</p>
+                          <p className="text-lg font-bold text-slate-300">{item.unit}</p>
+                        </div>
+                      </div>
+                      {isLow && (
+                        <div className="mt-2 flex items-center gap-1 text-red-400 text-xs">
+                          <AlertTriangle className="w-3 h-3" /> Alacsony készlet
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-800 hover:bg-transparent">
@@ -417,7 +469,8 @@ export const Inventory = () => {
                   })}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
