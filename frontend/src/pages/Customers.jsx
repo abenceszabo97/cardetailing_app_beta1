@@ -48,6 +48,7 @@ export const Customers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [removeFromBlacklistId, setRemoveFromBlacklistId] = useState(null);
+  const [deleteCustomerId, setDeleteCustomerId] = useState(null);
   
   const [newCustomer, setNewCustomer] = useState({
     name: "",
@@ -111,6 +112,17 @@ export const Customers = () => {
       setRemoveFromBlacklistId(null);
     } catch (error) {
       toast.error("Hiba az eltávolításkor");
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId) => {
+    try {
+      await axios.delete(`${API}/customers/${customerId}`, { withCredentials: true });
+      toast.success("Ügyfél sikeresen törölve!");
+      fetchCustomers();
+      setDeleteCustomerId(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba az ügyfél törlésekor");
     }
   };
 
@@ -299,7 +311,7 @@ export const Customers = () => {
                           <TableHead className="text-slate-400">Autó</TableHead>
                           <TableHead className="text-slate-400">Rendszám</TableHead>
                           <TableHead className="text-slate-400 text-right">Összes költés</TableHead>
-                          <TableHead className="text-slate-400 w-10"></TableHead>
+                          <TableHead className="text-slate-400 w-24">Műveletek</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -339,11 +351,23 @@ export const Customers = () => {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <Link to={`/customers/${customer.customer_id}`}>
-                                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
-                                  <ChevronRight className="w-5 h-5" />
+                              <div className="flex items-center gap-1">
+                                <Link to={`/customers/${customer.customer_id}`}>
+                                  <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" title="Részletek">
+                                    <ChevronRight className="w-5 h-5" />
+                                  </Button>
+                                </Link>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-slate-400 hover:text-red-400" 
+                                  title="Törlés"
+                                  onClick={(e) => { e.stopPropagation(); setDeleteCustomerId(customer.customer_id); }}
+                                  data-testid={`delete-customer-${customer.customer_id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
-                              </Link>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -429,6 +453,42 @@ export const Customers = () => {
             </Button>
             <Button onClick={() => handleRemoveFromBlacklist(removeFromBlacklistId)} className="bg-green-600 hover:bg-green-700">
               Eltávolítás
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Customer Confirmation */}
+      <Dialog open={!!deleteCustomerId} onOpenChange={() => setDeleteCustomerId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Ügyfél törlése
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan törölni szeretnéd ezt az ügyfelet?</p>
+          <p className="text-white font-medium">
+            {customers.find(c => c.customer_id === deleteCustomerId)?.name}
+          </p>
+          <p className="text-slate-500 font-mono text-sm">
+            {customers.find(c => c.customer_id === deleteCustomerId)?.plate_number}
+          </p>
+          <p className="text-red-400/70 text-sm mt-2">
+            Ez a művelet nem visszavonható!
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteCustomerId(null)} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => handleDeleteCustomer(deleteCustomerId)} 
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-delete-customer"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Törlés
             </Button>
           </DialogFooter>
         </DialogContent>

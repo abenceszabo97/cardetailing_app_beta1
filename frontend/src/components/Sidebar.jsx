@@ -56,7 +56,7 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
       <aside 
         className={`
           fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800
-          transform transition-transform duration-300 ease-in-out
+          transform transition-transform duration-300 ease-in-out flex flex-col
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
         `}
@@ -106,8 +106,8 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
           </Select>
         </div>
 
-        {/* Navigation */}
-        <nav className="p-4 flex-1 overflow-y-auto">
+        {/* Navigation - scrollable */}
+        <nav className="flex-1 overflow-y-auto p-4 min-h-0">
           <ul className="space-y-1">
             {navItems.map((item) => (
               <li key={item.path}>
@@ -131,8 +131,8 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
           </ul>
         </nav>
 
-        {/* User Section */}
-        <div className="p-4 border-t border-slate-800">
+        {/* User Section - always visible at bottom */}
+        <div className="p-4 border-t border-slate-800 mt-auto flex-shrink-0">
           <div className="flex items-center gap-3 mb-4">
             {user?.picture ? (
               <img 
