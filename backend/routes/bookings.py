@@ -153,7 +153,84 @@ async def create_booking(data: BookingCreate):
     }
     await db.notifications.insert_one(notification)
     
-    return booking.model_dump()
+    # Handle second car booking if provided
+    second_booking = None
+    if data.second_car:
+        second_car = data.second_car
+        second_service = await db.services.find_one({"service_id": second_car.get("service_id", data.service_id)}, {"_id": 0})
+        if not second_service:
+            second_service = service
+        
+        # Calculate next time slot (30 min later + service duration)
+        hour, minute = map(int, data.time_slot.split(":"))
+        # Add service duration (rounded to 30 min slots)
+        duration_slots = (service["duration"] + 29) // 30  # Round up to next 30 min
+        total_minutes = hour * 60 + minute + duration_slots * 30
+        next_hour = total_minutes // 60
+        next_minute = total_minutes % 60
+        next_time_slot = f"{next_hour:02d}:{next_minute:02d}"
+        
+        # Check if next slot is available
+        if next_hour < 19:  # Only if within business hours
+            second_booking_obj = Booking(
+                customer_name=data.customer_name,
+                car_type=second_car.get("car_type", data.car_type),
+                plate_number=second_car.get("plate_number", "").upper(),
+                email=data.email, phone=data.phone,
+                address=data.address, invoice_name=data.invoice_name,
+                invoice_tax_number=data.invoice_tax_number, invoice_address=data.invoice_address,
+                service_id=second_car.get("service_id", data.service_id),
+                service_name=second_service["name"],
+                worker_id=data.worker_id, worker_name=worker_name,
+                location=data.location, date=data.date, time_slot=next_time_slot,
+                price=second_service["price"],
+                notes=f"Második autó - kapcsolódó foglalás: {booking.booking_id}"
+            )
+            
+            second_doc = second_booking_obj.model_dump()
+            second_doc["created_at"] = second_doc["created_at"].isoformat()
+            second_doc["linked_booking_id"] = booking.booking_id
+            await db.bookings.insert_one(second_doc)
+            
+            # Update first booking with link
+            await db.bookings.update_one(
+                {"booking_id": booking.booking_id},
+                {"$set": {"linked_booking_id": second_booking_obj.booking_id}}
+            )
+            
+            # Create notification for second car
+            notification2 = {
+                "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+                "type": "new_booking",
+                "title": "Új online foglalás (2. autó)",
+                "message": f"{data.customer_name} - {second_car.get('plate_number', '')} - {data.date} {next_time_slot}",
+                "booking_id": second_booking_obj.booking_id,
+                "location": data.location,
+                "read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification2)
+            
+            second_booking = second_booking_obj.model_dump()
+            
+            # Auto-create customer for second car
+            second_plate = second_car.get("plate_number", "").upper()
+            if second_plate:
+                existing_cust2 = await db.customers.find_one({"plate_number": second_plate}, {"_id": 0})
+                if not existing_cust2:
+                    cust2 = Customer(name=data.customer_name, phone=data.phone, car_type=second_car.get("car_type"), plate_number=second_plate)
+                    cdoc2 = cust2.model_dump()
+                    cdoc2["created_at"] = cdoc2["created_at"].isoformat()
+                    cdoc2["email"] = data.email
+                    cdoc2["booking_count"] = 1
+                    cdoc2["total_spent"] = 0
+                    cdoc2["blacklisted"] = False
+                    await db.customers.insert_one(cdoc2)
+    
+    result = booking.model_dump()
+    if second_booking:
+        result["second_booking"] = second_booking
+    return result
 
 @router.get("/bookings")
 async def get_bookings(location: Optional[str] = None, date: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, status: Optional[str] = None, worker_id: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -195,11 +272,56 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         update_data["plate_number"] = update_data["plate_number"].upper()
     if not update_data:
         raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
-    result = await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
-    if result.matched_count == 0:
+    
+    # Get original booking BEFORE update for comparison
+    original_booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    if not original_booking:
         raise HTTPException(status_code=404, detail="Foglalás nem található")
     
+    result = await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
+    
+    # Get updated booking
     booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+    
+    # Create notification for status change
+    status_labels = {
+        "foglalt": "Foglalt",
+        "folyamatban": "Folyamatban",
+        "kesz": "Kész",
+        "lemondta": "Lemondta",
+        "nem_jott_el": "Nem jött el"
+    }
+    
+    if data.status and data.status != original_booking.get("status"):
+        notification = {
+            "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+            "type": "booking_status_change",
+            "title": f"Foglalás státusz: {status_labels.get(data.status, data.status)}",
+            "message": f"{booking['customer_name']} - {booking['plate_number']} - {booking['date']} {booking['time_slot']}",
+            "booking_id": booking_id,
+            "location": booking.get("location"),
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.notifications.insert_one(notification)
+    
+    # Create notification for date/time modification
+    if (data.date and data.date != original_booking.get("date")) or \
+       (data.time_slot and data.time_slot != original_booking.get("time_slot")):
+        new_date = data.date or original_booking.get("date")
+        new_time = data.time_slot or original_booking.get("time_slot")
+        notification = {
+            "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+            "type": "booking_modified",
+            "title": "Foglalás módosítva",
+            "message": f"{booking['customer_name']} - {booking['plate_number']} - Új időpont: {new_date} {new_time}",
+            "booking_id": booking_id,
+            "location": booking.get("location"),
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.notifications.insert_one(notification)
+    
     if data.status == "nem_jott_el" and booking:
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"no_show_count": 1}})
     elif data.status == "lemondta" and booking:

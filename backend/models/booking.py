@@ -44,6 +44,8 @@ class BookingCreate(BaseModel):
     date: str
     time_slot: str
     notes: Optional[str] = None
+    # Second car (optional)
+    second_car: Optional[dict] = None  # {car_type, plate_number, service_id}
 
 class BookingUpdate(BaseModel):
     status: Optional[str] = None

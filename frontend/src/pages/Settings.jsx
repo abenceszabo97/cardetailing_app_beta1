@@ -37,7 +37,13 @@ import {
   Shield,
   Phone,
   MapPin,
-  Trash2
+  Trash2,
+  Key,
+  UserCog,
+  Eye,
+  EyeOff,
+  Check,
+  X
 } from "lucide-react";
 
 export const Settings = () => {
@@ -46,11 +52,24 @@ export const Settings = () => {
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isNewWorkerOpen, setIsNewWorkerOpen] = useState(false);
+  const [isNewUserOpen, setIsNewUserOpen] = useState(false);
+  const [resetPasswordUserId, setResetPasswordUserId] = useState(null);
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   
   const [newWorker, setNewWorker] = useState({
     name: "",
     phone: "",
+    location: "Debrecen"
+  });
+
+  const [newUser, setNewUser] = useState({
+    username: "",
+    password: "",
+    name: "",
+    email: "",
+    role: "dolgozo",
     location: "Debrecen"
   });
 
@@ -108,6 +127,47 @@ export const Settings = () => {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUser.username || !newUser.password || !newUser.name) {
+      toast.error("Töltsd ki a kötelező mezőket!");
+      return;
+    }
+    try {
+      await axios.post(`${API}/auth/create-user`, newUser, { withCredentials: true });
+      toast.success("Felhasználó sikeresen létrehozva!");
+      setIsNewUserOpen(false);
+      setNewUser({ username: "", password: "", name: "", email: "", role: "dolgozo", location: "Debrecen" });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a felhasználó létrehozásakor");
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword || newPassword.length < 4) {
+      toast.error("A jelszó legalább 4 karakter legyen!");
+      return;
+    }
+    try {
+      await axios.put(`${API}/auth/reset-password/${resetPasswordUserId}`, { new_password: newPassword }, { withCredentials: true });
+      toast.success("Jelszó visszaállítva!");
+      setResetPasswordUserId(null);
+      setNewPassword("");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a jelszó visszaállításakor");
+    }
+  };
+
+  const handleToggleUserActive = async (userId) => {
+    try {
+      const response = await axios.put(`${API}/auth/toggle-user/${userId}`, {}, { withCredentials: true });
+      toast.success(response.data.message);
+      fetchData();
+    } catch (error) {
+      toast.error("Hiba a felhasználó státusz változtatásakor");
+    }
+  };
+
   const handleSeedData = async () => {
     try {
       await axios.post(`${API}/seed`, {}, { withCredentials: true });
@@ -151,11 +211,97 @@ export const Settings = () => {
 
       {/* Users Management */}
       <Card className="glass-card">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
             <Users className="w-5 h-5 text-green-400" />
             Felhasználók kezelése
           </CardTitle>
+          <Dialog open={isNewUserOpen} onOpenChange={setIsNewUserOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-500" data-testid="new-user-btn">
+                <Plus className="w-4 h-4 mr-2" />
+                Új felhasználó
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-slate-900 border-slate-700 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-['Manrope']">Új felhasználó létrehozása</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label className="text-slate-300">Felhasználónév *</Label>
+                  <Input
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="pelda.felhasznalo"
+                    data-testid="new-user-username"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Jelszó *</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                      className="bg-slate-950 border-slate-700 text-white pr-10"
+                      placeholder="••••••••"
+                      data-testid="new-user-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-300">Teljes név *</Label>
+                  <Input
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="Kovács Péter"
+                    data-testid="new-user-name"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Email</Label>
+                  <Input
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="pelda@xclean.hu"
+                    data-testid="new-user-email"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Szerepkör</Label>
+                  <Select value={newUser.role} onValueChange={(v) => setNewUser({...newUser, role: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700" data-testid="new-user-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="admin" className="text-white">Admin</SelectItem>
+                      <SelectItem value="dolgozo" className="text-white">Dolgozó</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleCreateUser}
+                  className="w-full bg-green-600 hover:bg-green-500"
+                  disabled={!newUser.username || !newUser.password || !newUser.name}
+                  data-testid="create-user-submit"
+                >
+                  Létrehozás
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           {users.length === 0 ? (
@@ -169,8 +315,11 @@ export const Settings = () => {
                 <TableHeader>
                   <TableRow className="border-slate-800 hover:bg-transparent">
                     <TableHead className="text-slate-400">Név</TableHead>
+                    <TableHead className="text-slate-400">Felhasználónév</TableHead>
                     <TableHead className="text-slate-400">Email</TableHead>
                     <TableHead className="text-slate-400 text-center">Szerepkör</TableHead>
+                    <TableHead className="text-slate-400 text-center">Státusz</TableHead>
+                    <TableHead className="text-slate-400 w-24">Műveletek</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -192,7 +341,8 @@ export const Settings = () => {
                           <span className="text-white font-medium">{u.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-300">{u.email}</TableCell>
+                      <TableCell className="text-slate-300 font-mono text-sm">{u.username || "-"}</TableCell>
+                      <TableCell className="text-slate-300">{u.email || "-"}</TableCell>
                       <TableCell className="text-center">
                         <Select 
                           value={u.role} 
@@ -207,6 +357,40 @@ export const Settings = () => {
                             <SelectItem value="dolgozo" className="text-white">Dolgozó</SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge 
+                          variant={u.active !== false ? "default" : "destructive"}
+                          className={u.active !== false ? "bg-green-600" : "bg-red-600"}
+                        >
+                          {u.active !== false ? "Aktív" : "Inaktív"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-400 hover:text-yellow-400"
+                            onClick={() => setResetPasswordUserId(u.user_id)}
+                            title="Jelszó visszaállítás"
+                            data-testid={`reset-password-${u.user_id}`}
+                          >
+                            <Key className="w-4 h-4" />
+                          </Button>
+                          {u.user_id !== user.user_id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={u.active !== false ? "text-slate-400 hover:text-red-400" : "text-slate-400 hover:text-green-400"}
+                              onClick={() => handleToggleUserActive(u.user_id)}
+                              title={u.active !== false ? "Deaktiválás" : "Aktiválás"}
+                              data-testid={`toggle-user-${u.user_id}`}
+                            >
+                              {u.active !== false ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -350,6 +534,51 @@ export const Settings = () => {
             </Button>
             <Button variant="destructive" onClick={() => handleDeleteWorker(deleteWorkerId)} className="bg-red-600 hover:bg-red-700">
               Törlés
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!resetPasswordUserId} onOpenChange={() => { setResetPasswordUserId(null); setNewPassword(""); }}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-yellow-400 flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Jelszó visszaállítás
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">
+            Új jelszó beállítása: <span className="text-white font-medium">{users.find(u => u.user_id === resetPasswordUserId)?.name}</span>
+          </p>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label className="text-slate-300">Új jelszó</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="bg-slate-950 border-slate-700 text-white pr-10"
+                  placeholder="Minimum 4 karakter"
+                  data-testid="reset-password-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => { setResetPasswordUserId(null); setNewPassword(""); }} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button onClick={handleResetPassword} className="bg-yellow-600 hover:bg-yellow-500" disabled={!newPassword || newPassword.length < 4}>
+              Mentés
             </Button>
           </div>
         </DialogContent>

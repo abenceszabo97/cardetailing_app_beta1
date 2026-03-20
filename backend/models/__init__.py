@@ -1,7 +1,7 @@
 """
 X-CLEAN Models
 """
-from models.user import User, UserSession
+from models.user import User, UserSession, UserCreate, UserLogin, PasswordChange
 from models.customer import Customer, CustomerCreate
 from models.service import Service, ServiceCreate
 from models.job import Job, JobCreate, JobUpdate
@@ -13,7 +13,7 @@ from models.day_record import DayRecord, DayOpenCreate, DayCloseCreate, CashWith
 from models.blacklist import BlacklistEntry, BlacklistCreate
 
 __all__ = [
-    "User", "UserSession",
+    "User", "UserSession", "UserCreate", "UserLogin", "PasswordChange",
     "Customer", "CustomerCreate",
     "Service", "ServiceCreate",
     "Job", "JobCreate", "JobUpdate",

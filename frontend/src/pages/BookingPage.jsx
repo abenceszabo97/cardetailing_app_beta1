@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { 
   Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
-  Calendar, Users, Timer, AlertTriangle
+  Calendar, Users, Timer, AlertTriangle, Plus, X
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -36,6 +36,13 @@ const BookingPage = () => {
   const [blacklistReason, setBlacklistReason] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [serviceCategory, setServiceCategory] = useState("all");
+  // Second car state
+  const [addSecondCar, setAddSecondCar] = useState(false);
+  const [secondCar, setSecondCar] = useState({
+    car_type: "",
+    plate_number: "",
+    service_id: ""
+  });
 
   useEffect(() => {
     axios.get(`${API}/bookings/public-locations`).then(r => setLocations(r.data));
@@ -121,9 +128,18 @@ const BookingPage = () => {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await axios.post(`${API}/bookings`, form);
+      const bookingData = { ...form };
+      // Add second car if enabled
+      if (addSecondCar && secondCar.plate_number && secondCar.service_id) {
+        bookingData.second_car = secondCar;
+      }
+      const response = await axios.post(`${API}/bookings`, bookingData);
       setSuccess(true);
-      toast.success("Foglalás sikeresen rögzítve!");
+      if (response.data.second_booking) {
+        toast.success("Mindkét foglalás sikeresen rögzítve!");
+      } else {
+        toast.success("Foglalás sikeresen rögzítve!");
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba a foglalás során");
     }
@@ -134,6 +150,8 @@ const BookingPage = () => {
     setSuccess(false);
     setStep(1);
     setCustomerFound(null);
+    setAddSecondCar(false);
+    setSecondCar({ car_type: "", plate_number: "", service_id: "" });
     setForm({
       customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
       address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
@@ -553,6 +571,57 @@ const BookingPage = () => {
               )}
               <textarea placeholder="Megjegyzés (opcionális)" value={form.notes} onChange={e => set("notes", e.target.value)}
                 className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl p-4 text-sm resize-none h-20" data-testid="booking-notes" />
+              
+              {/* Second Car Option */}
+              <div className="border-t border-slate-700 pt-4 mt-4">
+                <button 
+                  onClick={() => setAddSecondCar(!addSecondCar)} 
+                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${
+                    addSecondCar 
+                      ? "bg-green-500/20 border-green-500/50 text-green-400" 
+                      : "bg-slate-800/30 border-slate-700 text-slate-400 hover:border-green-500/30 hover:text-green-400"
+                  }`}
+                  data-testid="add-second-car-btn"
+                >
+                  {addSecondCar ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  {addSecondCar ? "Második autó eltávolítása" : "Második autó hozzáadása"}
+                </button>
+                
+                {addSecondCar && (
+                  <div className="mt-4 p-4 bg-green-500/5 border border-green-500/20 rounded-xl space-y-3">
+                    <h4 className="text-green-400 font-medium flex items-center gap-2">
+                      <Car className="w-4 h-4" /> Második autó adatai
+                    </h4>
+                    <p className="text-slate-500 text-sm">Az első autó mosását követő időpontra foglaljuk.</p>
+                    <Input 
+                      placeholder="Rendszám *" 
+                      value={secondCar.plate_number} 
+                      onChange={e => setSecondCar({...secondCar, plate_number: e.target.value.toUpperCase()})}
+                      className="bg-slate-800/50 border-slate-700 text-white uppercase font-mono" 
+                      data-testid="second-car-plate"
+                    />
+                    <Input 
+                      placeholder="Autó típusa" 
+                      value={secondCar.car_type} 
+                      onChange={e => setSecondCar({...secondCar, car_type: e.target.value})}
+                      className="bg-slate-800/50 border-slate-700 text-white" 
+                      data-testid="second-car-type"
+                    />
+                    <Select value={secondCar.service_id} onValueChange={v => setSecondCar({...secondCar, service_id: v})}>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white" data-testid="second-car-service">
+                        <SelectValue placeholder="Szolgáltatás kiválasztása *" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700 max-h-60">
+                        {services.map(s => (
+                          <SelectItem key={s.service_id} value={s.service_id} className="text-white hover:bg-white/5">
+                            {s.name} - {s.price?.toLocaleString()} Ft
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -606,6 +675,41 @@ const BookingPage = () => {
                   <span className="text-green-400 text-2xl font-bold">{selectedService?.price?.toLocaleString()} Ft</span>
                 </div>
               </div>
+              
+              {/* Second Car Summary */}
+              {addSecondCar && secondCar.plate_number && secondCar.service_id && (
+                <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center gap-3 pb-3 border-b border-green-500/20">
+                    <Car className="w-6 h-6 text-green-400" />
+                    <span className="text-white font-semibold text-lg">Második autó</span>
+                    <Badge className="bg-green-500/20 text-green-400 ml-auto">Egymás után</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-3 text-sm">
+                    <div className="text-slate-400 flex items-center gap-2"><Car className="w-4 h-4" /> Rendszám</div>
+                    <div className="text-white text-right font-mono">{secondCar.plate_number}</div>
+                    <div className="text-slate-400 flex items-center gap-2"><Car className="w-4 h-4" /> Típus</div>
+                    <div className="text-white text-right">{secondCar.car_type || "-"}</div>
+                    <div className="text-slate-400 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Szolgáltatás</div>
+                    <div className="text-white text-right">{services.find(s => s.service_id === secondCar.service_id)?.name}</div>
+                  </div>
+                  <div className="pt-4 mt-3 border-t border-green-500/20 flex justify-between items-center">
+                    <span className="text-slate-300 font-medium">2. autó</span>
+                    <span className="text-green-400 text-xl font-bold">
+                      {services.find(s => s.service_id === secondCar.service_id)?.price?.toLocaleString()} Ft
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Total if second car */}
+              {addSecondCar && secondCar.plate_number && secondCar.service_id && (
+                <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl p-4 flex justify-between items-center border border-green-500/30">
+                  <span className="text-white font-bold text-lg">Összesen fizetendő</span>
+                  <span className="text-green-400 text-3xl font-bold">
+                    {((selectedService?.price || 0) + (services.find(s => s.service_id === secondCar.service_id)?.price || 0)).toLocaleString()} Ft
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import axios from "axios";
-import { Toaster, toast } from "sonner";
+import { Toaster } from "sonner";
 
 // Pages
 import { Login } from "./pages/Login";
@@ -34,13 +34,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
-    if (window.location.hash?.includes('session_id=')) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const response = await axios.get(`${API}/auth/me`, {
         withCredentials: true
@@ -70,51 +63,6 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{ user, setUser, loading, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
-  );
-};
-
-// Auth Callback Component
-const AuthCallback = () => {
-  const navigate = useNavigate();
-  const { setUser } = useAuth();
-  const hasProcessed = useRef(false);
-
-  useEffect(() => {
-    if (hasProcessed.current) return;
-    hasProcessed.current = true;
-
-    const processAuth = async () => {
-      const hash = window.location.hash;
-      const sessionId = new URLSearchParams(hash.substring(1)).get("session_id");
-
-      if (!sessionId) {
-        navigate("/login");
-        return;
-      }
-
-      try {
-        const response = await axios.post(
-          `${API}/auth/session`,
-          { session_id: sessionId },
-          { withCredentials: true }
-        );
-        setUser(response.data);
-        toast.success("Sikeres bejelentkezés!");
-        navigate("/dashboard", { replace: true, state: { user: response.data } });
-      } catch (error) {
-        console.error("Auth error:", error);
-        toast.error("Bejelentkezési hiba");
-        navigate("/login");
-      }
-    };
-
-    processAuth();
-  }, [navigate, setUser]);
-
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-      <div className="text-white text-lg">Bejelentkezés...</div>
-    </div>
   );
 };
 
@@ -175,13 +123,6 @@ const MainLayout = ({ children }) => {
 
 // App Router
 function AppRouter() {
-  const location = useLocation();
-  
-  // Check for session_id in hash - must happen synchronously during render
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
-
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
