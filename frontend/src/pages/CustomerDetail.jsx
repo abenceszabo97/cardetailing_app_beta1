@@ -6,11 +6,14 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { 
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "../components/ui/dialog";
 import { 
   ArrowLeft, 
@@ -19,7 +22,10 @@ import {
   Banknote,
   Calendar,
   Edit,
-  Trash2
+  Trash2,
+  Save,
+  X,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -32,6 +38,14 @@ export const CustomerDetail = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    car_type: "",
+    plate_number: ""
+  });
 
   const fetchCustomer = async () => {
     try {
@@ -57,6 +71,40 @@ export const CustomerDetail = () => {
       navigate("/customers");
     } catch (error) {
       toast.error("Hiba az ügyfél törlésekor");
+    }
+  };
+
+  const startEditing = () => {
+    setEditForm({
+      name: customer.name || "",
+      phone: customer.phone || "",
+      car_type: customer.car_type || "",
+      plate_number: customer.plate_number || ""
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditForm({ name: "", phone: "", car_type: "", plate_number: "" });
+  };
+
+  const handleSave = async () => {
+    if (!editForm.name || !editForm.phone || !editForm.plate_number) {
+      toast.error("Név, telefon és rendszám kötelező!");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await axios.put(`${API}/customers/${customerId}`, editForm, { withCredentials: true });
+      toast.success("Ügyfél adatai frissítve!");
+      setIsEditing(false);
+      fetchCustomer();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a mentéskor");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -94,14 +142,25 @@ export const CustomerDetail = () => {
           <p className="text-slate-400 mt-1">Ügyfél részletei</p>
         </div>
         {user?.role === "admin" && (
-          <Button 
-            variant="destructive" 
-            onClick={() => setShowDeleteConfirm(true)}
-            data-testid="delete-customer-btn"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Törlés
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={startEditing}
+              className="border-slate-700 text-slate-300 hover:text-white"
+              data-testid="edit-customer-btn"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Szerkesztés
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowDeleteConfirm(true)}
+              data-testid="delete-customer-btn"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Törlés
+            </Button>
+          </div>
         )}
       </div>
 
@@ -227,6 +286,78 @@ export const CustomerDetail = () => {
               Törlés
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Edit className="w-5 h-5 text-green-400" />
+              Ügyfél szerkesztése
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label className="text-slate-300">Név *</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="Ügyfél neve"
+                data-testid="edit-customer-name"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Telefonszám *</Label>
+              <Input
+                value={editForm.phone}
+                onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="+36 70 123 4567"
+                data-testid="edit-customer-phone"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Autó típusa</Label>
+              <Input
+                value={editForm.car_type}
+                onChange={(e) => setEditForm({...editForm, car_type: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="pl. BMW X5"
+                data-testid="edit-customer-car-type"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Rendszám *</Label>
+              <Input
+                value={editForm.plate_number}
+                onChange={(e) => setEditForm({...editForm, plate_number: e.target.value.toUpperCase()})}
+                className="bg-slate-950 border-slate-700 text-white font-mono uppercase"
+                placeholder="ABC-123"
+                data-testid="edit-customer-plate"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 mt-6">
+            <Button variant="outline" onClick={cancelEditing} className="border-slate-700">
+              <X className="w-4 h-4 mr-2" />
+              Mégse
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              className="bg-green-600 hover:bg-green-500"
+              disabled={saving || !editForm.name || !editForm.phone || !editForm.plate_number}
+              data-testid="save-customer-btn"
+            >
+              {saving ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mentés...</>
+              ) : (
+                <><Save className="w-4 h-4 mr-2" /> Mentés</>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

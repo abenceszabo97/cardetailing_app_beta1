@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
+import uuid
 from config import EMERGENT_LLM_KEY
 from database import db
 
@@ -30,32 +31,42 @@ async def get_upsell_suggestions(data: UpsellRequest):
         raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
     
     try:
-        from emergentintegrations.llm.chat import Chat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
         
         services = await db.services.find({}, {"_id": 0}).to_list(100)
         services_text = "\n".join([f"- {s['name']}: {s['price']} Ft ({s.get('category', 'egyéb')})" for s in services])
         
-        chat = Chat(
-            api_key=EMERGENT_LLM_KEY,
-            model="gemini-2.0-flash",
-            system_prompt=f"""Te egy autómosó upsell asszisztens vagy. A feladatod, hogy a megadott autótípus és aktuális szolgáltatás alapján ajánlj további szolgáltatásokat.
+        system_prompt = f"""Te egy autómosó upsell asszisztens vagy. A feladatod, hogy a megadott autótípus és aktuális szolgáltatás alapján ajánlj további szolgáltatásokat.
 
 Elérhető szolgáltatások:
 {services_text}
 
 Válaszolj CSAK JSON formátumban:
 {{"suggestions": [{{"service_name": "...", "reason": "..."}}], "priority_suggestion": "..."}}"""
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"upsell_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("gemini", "gemini-2.0-flash")
+        
+        user_message = UserMessage(
+            text=f"Autó típus: {data.car_type}\nJelenlegi szolgáltatás: {data.current_service}"
         )
         
-        response = await chat.send_message_async(
-            UserMessage(content=f"Autó típus: {data.car_type}\nJelenlegi szolgáltatás: {data.current_service}")
-        )
+        response = await chat.send_message(user_message)
         
         import json
         try:
-            result = json.loads(response.content)
-        except:
-            result = {"suggestions": [], "priority_suggestion": response.content[:200]}
+            # Clean response - remove markdown if present
+            content = response
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+            result = json.loads(content.strip())
+        except Exception:
+            result = {"suggestions": [], "priority_suggestion": str(response)[:200]}
         
         return result
         
@@ -70,15 +81,12 @@ async def analyze_car_photos(data: PhotoAnalysisRequest):
         raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
     
     try:
-        from emergentintegrations.llm.chat import Chat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
         
         services = await db.services.find({}, {"_id": 0}).to_list(100)
         services_text = "\n".join([f"- {s['name']}: {s['price']} Ft" for s in services])
         
-        chat = Chat(
-            api_key=EMERGENT_LLM_KEY,
-            model="gemini-2.0-flash",
-            system_prompt=f"""Te egy autómosó szakértő vagy. Elemezd a kapott autó képet és adj javaslatokat.
+        system_prompt = f"""Te egy autómosó szakértő vagy. Elemezd a kapott autó képet és adj javaslatokat.
 
 Elérhető szolgáltatások:
 {services_text}
@@ -91,25 +99,35 @@ Válaszolj CSAK JSON formátumban:
   "estimated_price_range": "X-Y Ft",
   "notes": "..."
 }}"""
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"photo_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("gemini", "gemini-2.0-flash")
+        
+        user_message = UserMessage(
+            text="Elemezd ezt az autó képet és adj javaslatokat a tisztításhoz.",
+            image_url=f"data:image/jpeg;base64,{data.image_base64}"
         )
         
-        response = await chat.send_message_async(
-            UserMessage(
-                content="Elemezd ezt az autó képet és adj javaslatokat a tisztításhoz.",
-                images=[f"data:image/jpeg;base64,{data.image_base64}"]
-            )
-        )
+        response = await chat.send_message(user_message)
         
         import json
         try:
-            result = json.loads(response.content)
-        except:
+            content = response
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+            result = json.loads(content.strip())
+        except Exception:
             result = {
                 "condition": "ismeretlen",
                 "detected_issues": [],
                 "recommended_services": [],
                 "estimated_price_range": "N/A",
-                "notes": response.content[:500]
+                "notes": str(response)[:500]
             }
         
         return result
@@ -125,7 +143,7 @@ async def generate_quote(data: QuoteRequest):
         raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
     
     try:
-        from emergentintegrations.llm.chat import Chat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
         
         services = await db.services.find({}, {"_id": 0}).to_list(100)
         services_dict = {s["name"]: s for s in services}
@@ -138,21 +156,21 @@ async def generate_quote(data: QuoteRequest):
                 total_base += srv["price"]
                 service_details.append(f"- {srv_name}: {srv['price']} Ft")
         
-        chat = Chat(
-            api_key=EMERGENT_LLM_KEY,
-            model="gemini-2.0-flash",
-            system_prompt="""Te egy autómosó árajánlat készítő vagy. Az alapárak mellett adj javaslatot az állapot alapján esetleges felárra vagy kedvezményre.
+        system_prompt = """Te egy autómosó árajánlat készítő vagy. Az alapárak mellett adj javaslatot az állapot alapján esetleges felárra vagy kedvezményre.
 
 Válaszolj CSAK JSON formátumban:
 {
-  "base_total": 0,
   "condition_adjustment": 0,
   "adjustment_reason": "...",
-  "final_total": 0,
   "time_estimate_minutes": 0,
   "recommendations": "..."
 }"""
-        )
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"quote_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("gemini", "gemini-2.0-flash")
         
         prompt = f"""Autó: {data.car_type}
 Állapot: {data.condition}
@@ -161,22 +179,27 @@ Kért szolgáltatások:
 Alapár összesen: {total_base} Ft
 Megjegyzés: {data.notes or 'nincs'}"""
         
-        response = await chat.send_message_async(UserMessage(content=prompt))
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
         
         import json
         try:
-            result = json.loads(response.content)
+            content = response
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+            result = json.loads(content.strip())
             result["base_total"] = total_base
-            if "final_total" not in result or result["final_total"] == 0:
-                result["final_total"] = total_base + result.get("condition_adjustment", 0)
-        except:
+            result["final_total"] = total_base + result.get("condition_adjustment", 0)
+        except Exception:
             result = {
                 "base_total": total_base,
                 "condition_adjustment": 0,
                 "adjustment_reason": "Automatikus számítás",
                 "final_total": total_base,
                 "time_estimate_minutes": 60,
-                "recommendations": response.content[:300]
+                "recommendations": str(response)[:300]
             }
         
         return result
