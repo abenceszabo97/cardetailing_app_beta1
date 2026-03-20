@@ -97,28 +97,41 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 
 ## Fájl struktúra
 ```
-/app/backend/
-├── server.py          # Entry point
-├── config.py          # Konfiguráció + JWT settings
-├── database.py        # MongoDB kapcsolat
-├── dependencies.py    # Auth (JWT decode)
-├── models/
-│   ├── shift.py       # + lunch_start, lunch_end mezők
-│   └── ...
-├── routes/
-│   ├── shifts.py      # + PUT endpoint ebédszünethez
-│   └── ...
+/app/backend/                 # Változatlan - közös API
+├── main.py                   # Entry point
+├── config.py                 # Konfiguráció + JWT settings
+├── database.py               # MongoDB kapcsolat
+├── dependencies.py           # Auth (JWT decode)
+├── models/                   # Pydantic modellek
+├── routes/                   # API végpontok
 
-/app/frontend/src/
-├── pages/
-│   ├── Dashboard.jsx  # Dolgozó badge kiemelt
-│   ├── Calendar.jsx   # Dolgozó név zárójelben
-│   ├── Workers.jsx    # Ebédszünet form és megjelenítés
-│   ├── Settings.jsx   # Nem-admin: profil + jelszóváltás
-│   └── ...
-├── components/
-│   ├── Sidebar.jsx    # Beállítások mindenki számára
-│   └── ...
+/app/frontend/                # Eredeti (referencia)
+
+/app/frontend-admin/          # Admin Dashboard App (V2.3)
+├── src/
+│   ├── App.js               # Admin routing (védett útvonalak)
+│   ├── pages/
+│   │   ├── Login.jsx        # Admin bejelentkezés
+│   │   ├── Dashboard.jsx    # Főoldal
+│   │   ├── Calendar.jsx     # Naptár
+│   │   ├── Customers.jsx    # Ügyfelek
+│   │   ├── Workers.jsx      # Dolgozók + műszakok
+│   │   ├── Inventory.jsx    # Készlet
+│   │   ├── Statistics.jsx   # Statisztikák
+│   │   ├── Services.jsx     # Szolgáltatások
+│   │   ├── DayManagement.jsx# Napnyitás/zárás
+│   │   └── Settings.jsx     # Beállítások
+│   └── components/
+│       ├── Sidebar.jsx      # Navigáció
+│       └── NotificationBell.jsx
+
+/app/frontend-booking/        # Publikus Foglalási App (V2.3)
+├── src/
+│   ├── App.js               # Publikus routing (auth nélkül)
+│   ├── pages/
+│   │   └── BookingPage.jsx  # 4 lépéses foglalási wizard
+│   └── components/
+│       └── AIComponents.jsx # AI ajánlások
 ```
 
 ## Fontos megjegyzések
@@ -127,6 +140,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Felhasználó kezelés**: Settings oldalon (/settings) admin jogosultsággal
 
 ## Changelog
+- 2025-12-20: V2.3 - Frontend refaktorálás: Admin és Booking app szétválasztása
 - 2025-12-20: V2.2 - Dolgozó megjelenítés, ebédszünet, Settings mindenki számára
 - 2025-12-20: V2.1 - Username/password auth, two car booking, notifications, AI frontend
 - 2025-12-19: Server.py refactor, data cleanup, Budapest removed
