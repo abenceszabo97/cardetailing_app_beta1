@@ -37,11 +37,8 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
     { path: "/statistics", label: "Statisztika", icon: BarChart3 },
     { path: "/services", label: "Szolgáltatások", icon: Sparkles },
     { path: "/day-management", label: "Napnyitás/Zárás", icon: Sun },
+    { path: "/settings", label: "Beállítások", icon: Settings },
   ];
-
-  if (user?.role === "admin") {
-    navItems.push({ path: "/settings", label: "Beállítások", icon: Settings });
-  }
 
   const isActive = (path) => location.pathname === path;
 

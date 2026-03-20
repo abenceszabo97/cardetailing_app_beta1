@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 from datetime import datetime, timezone
 import uuid
 
@@ -9,6 +10,9 @@ class Shift(BaseModel):
     location: str
     start_time: datetime
     end_time: datetime
+    # Lunch break
+    lunch_start: Optional[str] = None  # e.g. "12:00"
+    lunch_end: Optional[str] = None    # e.g. "12:30"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ShiftCreate(BaseModel):
@@ -16,3 +20,9 @@ class ShiftCreate(BaseModel):
     location: str
     start_time: datetime
     end_time: datetime
+    lunch_start: Optional[str] = None
+    lunch_end: Optional[str] = None
+
+class ShiftUpdate(BaseModel):
+    lunch_start: Optional[str] = None
+    lunch_end: Optional[str] = None

@@ -10,13 +10,13 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Ügyfelek kezelése**: Lista, részletes profil, előzmények, CRUD
 - **Dolgozók kezelése**: Dolgozók CRUD (név, telefon, email, beosztás, telephely) - mindenki számára
 - **Dolgozói havi statisztika**: Ledolgozott napok/órák, elkészített autók, bevétel - hónapra szűrhető + PDF export + email küldés
-- **Műszakbeosztás**: Heti és havi naptár nézet, műszak hozzáadás/törlés - mindenki számára
+- **Műszakbeosztás**: Heti és havi naptár nézet, műszak hozzáadás/törlés + **Ebédszünet felvitele**
 - **Készlet kezelés**: Teljes CRUD, alacsony készlet figyelmeztetés - mindenki számára
 - **Készlet figyelmeztetések**: Értesítési harang a headerben, alacsony készlet push értesítés valós időben
 - **Statisztika**: Grafikonok, dolgozói teljesítmény, szolgáltatás népszerűség, haladó analitika, PDF export
 - **Szolgáltatások**: Teljes X-CLEAN árlista, kategória fülekkel, teljes CRUD - mindenki számára
 - **Napnyitás/Napzárás**: Teljes flow + PDF export + email küldés, lezárt nap utáni újranyitás, pénzelvitel, kasszaellenőrzés
-- **Beállítások**: Felhasználók kezelése (csak admin)
+- **Beállítások**: Mindenki számára elérhető (profil, jelszó váltás); Admin: felhasználók kezelése
 - **Képek**: 9 előtte + 9 utána kép feltöltése munkákhoz
 - **Telephely**: Csak Debrecen (Budapest eltávolítva)
 
@@ -33,20 +33,20 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Blacklist/tiltólista**: Problémás ügyfelek kezelése rendszám alapján
 - **AI Backend végpontok**: Upsell, fotó elemzés, árajánlat (Gemini) - backend kész
 
-### V2.1 - Új funkciók (2025-12-20)
+### V2.1 - Felhasználónév/Jelszó auth (2025-12-20)
 - **✅ Felhasználónév + Jelszó bejelentkezés**: Google Auth lecserélve
   - Admin hozhat létre új felhasználókat
   - Jelszó visszaállítás admin által
   - Felhasználó aktiválás/deaktiválás
 - **✅ Két autó foglalása egymás után**: Minden ügyfélnek elérhető
-  - Második autó adatai (rendszám, típus, szolgáltatás)
-  - Automatikusan az első autó utáni időpontra foglalja
-  - Összevont összegzés a 4. lépésben
-- **✅ Push értesítések bővítve**:
-  - Foglalás módosításkor (dátum/időpont változás)
-  - Státusz változáskor (foglalt → folyamatban → kész → lemondta)
+- **✅ Push értesítések bővítve**: Módosítás és státusz változáskor
 - **✅ AI komponensek frontend**: Upsell, fotó elemzés, árajánlat komponensek
 - **✅ server.py refaktorálás kész** (routes/, models/ moduláris struktúra)
+
+### V2.2 - Dolgozó megjelenítés és ebédszünet (2025-12-20)
+- **✅ Dolgozó név megjelenítése**: Dashboard "Mai munkák" és Naptár nézetben kiemelt dolgozó badge
+- **✅ Ebédszünet felvitele műszakhoz**: Kezdete/Vége időpontok, megjelenítés a naptárban
+- **✅ Settings menüpont mindenki számára**: Profil és jelszóváltás minden felhasználónak elérhető
 
 ### Implementálva de API kulcsok szükségesek
 - **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről
@@ -64,7 +64,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - Utolsó teszt: 2025. december 20.
 - Teszt credentials: admin / admin123
 
-## Befejezett feladatok (P0) 
+## Befejezett feladatok
 - [x] Foglalás módosítás funkció (naptárban szerkesztés)
 - [x] Blacklist/tiltólista kezelés
 - [x] Budapest eltávolítása
@@ -74,6 +74,9 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [x] Két autó foglalása egymás után
 - [x] Push értesítések (módosítás, státusz változás)
 - [x] AI komponensek frontend
+- [x] Dolgozó megjelenítés dashboard és naptárban
+- [x] Ebédszünet felvitele műszakhoz
+- [x] Settings mindenki számára elérhető
 
 ## P0 - Következő iteráció (Kiemelt prioritás)
 - [ ] Google Calendar integráció
@@ -92,40 +95,39 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [ ] Twilio API kulcsok konfigurálása az SMS küldéshez
 - [ ] Resend API kulcs konfigurálása az email küldéshez
 
-## Fájl struktúra (Refaktorálva 2025-12-19)
+## Fájl struktúra
 ```
 /app/backend/
-├── server.py          # Entry point (64 sor)
+├── server.py          # Entry point
 ├── config.py          # Konfiguráció + JWT settings
 ├── database.py        # MongoDB kapcsolat
 ├── dependencies.py    # Auth (JWT decode)
-├── models/            # Pydantic modellek (11 fájl)
-│   ├── user.py        # username, password_hash, active
-│   ├── booking.py     # + second_car field
+├── models/
+│   ├── shift.py       # + lunch_start, lunch_end mezők
 │   └── ...
-├── routes/            # API útvonalak (15 fájl)
-│   ├── auth.py        # login, create-user, reset-password
-│   ├── bookings.py    # + notifications on status/date change
+├── routes/
+│   ├── shifts.py      # + PUT endpoint ebédszünethez
 │   └── ...
-└── tests/
 
 /app/frontend/src/
 ├── pages/
-│   ├── Login.jsx      # Username/password form
-│   ├── Settings.jsx   # User management (create, reset pwd)
-│   ├── BookingPage.jsx # + Second car option
+│   ├── Dashboard.jsx  # Dolgozó badge kiemelt
+│   ├── Calendar.jsx   # Dolgozó név zárójelben
+│   ├── Workers.jsx    # Ebédszünet form és megjelenítés
+│   ├── Settings.jsx   # Nem-admin: profil + jelszóváltás
 │   └── ...
 ├── components/
-│   ├── AIComponents.jsx # Upsell, PhotoAnalysis, QuoteGenerator
+│   ├── Sidebar.jsx    # Beállítások mindenki számára
 │   └── ...
 ```
 
 ## Fontos megjegyzések
-- **Emergent LLM Key egyenleg kimerült**: Az AI funkciók nem működnek, amíg nem töltöd fel az egyenleget a Profil → Universal Key → Add Balance menüpontban.
+- **Emergent LLM Key egyenleg**: 24.95 USD (feltöltve)
 - **Admin credentials**: admin / admin123
 - **Felhasználó kezelés**: Settings oldalon (/settings) admin jogosultsággal
 
 ## Changelog
+- 2025-12-20: V2.2 - Dolgozó megjelenítés, ebédszünet, Settings mindenki számára
 - 2025-12-20: V2.1 - Username/password auth, two car booking, notifications, AI frontend
 - 2025-12-19: Server.py refactor, data cleanup, Budapest removed
 - 2025-12-16: V2 - Booking system, notifications, blacklist, AI backend

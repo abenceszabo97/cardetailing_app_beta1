@@ -43,8 +43,106 @@ import {
   Eye,
   EyeOff,
   Check,
-  X
+  X,
+  Loader2,
+  Lock
 } from "lucide-react";
+
+// Change Password Form Component
+const ChangePasswordForm = () => {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmPassword) {
+      toast.error("Az új jelszavak nem egyeznek!");
+      return;
+    }
+    
+    if (newPassword.length < 4) {
+      toast.error("A jelszó legalább 4 karakter legyen!");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await axios.post(`${API}/auth/change-password`, {
+        current_password: currentPassword,
+        new_password: newPassword
+      }, { withCredentials: true });
+      
+      toast.success("Jelszó sikeresen megváltoztatva!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a jelszó megváltoztatásakor");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleChangePassword} className="space-y-4">
+      <div>
+        <Label className="text-slate-300">Jelenlegi jelszó</Label>
+        <div className="relative">
+          <Input
+            type={showPassword ? "text" : "password"}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="bg-slate-950 border-slate-700 text-white pr-10"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+      <div>
+        <Label className="text-slate-300">Új jelszó</Label>
+        <Input
+          type={showPassword ? "text" : "password"}
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          className="bg-slate-950 border-slate-700 text-white"
+          placeholder="Minimum 4 karakter"
+          required
+        />
+      </div>
+      <div>
+        <Label className="text-slate-300">Új jelszó megerősítése</Label>
+        <Input
+          type={showPassword ? "text" : "password"}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="bg-slate-950 border-slate-700 text-white"
+          required
+        />
+      </div>
+      <Button
+        type="submit"
+        disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+        className="w-full bg-yellow-600 hover:bg-yellow-500"
+      >
+        {loading ? (
+          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mentés...</>
+        ) : (
+          <><Lock className="w-4 h-4 mr-2" /> Jelszó megváltoztatása</>
+        )}
+      </Button>
+    </form>
+  );
+};
 
 export const Settings = () => {
   const { user } = useAuth();
@@ -178,12 +276,59 @@ export const Settings = () => {
   };
 
   if (user?.role !== "admin") {
+    // Non-admin users can only see their own profile and change password
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400">Nincs jogosultságod a beállítások megtekintéséhez.</p>
+      <div className="space-y-6" data-testid="settings-page">
+        <div>
+          <h1 className="text-3xl font-bold text-white font-['Manrope']">Beállítások</h1>
+          <p className="text-slate-400 mt-1">Személyes beállítások</p>
         </div>
+        
+        {/* Profile Card */}
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
+              <UserCog className="w-5 h-5 text-green-400" />
+              Profil
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center">
+                <span className="text-white text-2xl font-medium">{user?.name?.charAt(0) || 'U'}</span>
+              </div>
+              <div>
+                <p className="text-white font-medium text-lg">{user?.name}</p>
+                <p className="text-slate-400">@{user?.username || 'n/a'}</p>
+                <Badge className="mt-1 bg-blue-500/20 text-blue-300">{user?.role === 'admin' ? 'Admin' : 'Dolgozó'}</Badge>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-700">
+              <div>
+                <span className="text-slate-400 text-sm">Email</span>
+                <p className="text-white">{user?.email || '-'}</p>
+              </div>
+              <div>
+                <span className="text-slate-400 text-sm">Telephely</span>
+                <p className="text-white">{user?.location || 'Nincs megadva'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Change Password Card */}
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
+              <Key className="w-5 h-5 text-yellow-400" />
+              Jelszó megváltoztatása
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChangePasswordForm />
+          </CardContent>
+        </Card>
       </div>
     );
   }

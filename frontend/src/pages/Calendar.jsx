@@ -254,9 +254,10 @@ const Calendar = () => {
                         key={booking.booking_id}
                         className={`p-1 rounded text-xs cursor-pointer truncate ${STATUS_COLORS[booking.status]}`}
                         onClick={() => openBookingDetails(booking)}
-                        title={`${booking.customer_name} - ${booking.plate_number}`}
+                        title={`${booking.customer_name} - ${booking.plate_number} | Dolgozó: ${booking.worker_name || 'Nincs'}`}
                       >
-                        {booking.time_slot} {booking.customer_name?.split(' ')[0]}
+                        <span className="font-medium">{booking.time_slot}</span> {booking.customer_name?.split(' ')[0]}
+                        {booking.worker_name && <span className="text-blue-300 ml-1">({booking.worker_name?.split(' ')[0]})</span>}
                       </div>
                     ))}
                   </div>
@@ -302,8 +303,8 @@ const Calendar = () => {
                   <div className={`text-xs font-medium mb-1 ${isToday ? 'text-green-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'}`}>{format(day, "d")}</div>
                   <div className="space-y-0.5">
                     {dayBookings.slice(0, 3).map(booking => (
-                      <div key={booking.booking_id} className={`text-xs p-0.5 rounded truncate cursor-pointer ${STATUS_COLORS[booking.status]}`} onClick={() => openBookingDetails(booking)}>
-                        {booking.time_slot} {booking.customer_name?.split(' ')[0]}
+                      <div key={booking.booking_id} className={`text-xs p-0.5 rounded truncate cursor-pointer ${STATUS_COLORS[booking.status]}`} onClick={() => openBookingDetails(booking)} title={`${booking.customer_name} | Dolgozó: ${booking.worker_name || 'Nincs'}`}>
+                        {booking.time_slot} {booking.customer_name?.split(' ')[0]} {booking.worker_name && <span className="text-blue-300">({booking.worker_name?.split(' ')[0]})</span>}
                       </div>
                     ))}
                     {dayBookings.length > 3 && <div className="text-xs text-slate-500">+{dayBookings.length - 3} további</div>}

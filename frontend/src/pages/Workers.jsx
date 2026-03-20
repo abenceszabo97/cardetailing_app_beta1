@@ -214,7 +214,9 @@ export const Workers = () => {
     worker_id: "",
     location: "Debrecen",
     start_time: "",
-    end_time: ""
+    end_time: "",
+    lunch_start: "",
+    lunch_end: ""
   });
 
   const [newWorker, setNewWorker] = useState({
@@ -277,7 +279,7 @@ export const Workers = () => {
       await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
       toast.success("Műszak sikeresen létrehozva!");
       setIsNewShiftOpen(false);
-      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "" });
+      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "", lunch_start: "", lunch_end: "" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a műszak létrehozásakor");
@@ -765,6 +767,37 @@ export const Workers = () => {
                         />
                       </div>
                     </div>
+                    
+                    {/* Lunch Break */}
+                    <div className="border-t border-slate-700 pt-4 mt-4">
+                      <Label className="text-slate-300 flex items-center gap-2 mb-3">
+                        <Clock className="w-4 h-4" />
+                        Ebédszünet (opcionális)
+                      </Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-slate-400 text-sm">Kezdete</Label>
+                          <Input
+                            type="time"
+                            value={newShift.lunch_start || ""}
+                            onChange={(e) => setNewShift({...newShift, lunch_start: e.target.value})}
+                            className="bg-slate-950 border-slate-700 text-white"
+                            placeholder="12:00"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-slate-400 text-sm">Vége</Label>
+                          <Input
+                            type="time"
+                            value={newShift.lunch_end || ""}
+                            onChange={(e) => setNewShift({...newShift, lunch_end: e.target.value})}
+                            className="bg-slate-950 border-slate-700 text-white"
+                            placeholder="12:30"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
                     <Button 
                       onClick={handleCreateShift}
                       className="w-full bg-green-600 hover:bg-green-500"
@@ -828,13 +861,15 @@ export const Workers = () => {
                           {dayShifts.slice(0, 3).map((shift) => {
                             const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
                             const colors = getWorkerColor(workerIndex);
+                            const lunchInfo = shift.lunch_start && shift.lunch_end ? ` | Ebéd: ${shift.lunch_start}-${shift.lunch_end}` : '';
                             return (
                               <div 
                                 key={shift.shift_id}
                                 className={`${colors.light} ${colors.text} text-xs p-1 rounded truncate group relative`}
-                                title={`${shift.worker_name}: ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`}
+                                title={`${shift.worker_name}: ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}${lunchInfo}`}
                               >
                                 <span>{shift.worker_name?.split(' ')[0]}</span>
+                                {shift.lunch_start && <span className="text-yellow-500 ml-1">*</span>}
                                   <button
                                     onClick={() => setDeleteShiftId(shift.shift_id)}
                                     className="absolute right-0 top-0 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"
@@ -895,12 +930,19 @@ export const Workers = () => {
                                     {dayShifts.map(shift => (
                                       <div 
                                         key={shift.shift_id}
-                                        className={`${colors.bg} text-white text-xs p-1 rounded flex items-center justify-between group`}
+                                        className={`${colors.bg} text-white text-xs p-1 rounded group`}
                                       >
-                                        <span>{format(new Date(shift.start_time), 'HH:mm')}-{format(new Date(shift.end_time), 'HH:mm')}</span>
+                                        <div className="flex items-center justify-between">
+                                          <span>{format(new Date(shift.start_time), 'HH:mm')}-{format(new Date(shift.end_time), 'HH:mm')}</span>
                                           <button onClick={() => setDeleteShiftId(shift.shift_id)} className="opacity-0 group-hover:opacity-100 ml-1">
                                             <Trash2 className="w-3 h-3" />
                                           </button>
+                                        </div>
+                                        {shift.lunch_start && shift.lunch_end && (
+                                          <div className="text-yellow-300 text-[10px] mt-0.5 flex items-center gap-1">
+                                            <span>Ebéd: {shift.lunch_start}-{shift.lunch_end}</span>
+                                          </div>
+                                        )}
                                       </div>
                                     ))}
                                   </div>

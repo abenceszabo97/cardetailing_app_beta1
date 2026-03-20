@@ -426,8 +426,27 @@ export const Dashboard = () => {
                           </div>
                           <p className="text-slate-400 text-sm mt-1">{job.customer_name}</p>
                           <p className="text-slate-500 text-sm">{job.service_name}</p>
+                          {/* Worker badge - more prominent */}
+                          <div className="flex items-center gap-2 mt-2">
+                            {job.worker_name ? (
+                              <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                <User className="w-3 h-3 mr-1" />
+                                {job.worker_name}
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                                <User className="w-3 h-3 mr-1" />
+                                Nincs dolgozó
+                              </Badge>
+                            )}
+                            {job.time_slot && (
+                              <Badge variant="outline" className="border-slate-600 text-slate-400">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {job.time_slot}
+                              </Badge>
+                            )}
+                          </div>
                           <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                            <span className="flex items-center gap-1"><User className="w-3 h-3" />{job.worker_name || "Nincs"}</span>
                             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{job.location}</span>
                           </div>
                           <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-400 hover:text-white mt-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>

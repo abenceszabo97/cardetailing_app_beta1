@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from dependencies import get_current_user
 from database import db
 from models.user import User
-from models.shift import Shift, ShiftCreate
+from models.shift import Shift, ShiftCreate, ShiftUpdate
 
 router = APIRouter()
 
@@ -43,7 +43,9 @@ async def create_shift(data: ShiftCreate, user: User = Depends(get_current_user)
         worker_name=worker["name"],
         location=data.location,
         start_time=data.start_time,
-        end_time=data.end_time
+        end_time=data.end_time,
+        lunch_start=data.lunch_start,
+        lunch_end=data.lunch_end
     )
     
     doc = shift.model_dump()
@@ -53,6 +55,24 @@ async def create_shift(data: ShiftCreate, user: User = Depends(get_current_user)
     await db.shifts.insert_one(doc)
     
     return shift.model_dump()
+
+@router.put("/shifts/{shift_id}")
+async def update_shift(shift_id: str, data: ShiftUpdate, user: User = Depends(get_current_user)):
+    """Update shift lunch break"""
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
+    
+    result = await db.shifts.update_one(
+        {"shift_id": shift_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Műszak nem található")
+    
+    return {"message": "Műszak frissítve"}
 
 @router.delete("/shifts/{shift_id}")
 async def delete_shift(shift_id: str, user: User = Depends(get_current_user)):
