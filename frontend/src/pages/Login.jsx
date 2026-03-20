@@ -72,10 +72,10 @@ export const Login = () => {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md px-4 sm:px-0">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-4 shadow-lg shadow-green-500/30 p-2">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg shadow-green-500/30 p-2">
             <img 
               src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
               alt="X-CLEAN Logo" 
@@ -83,15 +83,15 @@ export const Login = () => {
               data-testid="login-logo"
             />
           </div>
-          <p className="text-slate-400 mt-2 flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4 text-green-400" />
+          <p className="text-slate-400 mt-2 flex items-center justify-center gap-2 text-sm sm:text-base">
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
             <span>Garantált Tisztaság</span>
-            <Sparkles className="w-4 h-4 text-green-400" />
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-8">
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl sm:rounded-2xl p-6 sm:p-8">
           <h2 className="text-xl font-semibold text-white text-center mb-2 font-['Manrope']">
             Bejelentkezés
           </h2>

@@ -213,17 +213,17 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="dashboard">
+    <div className="space-y-4 sm:space-y-6" data-testid="dashboard">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Főoldal</h1>
-          <p className="text-slate-400 mt-1">Üdvözöljük, {user?.name}!</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Főoldal</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Üdvözöljük, {user?.name}!</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-[180px] bg-slate-900 border-slate-700 text-white" data-testid="dashboard-location-select">
-              <MapPin className="w-4 h-4 mr-2 text-green-400" />
+            <SelectTrigger className="w-[140px] sm:w-[180px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="dashboard-location-select">
+              <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
               <SelectValue placeholder="Telephely" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
@@ -320,81 +320,81 @@ export const Dashboard = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         <Card className="glass-card kpi-card">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Mai autók</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.today_cars}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Mai autók</p>
+                <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.today_cars}</p>
               </div>
-              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-                <Car className="w-5 h-5 text-green-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Car className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card kpi-card">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Mai készpénz</p>
-                <p className="text-2xl font-bold text-green-400 mt-1">{(stats.today_cash || 0).toLocaleString()} Ft</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Mai készpénz</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.today_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
-              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-green-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card kpi-card">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Mai kártya</p>
-                <p className="text-2xl font-bold text-blue-400 mt-1">{(stats.today_card || 0).toLocaleString()} Ft</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Mai kártya</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.today_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
-              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-blue-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card kpi-card">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Havi autók</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.month_cars}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
+                <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.month_cars}</p>
               </div>
-              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-purple-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card kpi-card">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Havi készpénz</p>
-                <p className="text-2xl font-bold text-green-400 mt-1">{(stats.month_cash || 0).toLocaleString()} Ft</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Havi készpénz</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.month_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
-              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-green-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="glass-card kpi-card">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Havi kártya</p>
-                <p className="text-2xl font-bold text-blue-400 mt-1">{(stats.month_card || 0).toLocaleString()} Ft</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Havi kártya</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.month_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
-              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-blue-400" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
             </div>
           </CardContent>

@@ -135,17 +135,17 @@ export const Customers = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="customers-page">
+    <div className="space-y-4 sm:space-y-6" data-testid="customers-page">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-['Manrope']">Ügyfelek</h1>
-          <p className="text-slate-400 mt-1">{customers.length} ügyfél összesen</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Ügyfelek</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">{customers.length} ügyfél összesen</p>
         </div>
         {activeTab === "customers" && (
           <Dialog open={isNewCustomerOpen} onOpenChange={setIsNewCustomerOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-500" data-testid="new-customer-btn">
+              <Button className="bg-green-600 hover:bg-green-500 w-full sm:w-auto" data-testid="new-customer-btn">
                 <Plus className="w-4 h-4 mr-2" />
                 Új ügyfél
               </Button>
