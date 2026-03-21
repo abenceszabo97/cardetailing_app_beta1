@@ -17,8 +17,8 @@ _cors_raw = os.environ.get("CORS_ORIGINS", "*")
 CORS_ORIGINS = [origin.strip() for origin in _cors_raw.split(",")]
 print(f"[CONFIG] CORS_ORIGINS loaded: {CORS_ORIGINS}")
 
-# Emergent LLM Key for AI features
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+# Groq AI (FREE)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # Twilio SMS
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")

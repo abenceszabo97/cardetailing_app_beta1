@@ -539,4 +539,4 @@ export const AIQuoteGenerator = ({ carType, condition, services, notes }) => {
   );
 };
 
-export default { AIUpsellSuggestions, AIPhotoAnalysis, AIQuoteGenerator, AIChatbot };
+export default { AIUpsellSuggestions, AIChatbot };

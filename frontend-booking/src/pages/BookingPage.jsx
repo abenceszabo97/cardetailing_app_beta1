@@ -9,11 +9,11 @@ import { toast } from "sonner";
 import { 
   Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
-  Calendar, Users, Timer, AlertTriangle, Plus, X, Camera
+  Calendar, Users, Timer, AlertTriangle, Plus, X
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
-import { AIChatbot, AIUpsellSuggestions, AIPhotoAnalysis } from "../components/AIComponents";
+import { AIChatbot, AIUpsellSuggestions } from "../components/AIComponents";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -47,7 +47,6 @@ const BookingPage = () => {
   
   // AI features state
   const [showAIFeatures, setShowAIFeatures] = useState(false);
-  const [photoAnalysisResult, setPhotoAnalysisResult] = useState(null);
 
   useEffect(() => {
     console.log("API URL:", API);
@@ -389,16 +388,6 @@ const BookingPage = () => {
                   
                   {showAIFeatures && (
                     <div className="space-y-4">
-                      {/* Photo Analysis */}
-                      <AIPhotoAnalysis
-                        onAnalysisComplete={(result) => {
-                          setPhotoAnalysisResult(result);
-                          if (result.recommended_services?.length > 0) {
-                            toast.success("Az AI elkészítette a javaslatait!");
-                          }
-                        }}
-                      />
-                      
                       {/* AI Upsell Suggestions */}
                       {form.car_type && selectedService && (
                         <AIUpsellSuggestions
@@ -414,37 +403,10 @@ const BookingPage = () => {
                         />
                       )}
                       
-                      {/* Photo Analysis Results */}
-                      {photoAnalysisResult && (
-                        <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-                          <h4 className="text-white font-medium flex items-center gap-2">
-                            <Camera className="w-4 h-4 text-blue-400" />
-                            Képelemzés eredménye
-                          </h4>
-                          <p className="text-slate-300 text-sm">{photoAnalysisResult.analysis}</p>
-                          {photoAnalysisResult.recommended_services?.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="text-slate-400 text-xs">Javasolt szolgáltatások:</span>
-                              <div className="flex flex-wrap gap-2">
-                                {photoAnalysisResult.recommended_services.map((svc, i) => (
-                                  <button
-                                    key={i}
-                                    onClick={() => {
-                                      const service = services.find(s => s.name.toLowerCase().includes(svc.toLowerCase()));
-                                      if (service) {
-                                        set("service_id", service.service_id);
-                                        toast.success(`${service.name} kiválasztva`);
-                                      }
-                                    }}
-                                    className="px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition-colors"
-                                  >
-                                    {svc}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                      {!form.car_type && (
+                        <p className="text-slate-400 text-sm text-center py-4">
+                          Add meg az autó típusát a javaslatok megjelenítéséhez
+                        </p>
                       )}
                     </div>
                   )}

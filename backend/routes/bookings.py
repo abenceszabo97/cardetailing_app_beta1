@@ -129,14 +129,11 @@ async def create_booking(data: BookingCreate):
         )
     
     # Send confirmation email if configured
-    if RESEND_API_KEY:
+    if RESEND_API_KEY and data.email:
         try:
-            import resend
-            await asyncio.to_thread(resend.Emails.send, {
-                "from": SENDER_EMAIL, "to": [data.email],
-                "subject": f"X-CLEAN Foglalás visszaigazolás - {data.date} {data.time_slot}",
-                "html": f"<h2>Foglalás visszaigazolás</h2><p>Kedves {data.customer_name}!</p><p>Foglalása rögzítve: {data.date} {data.time_slot}, {service['name']}, {data.location}, {service['price']} Ft</p><p>Várjuk szeretettel!</p>"
-            })
+            from services.email_service import send_booking_confirmation
+            email_result = await send_booking_confirmation(doc)
+            logging.info(f"Booking confirmation email: {email_result}")
         except Exception as e:
             logging.warning(f"Booking email failed: {e}")
     

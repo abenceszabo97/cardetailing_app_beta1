@@ -1,46 +1,51 @@
 """
-AI Routes
+AI Routes - Using Groq (FREE)
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
+import os
 import uuid
-from config import EMERGENT_LLM_KEY
 from database import db
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 class UpsellRequest(BaseModel):
     car_type: str
     current_service: str
 
-class PhotoAnalysisRequest(BaseModel):
-    image_base64: str
-
-class QuoteRequest(BaseModel):
-    car_type: str
-    condition: str
-    services_requested: List[str]
-    notes: Optional[str] = None
-
 class ChatMessage(BaseModel):
     message: str
     session_id: Optional[str] = None
 
+# In-memory chat history (for session management)
+chat_sessions = {}
+
+def get_groq_client():
+    """Get Groq client"""
+    if not GROQ_API_KEY:
+        raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva. Kérjük állítsa be a GROQ_API_KEY környezeti változót.")
+    
+    from groq import Groq
+    return Groq(api_key=GROQ_API_KEY)
+
+
 @router.post("/ai/chat")
 async def chat_with_assistant(data: ChatMessage):
-    """Chat with AI assistant about car wash services"""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
-    
+    """Chat with AI assistant about car wash services using Groq (FREE)"""
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        client = get_groq_client()
         
         services = await db.services.find({}, {"_id": 0}).to_list(100)
         services_text = "\n".join([f"- {s['name']}: {s['price']} Ft ({s.get('category', 'egyéb')}) - {s.get('description', '')}" for s in services])
         
-        system_prompt = f"""Te az X-CLEAN autómosó AI asszisztense vagy. Segíts az ügyfeleknek a szolgáltatásokkal kapcsolatos kérdésekben.
+        system_prompt = f"""Te az xClean autókozmetika AI asszisztense vagy. Segíts az ügyfeleknek a szolgáltatásokkal kapcsolatos kérdésekben.
 
 Elérhető szolgáltatások:
 {services_text}
@@ -55,55 +60,75 @@ Legyél kedves, segítőkész és tömör. Válaszolj magyarul. Ha nem tudsz val
         
         session_id = data.session_id or f"chat_{uuid.uuid4().hex[:8]}"
         
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=system_prompt
-        ).with_model("gemini", "gemini-2.0-flash")
+        # Get or create session history
+        if session_id not in chat_sessions:
+            chat_sessions[session_id] = []
         
-        user_message = UserMessage(text=data.message)
-        response = await chat.send_message(user_message)
+        # Build messages list
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(chat_sessions[session_id][-10:])  # Keep last 10 messages
+        messages.append({"role": "user", "content": data.message})
+        
+        # Call Groq
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",  # Fast and free
+            messages=messages,
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        response = completion.choices[0].message.content
+        
+        # Save to session history
+        chat_sessions[session_id].append({"role": "user", "content": data.message})
+        chat_sessions[session_id].append({"role": "assistant", "content": response})
+        
+        # Limit session size
+        if len(chat_sessions[session_id]) > 20:
+            chat_sessions[session_id] = chat_sessions[session_id][-20:]
         
         return {
             "response": response,
             "session_id": session_id
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"AI chat error: {e}")
         raise HTTPException(status_code=500, detail=f"AI hiba: {str(e)}")
 
+
 @router.post("/ai/upsell")
 async def get_upsell_suggestions(data: UpsellRequest):
-    """Get AI-powered upsell suggestions"""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
-    
+    """Get AI-powered upsell suggestions using Groq (FREE)"""
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        client = get_groq_client()
         
         services = await db.services.find({}, {"_id": 0}).to_list(100)
         services_text = "\n".join([f"- {s['name']}: {s['price']} Ft ({s.get('category', 'egyéb')})" for s in services])
         
-        system_prompt = f"""Te egy autómosó upsell asszisztens vagy. A feladatod, hogy a megadott autótípus és aktuális szolgáltatás alapján ajánlj további szolgáltatásokat.
+        system_prompt = f"""Te egy autókozmetika upsell asszisztens vagy. A feladatod, hogy a megadott autótípus és aktuális szolgáltatás alapján ajánlj további szolgáltatásokat.
 
 Elérhető szolgáltatások:
 {services_text}
 
-Válaszolj CSAK JSON formátumban:
-{{"suggestions": [{{"service_name": "...", "reason": "..."}}], "priority_suggestion": "..."}}"""
+Válaszolj CSAK JSON formátumban, semmilyen más szöveget ne írj:
+{{"suggestions": [{{"service_name": "szolgáltatás neve", "reason": "rövid indoklás"}}], "priority_suggestion": "legfontosabb javaslat"}}"""
         
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"upsell_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model("gemini", "gemini-2.0-flash")
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Autó típus: {data.car_type}\nJelenlegi szolgáltatás: {data.current_service}"}
+        ]
         
-        user_message = UserMessage(
-            text=f"Autó típus: {data.car_type}\nJelenlegi szolgáltatás: {data.current_service}"
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages,
+            temperature=0.5,
+            max_tokens=300
         )
         
-        response = await chat.send_message(user_message)
+        response = completion.choices[0].message.content
         
         import json
         try:
@@ -119,140 +144,20 @@ Válaszolj CSAK JSON formátumban:
         
         return result
         
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"AI upsell error: {e}")
         raise HTTPException(status_code=500, detail=f"AI hiba: {str(e)}")
 
-@router.post("/ai/photo-analysis")
-async def analyze_car_photos(data: PhotoAnalysisRequest):
-    """Analyze car photos using AI"""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
-    
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        
-        services = await db.services.find({}, {"_id": 0}).to_list(100)
-        services_text = "\n".join([f"- {s['name']}: {s['price']} Ft" for s in services])
-        
-        system_prompt = f"""Te egy autómosó szakértő vagy. Elemezd a kapott autó képet és adj javaslatokat.
 
-Elérhető szolgáltatások:
-{services_text}
-
-Válaszolj CSAK JSON formátumban:
-{{
-  "condition": "jó/közepes/rossz",
-  "detected_issues": ["..."],
-  "recommended_services": ["..."],
-  "estimated_price_range": "X-Y Ft",
-  "notes": "..."
-}}"""
-        
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"photo_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model("gemini", "gemini-2.0-flash")
-        
-        user_message = UserMessage(
-            text="Elemezd ezt az autó képet és adj javaslatokat a tisztításhoz.",
-            image_url=f"data:image/jpeg;base64,{data.image_base64}"
-        )
-        
-        response = await chat.send_message(user_message)
-        
-        import json
-        try:
-            content = response
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-            result = json.loads(content.strip())
-        except Exception:
-            result = {
-                "condition": "ismeretlen",
-                "detected_issues": [],
-                "recommended_services": [],
-                "estimated_price_range": "N/A",
-                "notes": str(response)[:500]
-            }
-        
-        return result
-        
-    except Exception as e:
-        logging.error(f"AI photo analysis error: {e}")
-        raise HTTPException(status_code=500, detail=f"AI hiba: {str(e)}")
-
-@router.post("/ai/quote")
-async def generate_quote(data: QuoteRequest):
-    """Generate AI-powered price quote"""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="AI szolgáltatás nincs konfigurálva")
-    
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        
-        services = await db.services.find({}, {"_id": 0}).to_list(100)
-        services_dict = {s["name"]: s for s in services}
-        
-        total_base = 0
-        service_details = []
-        for srv_name in data.services_requested:
-            if srv_name in services_dict:
-                srv = services_dict[srv_name]
-                total_base += srv["price"]
-                service_details.append(f"- {srv_name}: {srv['price']} Ft")
-        
-        system_prompt = """Te egy autómosó árajánlat készítő vagy. Az alapárak mellett adj javaslatot az állapot alapján esetleges felárra vagy kedvezményre.
-
-Válaszolj CSAK JSON formátumban:
-{
-  "condition_adjustment": 0,
-  "adjustment_reason": "...",
-  "time_estimate_minutes": 0,
-  "recommendations": "..."
-}"""
-        
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"quote_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model("gemini", "gemini-2.0-flash")
-        
-        prompt = f"""Autó: {data.car_type}
-Állapot: {data.condition}
-Kért szolgáltatások:
-{chr(10).join(service_details)}
-Alapár összesen: {total_base} Ft
-Megjegyzés: {data.notes or 'nincs'}"""
-        
-        user_message = UserMessage(text=prompt)
-        response = await chat.send_message(user_message)
-        
-        import json
-        try:
-            content = response
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-            result = json.loads(content.strip())
-            result["base_total"] = total_base
-            result["final_total"] = total_base + result.get("condition_adjustment", 0)
-        except Exception:
-            result = {
-                "base_total": total_base,
-                "condition_adjustment": 0,
-                "adjustment_reason": "Automatikus számítás",
-                "final_total": total_base,
-                "time_estimate_minutes": 60,
-                "recommendations": str(response)[:300]
-            }
-        
-        return result
-        
-    except Exception as e:
-        logging.error(f"AI quote error: {e}")
-        raise HTTPException(status_code=500, detail=f"AI hiba: {str(e)}")
+@router.get("/ai/status")
+async def get_ai_status():
+    """Check AI service status"""
+    return {
+        "provider": "Groq",
+        "model": "llama-3.1-8b-instant",
+        "configured": bool(GROQ_API_KEY),
+        "features": ["chat", "upsell"],
+        "cost": "FREE"
+    }
