@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Car, MapPin, 
-  Phone, Mail, X, Check, AlertTriangle, Edit, Trash2, Ban, Save, UserX
+  Phone, Mail, X, Check, AlertTriangle, Edit, Trash2, Ban, Save, UserX, Upload, Image
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -47,6 +47,9 @@ const Calendar = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBlacklistDialog, setShowBlacklistDialog] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState("");
+  const [blacklistImages, setBlacklistImages] = useState([]);
+  const [uploadingBlacklistImage, setUploadingBlacklistImage] = useState(false);
+  const blacklistFileRef = useRef(null);
 
   useEffect(() => {
     fetchData();
@@ -151,14 +154,44 @@ const Calendar = () => {
     try {
       await axios.post(`${API}/blacklist`, {
         plate_number: selectedBooking.plate_number,
-        reason: blacklistReason
+        reason: blacklistReason,
+        evidence_images: blacklistImages
       }, { withCredentials: true });
       toast.success("Ügyfél hozzáadva a tiltólistához");
       setShowBlacklistDialog(false);
       setBlacklistReason("");
+      setBlacklistImages([]);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba a tiltólistához adáskor");
     }
+  };
+
+  const handleBlacklistImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    
+    setUploadingBlacklistImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await axios.post(`${API}/upload`, formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setBlacklistImages(prev => [...prev, uploadRes.data.url]);
+      toast.success("Kép feltöltve!");
+    } catch (error) {
+      toast.error("Hiba a kép feltöltésekor");
+    } finally {
+      setUploadingBlacklistImage(false);
+    }
+  };
+
+  const removeBlacklistImage = (index) => {
+    setBlacklistImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const getBookingsForDate = (date) => {
@@ -533,8 +566,11 @@ const Calendar = () => {
       </Dialog>
 
       {/* Blacklist Dialog */}
-      <Dialog open={showBlacklistDialog} onOpenChange={setShowBlacklistDialog}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+      <Dialog open={showBlacklistDialog} onOpenChange={(open) => { 
+        setShowBlacklistDialog(open); 
+        if (!open) { setBlacklistReason(""); setBlacklistImages([]); }
+      }}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-orange-400">
               <UserX className="w-5 h-5" /> Tiltólistára helyezés
@@ -545,8 +581,51 @@ const Calendar = () => {
             <label className="text-slate-500 text-sm">Indoklás *</label>
             <textarea value={blacklistReason} onChange={e => setBlacklistReason(e.target.value)} placeholder="Pl: Többszöri meg nem jelenés, fizetés nélkül távozott, stb." className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-sm mt-1 h-20" />
           </div>
+          
+          {/* Evidence Images Upload */}
+          <div>
+            <label className="text-slate-500 text-sm flex items-center gap-2">
+              <Image className="w-4 h-4" /> Bizonyíték képek (opcionális)
+            </label>
+            <input 
+              type="file" 
+              ref={blacklistFileRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleBlacklistImageUpload}
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {blacklistImages.map((url, idx) => (
+                <div key={idx} className="relative w-16 h-16 group">
+                  <img src={url} alt={`Bizonyíték ${idx + 1}`} className="w-full h-full object-cover rounded-lg border border-slate-700" />
+                  <button 
+                    onClick={() => removeBlacklistImage(idx)}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+              <button 
+                onClick={() => blacklistFileRef.current?.click()}
+                disabled={uploadingBlacklistImage}
+                className="w-16 h-16 border-2 border-dashed border-slate-700 rounded-lg flex flex-col items-center justify-center text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors"
+              >
+                {uploadingBlacklistImage ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-500 border-t-orange-400" />
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    <span className="text-[10px] mt-1">Kép</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-slate-600 text-xs mt-1">Fotók a károkról, problémákról</p>
+          </div>
+          
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setShowBlacklistDialog(false); setBlacklistReason(""); }} className="border-slate-700">Mégse</Button>
+            <Button variant="outline" onClick={() => { setShowBlacklistDialog(false); setBlacklistReason(""); setBlacklistImages([]); }} className="border-slate-700">Mégse</Button>
             <Button onClick={addToBlacklist} className="bg-orange-600 hover:bg-orange-700"><Ban className="w-4 h-4 mr-1" /> Tiltólistára</Button>
           </DialogFooter>
         </DialogContent>

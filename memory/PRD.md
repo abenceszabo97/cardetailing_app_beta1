@@ -76,6 +76,13 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **✅ Ügyfél előzményekben képek megtekintése**: Korábbi munkák képei visszanézhetők
 - **✅ Tabs: Feltöltés / Előtte-Utána nézetek**
 
+### V2.6 - Feketelista Bizonyíték Képek (2025-12-21)
+- **✅ Feketelista bizonyíték képek feltöltése** (opcionális):
+  - Calendar oldalon tiltólistára helyezésnél képfeltöltés lehetőség
+  - Customers oldalon bizonyíték képek megtekintése dialógusban
+  - Backend model frissítve: `evidence_images` mező hozzáadva
+- **✅ Fullscreen képnézegető** a bizonyíték képekhez
+
 ### Implementálva de API kulcsok szükségesek
 - **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről
 - **Email küldés (Resend)**: PDF riportok és foglalás visszaigazolás emailben
@@ -170,6 +177,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Felhasználó kezelés**: Settings oldalon (/settings) admin jogosultsággal
 
 ## Changelog
+- 2025-12-21: V2.6 - Feketelista bizonyíték képek feltöltése és megtekintése
 - 2025-12-20: V2.5 - Megnevezett Előtte-Utána képek slot rendszerrel, összehasonlító nézet
 - 2025-12-20: V2.4 - AI Chatbot hozzáadva a foglalási oldalhoz
 - 2025-12-20: V2.3 - Frontend refaktorálás: Admin és Booking app szétválasztása, teljes mobil reszponzivitás

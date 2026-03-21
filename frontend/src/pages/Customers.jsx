@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth } from "../App";
@@ -35,7 +35,12 @@ import {
   Ban,
   Trash2,
   UserX,
-  AlertTriangle
+  AlertTriangle,
+  Image,
+  Upload,
+  X,
+  ZoomIn,
+  Camera
 } from "lucide-react";
 
 export const Customers = () => {
@@ -49,6 +54,8 @@ export const Customers = () => {
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [removeFromBlacklistId, setRemoveFromBlacklistId] = useState(null);
   const [deleteCustomerId, setDeleteCustomerId] = useState(null);
+  const [viewEvidenceEntry, setViewEvidenceEntry] = useState(null);
+  const [fullscreenImage, setFullscreenImage] = useState(null);
   
   const [newCustomer, setNewCustomer] = useState({
     name: "",
@@ -402,34 +409,51 @@ export const Customers = () => {
                 {blacklist.map((entry) => (
                   <div 
                     key={entry.blacklist_id}
-                    className="p-4 bg-slate-800/50 rounded-xl border border-orange-500/20 flex items-center justify-between"
+                    className="p-4 bg-slate-800/50 rounded-xl border border-orange-500/20"
                     data-testid={`blacklist-entry-${entry.plate_number}`}
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono text-white font-bold text-lg">{entry.plate_number}</span>
-                        {entry.customer_name && (
-                          <span className="text-slate-400">{entry.customer_name}</span>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-mono text-white font-bold text-lg">{entry.plate_number}</span>
+                          {entry.customer_name && (
+                            <span className="text-slate-400">{entry.customer_name}</span>
+                          )}
+                        </div>
+                        <div className="flex items-start gap-2 text-sm">
+                          <AlertTriangle className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
+                          <span className="text-slate-400">{entry.reason}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2">
+                          Hozzáadta: {entry.added_by_name || "Ismeretlen"} - {new Date(entry.created_at).toLocaleDateString("hu-HU")}
+                        </div>
+                        
+                        {/* Evidence Images */}
+                        {entry.evidence_images && entry.evidence_images.length > 0 && (
+                          <div className="mt-3">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs text-orange-400 hover:text-orange-300 px-2"
+                              onClick={() => setViewEvidenceEntry(entry)}
+                            >
+                              <Image className="w-3 h-3 mr-1" />
+                              Bizonyíték képek ({entry.evidence_images.length})
+                            </Button>
+                          </div>
                         )}
                       </div>
-                      <div className="flex items-start gap-2 text-sm">
-                        <AlertTriangle className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-400">{entry.reason}</span>
-                      </div>
-                      <div className="text-xs text-slate-500 mt-2">
-                        Hozzáadta: {entry.added_by_name || "Ismeretlen"} - {new Date(entry.created_at).toLocaleDateString("hu-HU")}
-                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="border-slate-700 text-slate-400 hover:text-white hover:border-red-500 flex-shrink-0"
+                        onClick={() => setRemoveFromBlacklistId(entry.plate_number)}
+                        data-testid={`remove-blacklist-${entry.plate_number}`}
+                      >
+                        <Trash2 className="w-4 h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Eltávolítás</span>
+                      </Button>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="border-slate-700 text-slate-400 hover:text-white hover:border-red-500"
-                      onClick={() => setRemoveFromBlacklistId(entry.plate_number)}
-                      data-testid={`remove-blacklist-${entry.plate_number}`}
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Eltávolítás
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -493,6 +517,54 @@ export const Customers = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View Evidence Images Dialog */}
+      <Dialog open={!!viewEvidenceEntry} onOpenChange={() => setViewEvidenceEntry(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-orange-400 flex items-center gap-2">
+              <Camera className="w-5 h-5" />
+              Bizonyíték képek - {viewEvidenceEntry?.plate_number}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400 text-sm mb-4">{viewEvidenceEntry?.reason}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {viewEvidenceEntry?.evidence_images?.map((url, idx) => (
+              <div 
+                key={idx} 
+                className="aspect-square cursor-pointer group relative overflow-hidden rounded-lg"
+                onClick={() => setFullscreenImage(url)}
+              >
+                <img src={url} alt={`Bizonyíték ${idx + 1}`} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <ZoomIn className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fullscreen Image Viewer */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" 
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30" 
+            onClick={() => setFullscreenImage(null)}
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <img 
+            src={fullscreenImage} 
+            alt="Teljes méret" 
+            className="max-w-full max-h-full object-contain" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
     </div>
   );
 };

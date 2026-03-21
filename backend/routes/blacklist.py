@@ -31,6 +31,7 @@ async def add_to_blacklist(data: BlacklistCreate, user: User = Depends(get_curre
         plate_number=plate,
         customer_name=customer_name,
         reason=data.reason,
+        evidence_images=data.evidence_images or [],
         added_by=user.user_id,
         added_by_name=user.name
     )

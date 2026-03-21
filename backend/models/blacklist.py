@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
 
@@ -8,6 +8,7 @@ class BlacklistEntry(BaseModel):
     plate_number: str
     customer_name: Optional[str] = None
     reason: str
+    evidence_images: List[str] = Field(default_factory=list)  # Evidence images URLs
     added_by: str
     added_by_name: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -15,3 +16,4 @@ class BlacklistEntry(BaseModel):
 class BlacklistCreate(BaseModel):
     plate_number: str
     reason: str
+    evidence_images: Optional[List[str]] = None
