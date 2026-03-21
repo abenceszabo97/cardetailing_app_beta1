@@ -7,7 +7,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://carwash-preview.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://wash-management-dev.preview.emergentagent.com').rstrip('/')
 
 class TestAuthLogin:
     """Test username/password login endpoints"""
