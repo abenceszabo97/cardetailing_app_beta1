@@ -2,8 +2,9 @@
 X-CLEAN API - Main Entry Point
 Clean Fleet Hub - Car Wash Management System
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import logging
 
@@ -21,6 +22,8 @@ if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
 if RESEND_API_KEY:
     logger.info("Resend email integration initialized")
 
+logger.info(f"CORS Origins configured: {CORS_ORIGINS}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -37,14 +40,34 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Custom CORS handling for wildcard with credentials
+class CustomCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "")
+        
+        # Handle preflight
+        if request.method == "OPTIONS":
+            response = await call_next(request)
+            if origin:
+                if "*" in CORS_ORIGINS or origin in CORS_ORIGINS:
+                    response.headers["Access-Control-Allow-Origin"] = origin
+                    response.headers["Access-Control-Allow-Credentials"] = "true"
+                    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Cookie"
+                    response.headers["Access-Control-Max-Age"] = "600"
+            return response
+        
+        response = await call_next(request)
+        
+        if origin:
+            if "*" in CORS_ORIGINS or origin in CORS_ORIGINS:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+        
+        return response
+
+# Use custom CORS middleware
+app.add_middleware(CustomCORSMiddleware)
 
 # Health check endpoint (no auth required)
 @app.get("/api/health")
