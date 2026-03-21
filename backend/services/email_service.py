@@ -39,8 +39,11 @@ def generate_booking_confirmation_html(booking: dict) -> str:
             .detail-label {{ font-weight: bold; color: #666; width: 40%; }}
             .detail-value {{ color: #333; width: 60%; }}
             .highlight {{ background: #f0fdf4; border-left: 4px solid #22c55e; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }}
+            .info-box {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }}
             .footer {{ background: #f9fafb; padding: 20px; text-align: center; color: #666; font-size: 12px; }}
             .price {{ font-size: 28px; color: #22c55e; font-weight: bold; }}
+            .contact-info {{ margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }}
+            .contact-row {{ padding: 5px 0; }}
         </style>
     </head>
     <body>
@@ -85,13 +88,28 @@ def generate_booking_confirmation_html(booking: dict) -> str:
                     <p class="price">{booking.get('price', 0):,.0f} Ft</p>
                 </div>
                 
-                <p style="color: #666; font-size: 14px;">
-                    Ha kérdése van vagy módosítani szeretné a foglalását, kérjük vegye fel velünk a kapcsolatot.
-                </p>
+                <div class="info-box">
+                    <p style="margin: 0 0 10px 0; font-weight: bold; color: #92400e;">Fontos információ érkezéskor:</p>
+                    <p style="margin: 0; color: #78350f; font-size: 14px;">
+                        A mélygarázsnál csengő van kihelyezve, kérjük azt használja, hogy kollégáink be tudják engedni a sorompón. 
+                        Ha nem reagálnak, akkor nyugodtan hívja azt a kollégát akihez érkezett:
+                    </p>
+                    <p style="margin: 10px 0 0 0; color: #78350f; font-size: 14px;">
+                        <strong>Bence:</strong> +36 30 636 7565<br>
+                        <strong>Attila:</strong> +36 30 665 7623
+                    </p>
+                </div>
             </div>
             <div class="footer">
-                <p>xClean Autókozmetika</p>
-                <p>Ez egy automatikusan generált email, kérjük ne válaszoljon rá.</p>
+                <p style="font-weight: bold; margin-bottom: 10px;">xClean Autókozmetika</p>
+                <div class="contact-info">
+                    <div class="contact-row">4034 Debrecen, Vágóhíd u. 2.</div>
+                    <div class="contact-row">Telefon: 06 (20) 473 9638</div>
+                    <div class="contact-row">Időpontfoglalás: rendeles@xclean.hu</div>
+                    <div class="contact-row">Egyéb: info@xclean.hu</div>
+                    <div class="contact-row" style="margin-top: 10px;"><strong>Nyitvatartás:</strong> Hétfő - Szombat: 08:00 - 19:00, Vasárnap: Zárva</div>
+                </div>
+                <p style="margin-top: 15px; font-size: 11px; color: #999;">Ez egy automatikusan generált email, kérjük ne válaszoljon rá.</p>
             </div>
         </div>
     </body>
