@@ -1,5 +1,10 @@
-# Nixpacks will auto-detect Python from requirements.txt
-# Just configure the start command
+# Nixpacks configuration for Railway deployment
+
+[phases.setup]
+nixPkgs = ["python311", "gcc"]
+
+[phases.install]
+cmds = ["python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/ -r requirements.txt"]
 
 [start]
-cmd = "cd backend && python -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = "cd backend && uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"
