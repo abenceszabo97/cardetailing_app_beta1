@@ -2,9 +2,8 @@
 X-CLEAN API - Main Entry Point
 Clean Fleet Hub - Car Wash Management System
 """
-from fastapi import FastAPI, Request
-from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
@@ -40,34 +39,44 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Custom CORS handling for wildcard with credentials
-class CustomCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        origin = request.headers.get("origin", "")
-        
-        # Handle preflight
-        if request.method == "OPTIONS":
-            response = await call_next(request)
-            if origin:
-                if "*" in CORS_ORIGINS or origin in CORS_ORIGINS:
-                    response.headers["Access-Control-Allow-Origin"] = origin
-                    response.headers["Access-Control-Allow-Credentials"] = "true"
-                    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Cookie"
-                    response.headers["Access-Control-Max-Age"] = "600"
-            return response
-        
-        response = await call_next(request)
-        
-        if origin:
-            if "*" in CORS_ORIGINS or origin in CORS_ORIGINS:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-        
-        return response
+# Determine if we should use wildcard or specific origins
+# When credentials are True, we can't use "*" directly, so we echo the origin
+allow_all = "*" in CORS_ORIGINS
 
-# Use custom CORS middleware
-app.add_middleware(CustomCORSMiddleware)
+if allow_all:
+    # For wildcard, we need to handle it specially with credentials
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,  # Must be False with wildcard
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # For specific origins, credentials can be True
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+# Add explicit OPTIONS handler for preflight with credentials support
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(request: Request, rest_of_path: str):
+    origin = request.headers.get("origin", "")
+    response = Response(status_code=200)
+    
+    if origin:
+        if allow_all or origin in CORS_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Cookie, X-Requested-With"
+            response.headers["Access-Control-Max-Age"] = "600"
+    
+    return response
 
 # Health check endpoint (no auth required)
 @app.get("/api/health")
