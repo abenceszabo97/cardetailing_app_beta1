@@ -85,5 +85,8 @@ class JobUpdate(BaseModel):
     worker_id: Optional[str] = None
     payment_method: Optional[str] = None
     notes: Optional[str] = None
+    service_id: Optional[str] = None
+    service_name: Optional[str] = None
+    price: Optional[float] = None
     images_before: Optional[Dict[str, str]] = None
     images_after: Optional[Dict[str, str]] = None

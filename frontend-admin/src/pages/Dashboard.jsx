@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
@@ -38,7 +39,9 @@ import {
   ZoomIn,
   Camera,
   Check,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Edit,
+  FileText
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -89,6 +92,15 @@ export const Dashboard = () => {
   
   const fileInputRef = useRef(null);
   const [currentUploadSlot, setCurrentUploadSlot] = useState(null);
+  
+  // Edit job state
+  const [editingJob, setEditingJob] = useState(null);
+  const [editJobData, setEditJobData] = useState({
+    service_id: "",
+    price: 0,
+    notes: "",
+    worker_id: ""
+  });
   
   const [newJob, setNewJob] = useState({
     customer_id: "",
@@ -159,6 +171,37 @@ export const Dashboard = () => {
       fetchData();
     } catch (error) {
       toast.error("Hiba a státusz frissítésekor");
+    }
+  };
+
+  const handleEditJobOpen = (job) => {
+    setEditingJob(job);
+    setEditJobData({
+      service_id: job.service_id || "",
+      price: job.price || 0,
+      notes: job.notes || "",
+      worker_id: job.worker_id || ""
+    });
+  };
+
+  const handleEditJobSave = async () => {
+    if (!editingJob) return;
+    try {
+      const service = services.find(s => s.service_id === editJobData.service_id);
+      const updateData = {
+        service_id: editJobData.service_id,
+        service_name: service?.name || editingJob.service_name,
+        price: parseFloat(editJobData.price) || 0,
+        notes: editJobData.notes,
+        worker_id: editJobData.worker_id || null
+      };
+      
+      await axios.put(`${API}/jobs/${editingJob.job_id}`, updateData, { withCredentials: true });
+      toast.success("Munka frissítve!");
+      setEditingJob(null);
+      fetchData();
+    } catch (error) {
+      toast.error("Hiba a munka frissítésekor");
     }
   };
 
@@ -483,9 +526,24 @@ export const Dashboard = () => {
                           <div className="flex items-center gap-3">
                             <span className="text-lg font-bold text-white">{job.plate_number}</span>
                             {getStatusBadge(job.status)}
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                              onClick={() => handleEditJobOpen(job)}
+                              data-testid={`edit-job-${job.job_id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
                           </div>
                           <p className="text-slate-400 text-sm mt-1">{job.customer_name}</p>
                           <p className="text-slate-500 text-sm">{job.service_name}</p>
+                          {job.notes && (
+                            <p className="text-xs text-amber-400/80 mt-1 flex items-start gap-1">
+                              <FileText className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                              <span className="italic">{job.notes}</span>
+                            </p>
+                          )}
                           {/* Worker badge - more prominent */}
                           <div className="flex items-center gap-2 mt-2">
                             {job.worker_name ? (
@@ -802,6 +860,91 @@ export const Dashboard = () => {
           <img src={fullscreenImage} alt="Teljes méret" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
+
+      {/* Edit Job Dialog */}
+      <Dialog open={!!editingJob} onOpenChange={(open) => !open && setEditingJob(null)}>
+        <DialogContent className="bg-slate-900 border-slate-700 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Edit className="w-5 h-5 text-green-400" />
+              Munka szerkesztése
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-slate-800/50 rounded-lg">
+              <p className="text-sm text-slate-400">Rendszám</p>
+              <p className="text-lg font-bold text-white">{editingJob?.plate_number}</p>
+              <p className="text-sm text-slate-500">{editingJob?.customer_name}</p>
+            </div>
+            
+            <div>
+              <Label className="text-slate-300">Szolgáltatás</Label>
+              <Select value={editJobData.service_id} onValueChange={(v) => {
+                const service = services.find(s => s.service_id === v);
+                setEditJobData({...editJobData, service_id: v, price: service?.price || editJobData.price});
+              }}>
+                <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                  <SelectValue placeholder="Válassz szolgáltatást" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  {services.map((s) => (
+                    <SelectItem key={s.service_id} value={s.service_id} className="text-white hover:bg-slate-800">
+                      {s.name} - {s.price.toLocaleString()} Ft
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label className="text-slate-300">Ár (Ft)</Label>
+              <Input 
+                type="number"
+                value={editJobData.price} 
+                onChange={(e) => setEditJobData({...editJobData, price: e.target.value})} 
+                className="bg-slate-950 border-slate-700 text-white" 
+              />
+              <p className="text-xs text-slate-500 mt-1">Módosítható ha az ügyfél más árat szeretne</p>
+            </div>
+            
+            <div>
+              <Label className="text-slate-300">Dolgozó</Label>
+              <Select value={editJobData.worker_id} onValueChange={(v) => setEditJobData({...editJobData, worker_id: v})}>
+                <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                  <SelectValue placeholder="Válassz dolgozót" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  {workers.map((w) => (
+                    <SelectItem key={w.worker_id} value={w.worker_id} className="text-white hover:bg-slate-800">
+                      {w.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label className="text-slate-300">Megjegyzés</Label>
+              <Textarea 
+                value={editJobData.notes} 
+                onChange={(e) => setEditJobData({...editJobData, notes: e.target.value})} 
+                className="bg-slate-950 border-slate-700 text-white min-h-[80px]" 
+                placeholder="Írj megjegyzést a munkához..."
+              />
+            </div>
+            
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1 border-slate-600" onClick={() => setEditingJob(null)}>
+                Mégse
+              </Button>
+              <Button className="flex-1 bg-green-600 hover:bg-green-500" onClick={handleEditJobSave}>
+                <Check className="w-4 h-4 mr-1" />
+                Mentés
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
