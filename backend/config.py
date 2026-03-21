@@ -13,7 +13,9 @@ MONGO_URL = os.environ['MONGO_URL']
 DB_NAME = os.environ['DB_NAME']
 
 # CORS
-CORS_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",")]
+_cors_raw = os.environ.get("CORS_ORIGINS", "*")
+CORS_ORIGINS = [origin.strip() for origin in _cors_raw.split(",")]
+print(f"[CONFIG] CORS_ORIGINS loaded: {CORS_ORIGINS}")
 
 # Emergent LLM Key for AI features
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
