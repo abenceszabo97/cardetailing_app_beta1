@@ -1,0 +1,4 @@
+# This file tells Nixpacks to use Python
+# Actual requirements are in backend/requirements.txt
+-r backend/requirements.txt
+--extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
