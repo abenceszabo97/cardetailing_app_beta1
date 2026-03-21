@@ -164,9 +164,92 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
 
 @router.put("/jobs/{job_id}")
 async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_current_user)):
-    """Update job"""
+    """Update job - also handles booking to job conversion"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
+    # Check if this is a booking reference (starts with bkg_)
+    if job_id.startswith("bkg_"):
+        # The job_id format is "bkg_{booking_id}" where booking_id is like "bkg_xxx"
+        # So we remove only the first "bkg_" prefix
+        booking_id = job_id[4:]  # Remove first "bkg_" prefix
+        
+        booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+        
+        if not booking:
+            raise HTTPException(status_code=404, detail="Foglalás nem található")
+        
+        # If status is being changed to "folyamatban" or "kesz", convert booking to job
+        if update_data.get("status") in ["folyamatban", "kesz"]:
+            # Check if job already exists for this booking
+            existing_job = await db.jobs.find_one({"booking_id": booking_id}, {"_id": 0})
+            
+            if existing_job:
+                # Update existing job
+                result = await db.jobs.update_one(
+                    {"booking_id": booking_id},
+                    {"$set": update_data}
+                )
+                if update_data.get("status") == "kesz" and update_data.get("payment_method"):
+                    # Update customer total_spent
+                    await db.customers.update_one(
+                        {"plate_number": booking["plate_number"]},
+                        {"$inc": {"total_spent": booking.get("price", 0)}}
+                    )
+                return {"message": "Munka frissítve"}
+            else:
+                # Create new job from booking
+                from models.job import Job
+                import uuid
+                
+                new_job_id = f"job_{uuid.uuid4().hex[:12]}"
+                job_data = {
+                    "job_id": new_job_id,
+                    "booking_id": booking_id,
+                    "customer_id": booking.get("customer_id", ""),
+                    "customer_name": booking["customer_name"],
+                    "plate_number": booking["plate_number"],
+                    "service_id": booking.get("service_id", ""),
+                    "service_name": booking.get("service_name", ""),
+                    "worker_id": booking.get("worker_id", ""),
+                    "worker_name": booking.get("worker_name", ""),
+                    "price": booking.get("price", 0),
+                    "status": update_data.get("status", "folyamatban"),
+                    "location": booking.get("location", ""),
+                    "payment_method": update_data.get("payment_method"),
+                    "date": datetime.fromisoformat(f"{booking['date']}T{booking.get('time_slot', '00:00')}:00").isoformat(),
+                    "notes": booking.get("notes", ""),
+                    "images_before": {},
+                    "images_after": {},
+                    "images_before_legacy": [],
+                    "images_after_legacy": [],
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                await db.jobs.insert_one(job_data)
+                
+                # Update booking status
+                await db.bookings.update_one(
+                    {"booking_id": booking_id},
+                    {"$set": {"status": update_data.get("status", "folyamatban")}}
+                )
+                
+                if update_data.get("status") == "kesz" and update_data.get("payment_method"):
+                    # Update customer total_spent
+                    await db.customers.update_one(
+                        {"plate_number": booking["plate_number"]},
+                        {"$inc": {"total_spent": booking.get("price", 0)}}
+                    )
+                
+                return {"message": "Munka létrehozva a foglalásból"}
+        else:
+            # Just update booking status
+            await db.bookings.update_one(
+                {"booking_id": booking_id},
+                {"$set": {"status": update_data.get("status", booking.get("status"))}}
+            )
+            return {"message": "Foglalás státusza frissítve"}
+    
+    # Regular job update
     if "worker_id" in update_data:
         worker = await db.workers.find_one({"worker_id": update_data["worker_id"]}, {"_id": 0})
         if worker:
