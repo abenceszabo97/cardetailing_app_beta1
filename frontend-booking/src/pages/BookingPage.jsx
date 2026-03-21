@@ -46,8 +46,13 @@ const BookingPage = () => {
   });
 
   useEffect(() => {
-    axios.get(`${API}/bookings/public-locations`).then(r => setLocations(r.data));
-    axios.get(`${API}/bookings/public-services`).then(r => setServices(r.data));
+    console.log("API URL:", API);
+    axios.get(`${API}/bookings/public-locations`)
+      .then(r => setLocations(Array.isArray(r.data) ? r.data : []))
+      .catch(err => { console.error("Locations error:", err); setLocations([]); });
+    axios.get(`${API}/bookings/public-services`)
+      .then(r => setServices(Array.isArray(r.data) ? r.data : []))
+      .catch(err => { console.error("Services error:", err); setServices([]); });
   }, []);
 
   useEffect(() => {
