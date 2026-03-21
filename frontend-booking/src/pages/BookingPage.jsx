@@ -9,11 +9,11 @@ import { toast } from "sonner";
 import { 
   Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
-  Calendar, Users, Timer, AlertTriangle, Plus, X
+  Calendar, Users, Timer, AlertTriangle, Plus, X, Camera
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
-import { AIChatbot } from "../components/AIComponents";
+import { AIChatbot, AIUpsellSuggestions, AIPhotoAnalysis } from "../components/AIComponents";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -44,6 +44,10 @@ const BookingPage = () => {
     plate_number: "",
     service_id: ""
   });
+  
+  // AI features state
+  const [showAIFeatures, setShowAIFeatures] = useState(false);
+  const [photoAnalysisResult, setPhotoAnalysisResult] = useState(null);
 
   useEffect(() => {
     console.log("API URL:", API);
@@ -294,6 +298,21 @@ const BookingPage = () => {
                 </div>
               </div>
 
+              {/* Car Type for AI (optional, for better suggestions) */}
+              <div>
+                <label className="text-sm text-slate-400 mb-2 block flex items-center gap-2">
+                  <Car className="w-4 h-4" />
+                  Autó típusa (opcionális - jobb AI javaslatokhoz)
+                </label>
+                <Input
+                  placeholder="pl. BMW X5, Audi A4, stb."
+                  value={form.car_type}
+                  onChange={(e) => set("car_type", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+                  data-testid="car-type-input"
+                />
+              </div>
+
               <div>
                 <label className="text-sm text-slate-400 mb-2 block">Szolgáltatás *</label>
                 {/* Category Filter */}
@@ -349,6 +368,88 @@ const BookingPage = () => {
                   ))}
                 </div>
               </div>
+              
+              {/* AI Features Section */}
+              {form.service_id && (
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-white font-medium flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      AI Asszisztens
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAIFeatures(!showAIFeatures)}
+                      className="text-purple-400 hover:text-purple-300"
+                    >
+                      {showAIFeatures ? "Elrejtés" : "Megjelenítés"}
+                    </Button>
+                  </div>
+                  
+                  {showAIFeatures && (
+                    <div className="space-y-4">
+                      {/* Photo Analysis */}
+                      <AIPhotoAnalysis
+                        onAnalysisComplete={(result) => {
+                          setPhotoAnalysisResult(result);
+                          if (result.recommended_services?.length > 0) {
+                            toast.success("Az AI elkészítette a javaslatait!");
+                          }
+                        }}
+                      />
+                      
+                      {/* AI Upsell Suggestions */}
+                      {form.car_type && selectedService && (
+                        <AIUpsellSuggestions
+                          carType={form.car_type}
+                          currentService={selectedService?.name}
+                          onSelectService={(serviceName) => {
+                            const service = services.find(s => s.name.toLowerCase().includes(serviceName.toLowerCase()));
+                            if (service) {
+                              set("service_id", service.service_id);
+                              toast.success(`${service.name} kiválasztva`);
+                            }
+                          }}
+                        />
+                      )}
+                      
+                      {/* Photo Analysis Results */}
+                      {photoAnalysisResult && (
+                        <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
+                          <h4 className="text-white font-medium flex items-center gap-2">
+                            <Camera className="w-4 h-4 text-blue-400" />
+                            Képelemzés eredménye
+                          </h4>
+                          <p className="text-slate-300 text-sm">{photoAnalysisResult.analysis}</p>
+                          {photoAnalysisResult.recommended_services?.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-slate-400 text-xs">Javasolt szolgáltatások:</span>
+                              <div className="flex flex-wrap gap-2">
+                                {photoAnalysisResult.recommended_services.map((svc, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => {
+                                      const service = services.find(s => s.name.toLowerCase().includes(svc.toLowerCase()));
+                                      if (service) {
+                                        set("service_id", service.service_id);
+                                        toast.success(`${service.name} kiválasztva`);
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition-colors"
+                                  >
+                                    {svc}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
