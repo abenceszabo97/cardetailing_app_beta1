@@ -1080,13 +1080,12 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Hidden file input - mobile camera support */}
+      {/* Hidden file input - supports camera and gallery on mobile */}
       <input 
         type="file" 
         ref={fileInputRef} 
         className="hidden" 
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelected}
       />
 
