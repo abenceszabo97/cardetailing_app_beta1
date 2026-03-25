@@ -3,6 +3,18 @@
 ## Eredeti probléma leírás
 X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal.
 
+## V3.8 - Legacy kép megjelenítési javítás (2025-03-25)
+
+### ✅ Legacy képek bug javítása
+- **Probléma**: A régi képek (MongoDB-ben base64 formátumban tárolva) nem jelenítettek meg előnézetet és nem nyíltak meg teljes képernyőn
+- **Gyökér ok**: A backend `'data'` mezőt keresett, de az adatbázisban `'data_url'` mező volt (data URL formátum: `data:image/png;base64,...`)
+- **Javítás**: A `misc.py` `get_image` endpoint most mindkét formátumot kezeli
+- **Tesztelve**: Backend és frontend tesztek 100% sikeresek
+
+### Képkezelés összefoglaló
+- **Régi képek**: `/api/images/img_xxx` URL → MongoDB `images` collection-ből base64 → image response
+- **Új képek**: Cloudinary-ba töltődnek → `https://res.cloudinary.com/...` URL-t kapnak
+
 ## V3.7 - Mai fejlesztések (2025-03-25)
 
 ### ✅ Jelenléti PDF generálás
@@ -54,6 +66,7 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [ ] Kedvezmények rendszer
 
 ## Changelog
+- 2025-03-25: V3.8 - Legacy képek megjelenítési bug javítása (misc.py data/data_url kezelés)
 - 2025-03-25: V3.7 - Jelenléti PDF, Szabadság kezelés, Naptár javítás, Nap zárás riport
 - 2025-03-25: V3.6 - Pénztár funkciók
 - 2025-03-25: V3.5 - Műszakszerkesztés, Statisztika history
