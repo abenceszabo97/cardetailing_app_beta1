@@ -959,7 +959,7 @@ export const Dashboard = () => {
                                   <img 
                                     src={imageUrl} 
                                     alt={slot.label} 
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain bg-slate-900"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
                                     loading="lazy"
                                   />
@@ -1016,7 +1016,7 @@ export const Dashboard = () => {
                                   <img 
                                     src={imageUrl} 
                                     alt={slot.label} 
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain bg-slate-900"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
                                     loading="lazy"
                                   />
@@ -1082,7 +1082,7 @@ export const Dashboard = () => {
                               <img 
                                 src={beforeImage} 
                                 alt={`Előtte - ${afterSlot.label}`} 
-                                className="w-full aspect-[4/3] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                className="w-full aspect-[4/3] object-contain bg-slate-900 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                 onClick={() => setFullscreenImage(beforeImage)}
                               />
                             ) : (
@@ -1102,7 +1102,7 @@ export const Dashboard = () => {
                               <img 
                                 src={afterImage} 
                                 alt={`Utána - ${afterSlot.label}`} 
-                                className="w-full aspect-[4/3] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                className="w-full aspect-[4/3] object-contain bg-slate-900 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                 onClick={() => setFullscreenImage(afterImage)}
                               />
                             ) : (
