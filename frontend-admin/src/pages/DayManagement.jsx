@@ -42,6 +42,7 @@ export const DayManagement = () => {
   const { user } = useAuth();
   const [selectedLocation, setSelectedLocation] = useState("Debrecen");
   const [todayRecord, setTodayRecord] = useState(null);
+  const [previousDayRecord, setPreviousDayRecord] = useState(null);
   const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
   const [todayJobs, setTodayJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,13 +58,20 @@ export const DayManagement = () => {
 
   const fetchData = async () => {
     try {
-      const [recordRes, jobsRes] = await Promise.all([
+      const [recordRes, jobsRes, prevRecordRes] = await Promise.all([
         axios.get(`${API}/day-records/today?location=${selectedLocation}`, { withCredentials: true }),
-        axios.get(`${API}/jobs/today?location=${selectedLocation}`, { withCredentials: true })
+        axios.get(`${API}/jobs/today?location=${selectedLocation}`, { withCredentials: true }),
+        axios.get(`${API}/day-records?location=${selectedLocation}`, { withCredentials: true })
       ]);
       
       setTodayRecord(recordRes.data);
       setTodayJobs(jobsRes.data);
+      
+      // Find the most recent closed day record for previous day balance
+      const closedRecords = (prevRecordRes.data || []).filter(r => r.status === 'closed');
+      if (closedRecords.length > 0) {
+        setPreviousDayRecord(closedRecords[0]);
+      }
       
       // Calculate stats from completed jobs
       const completedJobs = jobsRes.data.filter(j => j.status === "kesz");
@@ -159,48 +167,119 @@ export const DayManagement = () => {
   const generateDayClosePDF = () => {
     const doc = new jsPDF();
     const today = format(new Date(), "yyyy. MMMM dd.", { locale: hu });
+    const withdrawals = todayRecord?.withdrawals || [];
+    const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+    const expectedClosing = (todayRecord?.opening_balance || 0) + stats.cash - totalWithdrawals;
     
     doc.setFontSize(20);
     doc.text("X-CLEAN Napi Zarasi Osszesito", 14, 22);
     doc.setFontSize(12);
     doc.text(`Datum: ${today}`, 14, 32);
     doc.text(`Telephely: ${selectedLocation}`, 14, 40);
-    doc.text(`Nyito egyenleg: ${(todayRecord?.opening_balance || 0).toLocaleString()} Ft`, 14, 48);
     
     doc.setFontSize(14);
-    doc.text("Napi osszesites", 14, 62);
+    doc.text("Penzforgalom", 14, 54);
     
     autoTable(doc, {
-      startY: 68,
+      startY: 60,
+      head: [["Megnevezes", "Ertek"]],
+      body: [
+        ["Nyito egyenleg", `${(todayRecord?.opening_balance || 0).toLocaleString()} Ft`],
+        ["Keszpenz bevetel (+)", `+${stats.cash.toLocaleString()} Ft`],
+        ["Keszpenz kivetelek (-)", `-${totalWithdrawals.toLocaleString()} Ft`],
+        ["Varhato zaro egyenleg", `${expectedClosing.toLocaleString()} Ft`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 11 }
+    });
+    
+    let currentY = doc.lastAutoTable?.finalY || 100;
+    
+    // Withdrawals detail
+    if (withdrawals.length > 0) {
+      currentY += 10;
+      doc.setFontSize(14);
+      doc.text("Keszpenz kivetelek reszletezese", 14, currentY);
+      
+      autoTable(doc, {
+        startY: currentY + 6,
+        head: [["Idopont", "Indoklas", "Szemely", "Osszeg"]],
+        body: withdrawals.map(w => [
+          format(new Date(w.timestamp), "HH:mm"),
+          w.reason,
+          w.withdrawn_by,
+          `-${w.amount.toLocaleString()} Ft`
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 10 }
+      });
+      currentY = doc.lastAutoTable?.finalY || currentY + 50;
+    }
+    
+    // Daily summary
+    currentY += 10;
+    doc.setFontSize(14);
+    doc.text("Napi osszesites", 14, currentY);
+    
+    autoTable(doc, {
+      startY: currentY + 6,
       head: [["Megnevezes", "Ertek"]],
       body: [
         ["Elkeszult autok", `${stats.today_cars} db`],
         ["Osszes bevetel", `${stats.today_revenue.toLocaleString()} Ft`],
         ["Keszpenz bevetel", `${stats.cash.toLocaleString()} Ft`],
         ["Kartya bevetel", `${stats.card.toLocaleString()} Ft`],
-        ["Varhato zaro egyenleg", `${((todayRecord?.opening_balance || 0) + stats.cash).toLocaleString()} Ft`],
       ],
       theme: "grid",
       headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 11 }
     });
+    currentY = doc.lastAutoTable?.finalY || currentY + 50;
     
+    // Completed jobs
     const completedJobs = todayJobs.filter(j => j.status === "kesz");
     if (completedJobs.length > 0) {
-      const finalY = doc.lastAutoTable?.finalY || 120;
+      currentY += 10;
       doc.setFontSize(14);
-      doc.text("Elkeszult munkak", 14, finalY + 14);
+      doc.text("Elkeszult munkak", 14, currentY);
       
       autoTable(doc, {
-        startY: finalY + 20,
-        head: [["Rendszam", "Szolgaltatas", "Fizetes", "Osszeg"]],
+        startY: currentY + 6,
+        head: [["Rendszam", "Szolgaltatas", "Dolgozo", "Fizetes", "Osszeg"]],
         body: completedJobs.map(j => [
           j.plate_number || "-",
           j.service_name || "-",
+          j.worker_name || "-",
           j.payment_method === "keszpenz" ? "Keszpenz" : "Kartya",
           `${j.price.toLocaleString()} Ft`
         ]),
         theme: "grid",
         headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 9 }
+      });
+    }
+    
+    // Cancelled/no-show jobs
+    const cancelledJobs = todayJobs.filter(j => j.status === "nem_jott_el" || j.status === "lemondta");
+    if (cancelledJobs.length > 0) {
+      currentY = doc.lastAutoTable?.finalY || currentY + 50;
+      currentY += 10;
+      doc.setFontSize(14);
+      doc.text("Lemondott / Nem jelent meg", 14, currentY);
+      
+      autoTable(doc, {
+        startY: currentY + 6,
+        head: [["Rendszam", "Szolgaltatas", "Statusz"]],
+        body: cancelledJobs.map(j => [
+          j.plate_number || "-",
+          j.service_name || "-",
+          j.status === "nem_jott_el" ? "Nem jelent meg" : "Lemondta"
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [100, 50, 50] },
+        styles: { fontSize: 9 }
       });
     }
     
@@ -348,6 +427,18 @@ export const DayManagement = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Previous day info */}
+            {previousDayRecord && (
+              <div className="p-4 bg-slate-950/50 rounded-lg border border-slate-700">
+                <p className="text-sm text-slate-400 mb-2">Előző nap ({format(new Date(previousDayRecord.date), "MMM d.", { locale: hu })}) záró egyenlege:</p>
+                <p className="text-2xl font-bold text-green-400">{(previousDayRecord.closing_balance || 0).toLocaleString()} Ft</p>
+                {previousDayRecord.discrepancy !== 0 && (
+                  <p className={`text-xs mt-1 ${previousDayRecord.discrepancy > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    Eltérés: {previousDayRecord.discrepancy > 0 ? '+' : ''}{previousDayRecord.discrepancy?.toLocaleString()} Ft
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <Label className="text-slate-300">Nyitó egyenleg (Ft)</Label>
               <Input
@@ -355,11 +446,20 @@ export const DayManagement = () => {
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
                 className="bg-slate-950 border-slate-700 text-white"
-                placeholder="0"
+                placeholder={previousDayRecord ? (previousDayRecord.closing_balance || 0).toString() : "0"}
                 data-testid="opening-balance-input"
               />
               <p className="text-xs text-slate-500 mt-1">A kasszában lévő készpénz összege</p>
             </div>
+            {previousDayRecord && !openingBalance && (
+              <Button 
+                variant="outline"
+                onClick={() => setOpeningBalance((previousDayRecord.closing_balance || 0).toString())}
+                className="w-full border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                Előző nap záró egyenlegének átvétele ({(previousDayRecord.closing_balance || 0).toLocaleString()} Ft)
+              </Button>
+            )}
             <Button 
               onClick={handleOpenDay}
               className="w-full bg-green-600 hover:bg-green-500"
@@ -507,12 +607,58 @@ export const DayManagement = () => {
                     <p className="text-xl font-semibold text-white">{todayRecord.opening_balance.toLocaleString()} Ft</p>
                   </div>
                   <div>
+                    <p className="text-sm text-slate-400">Készpénz bevétel</p>
+                    <p className="text-xl font-semibold text-green-400">+{stats.cash.toLocaleString()} Ft</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-400">Készpénz kivételek</p>
+                    <p className="text-xl font-semibold text-red-400">
+                      -{((todayRecord.withdrawals || []).reduce((sum, w) => sum + w.amount, 0)).toLocaleString()} Ft
+                    </p>
+                  </div>
+                  <div>
                     <p className="text-sm text-slate-400">Várható záró egyenleg</p>
                     <p className="text-xl font-semibold text-green-400">
-                      {(todayRecord.opening_balance + stats.cash).toLocaleString()} Ft
+                      {(todayRecord.opening_balance + stats.cash - (todayRecord.withdrawals || []).reduce((sum, w) => sum + w.amount, 0)).toLocaleString()} Ft
                     </p>
                   </div>
                 </div>
+                
+                {/* Cash Withdrawal Section */}
+                <div className="border-t border-slate-700 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-slate-300">Készpénz kivételek</h4>
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowWithdrawalDialog(true)}
+                      className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+                      data-testid="add-withdrawal-btn"
+                    >
+                      <Banknote className="w-4 h-4 mr-1" />
+                      Új kivétel
+                    </Button>
+                  </div>
+                  
+                  {(todayRecord.withdrawals || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {(todayRecord.withdrawals || []).map((w, idx) => (
+                        <div key={w.withdrawal_id || idx} className="flex items-center justify-between p-2 bg-slate-950/50 rounded-lg text-sm">
+                          <div>
+                            <span className="text-white font-medium">{w.reason}</span>
+                            <span className="text-slate-500 text-xs ml-2">
+                              {w.withdrawn_by} - {format(new Date(w.timestamp), "HH:mm", { locale: hu })}
+                            </span>
+                          </div>
+                          <span className="text-red-400 font-semibold">-{w.amount.toLocaleString()} Ft</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-sm text-center py-2">Nincs kivétel rögzítve</p>
+                  )}
+                </div>
+
                 <div>
                   <Label className="text-slate-300">Megjegyzés</Label>
                   <Textarea
@@ -552,6 +698,49 @@ export const DayManagement = () => {
             </Button>
             <Button onClick={handleCloseDay} className="bg-blue-600 hover:bg-blue-700">
               Nap lezárása
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Withdrawal Dialog */}
+      <Dialog open={showWithdrawalDialog} onOpenChange={setShowWithdrawalDialog}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-orange-400 flex items-center gap-2">
+              <Banknote className="w-5 h-5" />
+              Készpénz kivétel
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-slate-300">Összeg (Ft)</Label>
+              <Input
+                type="number"
+                value={withdrawalAmount}
+                onChange={(e) => setWithdrawalAmount(e.target.value)}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="0"
+                data-testid="withdrawal-amount-input"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Indoklás</Label>
+              <Input
+                value={withdrawalReason}
+                onChange={(e) => setWithdrawalReason(e.target.value)}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="Pl: Aprópénz váltás, Beszerzés..."
+                data-testid="withdrawal-reason-input"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => { setShowWithdrawalDialog(false); setWithdrawalAmount(""); setWithdrawalReason(""); }} className="border-slate-700">
+              Mégse
+            </Button>
+            <Button onClick={handleWithdrawal} className="bg-orange-600 hover:bg-orange-700">
+              Kivétel rögzítése
             </Button>
           </div>
         </DialogContent>

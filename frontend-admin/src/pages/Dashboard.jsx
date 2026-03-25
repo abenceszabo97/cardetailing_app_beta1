@@ -804,12 +804,70 @@ export const Dashboard = () => {
                                 <p className="text-slate-400 text-xs mt-1">{job.customer_name}</p>
                                 <p className="text-slate-500 text-xs">{job.service_name}</p>
                                 {job.time_slot && (
-                                  <Badge variant="outline" className="mt-1 text-xs border-slate-600 text-slate-400">
-                                    <Clock className="w-3 h-3 mr-1" />{job.time_slot}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                                    <Clock className="w-3 h-3" />
+                                    {job.time_slot}
+                                  </div>
+                                )}
+                                {job.car_type && (
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                                    <Car className="w-3 h-3" />
+                                    {job.car_type}
+                                  </div>
+                                )}
+                                {job.phone && (
+                                  <div className="text-xs text-slate-500 mt-1">📞 {job.phone}</div>
                                 )}
                               </div>
-                              <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
+                              <div className="text-right flex flex-col items-end gap-1">
+                                <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
+                                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
+                                  <Image className="w-3 h-3 mr-1" />
+                                  {getImageCount(job)}
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Status actions */}
+                            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-800">
+                              {job.status === "foglalt" && (
+                                <>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "folyamatban")}>
+                                    <Clock className="w-3 h-3 mr-1" />Indít
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
+                                    ❌ Nem jött
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
+                                    🚫 Lemondta
+                                  </Button>
+                                </>
+                              )}
+                              {job.status === "folyamatban" && (
+                                <>
+                                  <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
+                                    <Wallet className="w-3 h-3 mr-1" />Készpénz
+                                  </Button>
+                                  <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
+                                    <CreditCard className="w-3 h-3 mr-1" />Kártya
+                                  </Button>
+                                </>
+                              )}
+                              {job.status === "kesz" && job.payment_method && (
+                                <Badge className={job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}>
+                                  {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
+                                </Badge>
+                              )}
+                              {job.status === "nem_jott_el" && (
+                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+                                  ❌ Nem jelent meg
+                                </Badge>
+                              )}
+                              {job.status === "lemondta" && (
+                                <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                  🚫 Lemondva
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         ))}

@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Car, MapPin, 
-  Phone, Mail, X, Check, AlertTriangle, Edit, Trash2, Ban, Save, UserX, Upload, Image
+  Phone, Mail, X, Check, AlertTriangle, Edit, Trash2, Ban, Save, UserX, Upload, Image,
+  Users, Columns3, Grid3X3
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -32,8 +33,19 @@ const STATUS_LABELS = {
   nem_jott_el: "Nem jött el"
 };
 
+// Worker colors for column headers
+const WORKER_COLORS = [
+  "from-blue-500/20 to-cyan-500/20",
+  "from-purple-500/20 to-pink-500/20",
+  "from-green-500/20 to-emerald-500/20",
+  "from-orange-500/20 to-yellow-500/20",
+  "from-red-500/20 to-rose-500/20",
+  "from-indigo-500/20 to-violet-500/20"
+];
+
 const Calendar = () => {
-  const [view, setView] = useState("week");
+  const [view, setView] = useState("week"); // week, month, day
+  const [viewMode, setViewMode] = useState("standard"); // standard, workers (per-worker columns)
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookings, setBookings] = useState([]);
   const [workers, setWorkers] = useState([]);
@@ -209,6 +221,16 @@ const Calendar = () => {
     );
   };
 
+  const getBookingsForWorkerSlot = (date, hour, workerId) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const hourStr = `${hour.toString().padStart(2, "0")}:`;
+    return bookings.filter(b => 
+      b.date === dateStr && 
+      b.time_slot?.startsWith(hourStr) &&
+      (workerId === "unassigned" ? !b.worker_id : b.worker_id === workerId)
+    );
+  };
+
   const renderTitle = () => {
     if (view === "month") return format(currentDate, "yyyy MMMM", { locale: hu });
     if (view === "week") {
@@ -219,11 +241,12 @@ const Calendar = () => {
     return format(currentDate, "yyyy. MMMM d. (EEEE)", { locale: hu });
   };
 
+  // Standard Day View
   const renderDayView = () => {
     const hours = Array.from({ length: 12 }, (_, i) => i + 8);
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="grid grid-cols-[80px_1fr] divide-x divide-slate-800">
+        <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] divide-x divide-slate-800">
           <div className="bg-slate-950/50" />
           <div className="p-3 bg-slate-950/50 text-center">
             <div className="text-white font-medium">{format(currentDate, "EEEE", { locale: hu })}</div>
@@ -234,7 +257,7 @@ const Calendar = () => {
           {hours.map(hour => {
             const slotBookings = getBookingsForSlot(currentDate, hour);
             return (
-              <div key={hour} className="grid grid-cols-[80px_1fr] divide-x divide-slate-800 border-t border-slate-800 min-h-[60px]">
+              <div key={hour} className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] divide-x divide-slate-800 border-t border-slate-800 min-h-[60px]">
                 <div className="p-2 text-xs text-slate-500 text-right pr-3">{hour}:00</div>
                 <div className="p-1 space-y-1">
                   {slotBookings.map(booking => (
@@ -259,43 +282,82 @@ const Calendar = () => {
     );
   };
 
-  const renderWeekView = () => {
-    const startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
-    const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+  // Per-Worker Day View (columns per worker)
+  const renderWorkersDayView = () => {
     const hours = Array.from({ length: 12 }, (_, i) => i + 8);
+    const displayWorkers = workers.length > 0 ? workers : [];
+    const hasUnassigned = bookings.some(b => !b.worker_id && b.date === format(currentDate, "yyyy-MM-dd"));
+    
+    // Calculate column count for responsive grid
+    const workerCount = displayWorkers.length + (hasUnassigned ? 1 : 0);
+    
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] divide-x divide-slate-800">
-          <div className="bg-slate-950/50" />
-          {days.map(day => (
-            <div key={day.toISOString()} className={`p-2 text-center bg-slate-950/50 ${isSameDay(day, new Date()) ? 'bg-green-500/10' : ''}`}>
-              <div className="text-xs text-slate-500">{format(day, "EEE", { locale: hu })}</div>
-              <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-green-400' : 'text-white'}`}>{format(day, "d")}</div>
+        {/* Header row with workers */}
+        <div className="flex divide-x divide-slate-800 overflow-x-auto">
+          <div className="w-14 sm:w-16 flex-shrink-0 bg-slate-950/50 p-2 text-center">
+            <div className="text-xs text-slate-500">{format(currentDate, "EEE", { locale: hu })}</div>
+            <div className="text-lg font-bold text-green-400">{format(currentDate, "d")}</div>
+          </div>
+          {displayWorkers.map((worker, idx) => (
+            <div 
+              key={worker.worker_id} 
+              className={`min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
+            >
+              <div className="flex items-center justify-center gap-1">
+                <User className="w-3 h-3 text-slate-400" />
+                <span className="text-white font-medium text-sm truncate">{worker.name}</span>
+              </div>
             </div>
           ))}
+          {hasUnassigned && (
+            <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
+              <div className="flex items-center justify-center gap-1">
+                <User className="w-3 h-3 text-orange-400" />
+                <span className="text-orange-300 font-medium text-sm">Nincs hozzárendelve</span>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="max-h-[500px] overflow-y-auto">
+        
+        {/* Time slots */}
+        <div className="max-h-[500px] overflow-auto">
           {hours.map(hour => (
-            <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] divide-x divide-slate-800 border-t border-slate-800 min-h-[50px]">
-              <div className="p-1 text-xs text-slate-500 text-right pr-2">{hour}:00</div>
-              {days.map(day => {
-                const slotBookings = getBookingsForSlot(day, hour);
+            <div key={hour} className="flex divide-x divide-slate-800 border-t border-slate-800">
+              <div className="w-14 sm:w-16 flex-shrink-0 p-1 text-xs text-slate-500 text-right pr-2">
+                {hour}:00
+              </div>
+              {displayWorkers.map((worker) => {
+                const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
                 return (
-                  <div key={day.toISOString()} className="p-1 space-y-1">
-                    {slotBookings.map(booking => (
+                  <div key={worker.worker_id} className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                    {workerBookings.map(booking => (
                       <div
                         key={booking.booking_id}
-                        className={`p-1 rounded text-xs cursor-pointer truncate ${STATUS_COLORS[booking.status]}`}
+                        className={`p-1.5 rounded text-xs cursor-pointer mb-1 ${STATUS_COLORS[booking.status]}`}
                         onClick={() => openBookingDetails(booking)}
-                        title={`${booking.customer_name} - ${booking.plate_number} | Dolgozó: ${booking.worker_name || 'Nincs'}`}
                       >
-                        <span className="font-medium">{booking.time_slot}</span> {booking.customer_name?.split(' ')[0]}
-                        {booking.worker_name && <span className="text-blue-300 ml-1">({booking.worker_name?.split(' ')[0]})</span>}
+                        <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                        <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
                       </div>
                     ))}
                   </div>
                 );
               })}
+              {hasUnassigned && (
+                <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                  {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
+                    <div
+                      key={booking.booking_id}
+                      className={`p-1.5 rounded text-xs cursor-pointer mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300`}
+                      onClick={() => openBookingDetails(booking)}
+                    >
+                      <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                      <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -303,6 +365,110 @@ const Calendar = () => {
     );
   };
 
+  // Standard Week View
+  const renderWeekView = () => {
+    const startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+    const hours = Array.from({ length: 12 }, (_, i) => i + 8);
+    return (
+      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+        {/* Desktop view */}
+        <div className="hidden sm:block">
+          <div className="grid grid-cols-[70px_repeat(7,1fr)] divide-x divide-slate-800">
+            <div className="bg-slate-950/50" />
+            {days.map(day => (
+              <div key={day.toISOString()} className={`p-2 text-center bg-slate-950/50 ${isSameDay(day, new Date()) ? 'bg-green-500/10' : ''}`}>
+                <div className="text-xs text-slate-500">{format(day, "EEE", { locale: hu })}</div>
+                <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-green-400' : 'text-white'}`}>{format(day, "d")}</div>
+              </div>
+            ))}
+          </div>
+          <div className="max-h-[500px] overflow-y-auto">
+            {hours.map(hour => (
+              <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] divide-x divide-slate-800 border-t border-slate-800 min-h-[56px]">
+                <div className="p-1 text-xs text-slate-500 text-right pr-2 pt-2">{hour}:00</div>
+                {days.map(day => {
+                  const slotBookings = getBookingsForSlot(day, hour);
+                  return (
+                    <div key={day.toISOString()} className="p-0.5 overflow-hidden">
+                      {slotBookings.slice(0, 2).map(booking => (
+                        <div
+                          key={booking.booking_id}
+                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-pointer border-l-2 ${STATUS_COLORS[booking.status]} hover:brightness-110`}
+                          onClick={() => openBookingDetails(booking)}
+                          title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
+                        >
+                          <div className="font-semibold truncate">{booking.plate_number}</div>
+                        </div>
+                      ))}
+                      {slotBookings.length > 2 && (
+                        <div className="text-[9px] text-slate-500 text-center">+{slotBookings.length - 2}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Mobile view - day cards */}
+        <div className="sm:hidden space-y-2 p-2">
+          {days.map(day => {
+            const dayBookings = getBookingsForDate(day);
+            return (
+              <div key={day.toISOString()} className={`rounded-lg border ${isSameDay(day, new Date()) ? 'border-green-500/50 bg-green-500/5' : 'border-slate-700'}`}>
+                <div className={`p-2 border-b ${isSameDay(day, new Date()) ? 'border-green-500/30' : 'border-slate-700'} flex items-center justify-between`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${isSameDay(day, new Date()) ? 'text-green-400' : 'text-white'}`}>
+                      {format(day, "EEEE", { locale: hu })}
+                    </span>
+                    <span className="text-slate-400 text-sm">{format(day, "d", { locale: hu })}</span>
+                  </div>
+                  <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                    {dayBookings.length} foglalás
+                  </Badge>
+                </div>
+                {dayBookings.length > 0 ? (
+                  <div className="p-2 space-y-1">
+                    {dayBookings.slice(0, 5).map(booking => (
+                      <div
+                        key={booking.booking_id}
+                        className={`p-2 rounded-lg text-xs cursor-pointer ${STATUS_COLORS[booking.status]}`}
+                        onClick={() => openBookingDetails(booking)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{booking.time_slot}</span>
+                          <span className="text-slate-400">{booking.plate_number}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span>{booking.customer_name}</span>
+                          {booking.worker_name && (
+                            <span className="text-blue-300 text-[10px]">{booking.worker_name}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {dayBookings.length > 5 && (
+                      <div className="text-center text-slate-500 text-xs py-1">
+                        +{dayBookings.length - 5} további foglalás
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 text-center text-slate-500 text-sm">
+                    Nincs foglalás
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Month View
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
@@ -320,59 +486,126 @@ const Calendar = () => {
     }
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="grid grid-cols-7 divide-x divide-slate-800 bg-slate-950/50">
-          {["H", "K", "Sz", "Cs", "P", "Szo", "V"].map(d => (
-            <div key={d} className="p-2 text-center text-xs text-slate-500 font-medium">{d}</div>
+        {/* Desktop view */}
+        <div className="hidden sm:block">
+          <div className="grid grid-cols-7 divide-x divide-slate-800 bg-slate-950/50">
+            {["H", "K", "Sz", "Cs", "P", "Szo", "V"].map(d => (
+              <div key={d} className="p-2 text-center text-xs text-slate-500 font-medium">{d}</div>
+            ))}
+          </div>
+          {weeks.map((week, i) => (
+            <div key={i} className="grid grid-cols-7 divide-x divide-slate-800 border-t border-slate-800">
+              {week.map(day => {
+                const dayBookings = getBookingsForDate(day);
+                const isToday = isSameDay(day, new Date());
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                return (
+                  <div 
+                    key={day.toISOString()} 
+                    className={`min-h-[90px] p-1.5 cursor-pointer hover:bg-slate-800/30 transition-colors ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/5 ring-1 ring-inset ring-green-500/30' : ''}`}
+                    onClick={() => { setCurrentDate(day); setView("day"); }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-sm font-semibold ${isToday ? 'text-green-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'}`}>{format(day, "d")}</span>
+                      {dayBookings.length > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${dayBookings.length > 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700 text-slate-300'}`}>
+                          {dayBookings.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayBookings.slice(0, 2).map(booking => (
+                        <div 
+                          key={booking.booking_id} 
+                          className={`text-[10px] px-1 py-0.5 rounded border-l-2 truncate ${STATUS_COLORS[booking.status]}`} 
+                          onClick={(e) => { e.stopPropagation(); openBookingDetails(booking); }}
+                          title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
+                        >
+                          <span className="font-medium">{booking.time_slot}</span> {booking.plate_number}
+                        </div>
+                      ))}
+                      {dayBookings.length > 2 && (
+                        <div className="text-[9px] text-slate-500 pl-1">+{dayBookings.length - 2} további</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ))}
         </div>
-        {weeks.map((week, i) => (
-          <div key={i} className="grid grid-cols-7 divide-x divide-slate-800 border-t border-slate-800">
-            {week.map(day => {
-              const dayBookings = getBookingsForDate(day);
-              const isToday = isSameDay(day, new Date());
-              const isCurrentMonth = isSameMonth(day, currentDate);
-              return (
-                <div key={day.toISOString()} className={`min-h-[80px] p-1 ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/5' : ''}`}>
-                  <div className={`text-xs font-medium mb-1 ${isToday ? 'text-green-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'}`}>{format(day, "d")}</div>
-                  <div className="space-y-0.5">
-                    {dayBookings.slice(0, 3).map(booking => (
-                      <div key={booking.booking_id} className={`text-xs p-0.5 rounded truncate cursor-pointer ${STATUS_COLORS[booking.status]}`} onClick={() => openBookingDetails(booking)} title={`${booking.customer_name} | Dolgozó: ${booking.worker_name || 'Nincs'}`}>
-                        {booking.time_slot} {booking.customer_name?.split(' ')[0]} {booking.worker_name && <span className="text-blue-300">({booking.worker_name?.split(' ')[0]})</span>}
-                      </div>
-                    ))}
-                    {dayBookings.length > 3 && <div className="text-xs text-slate-500">+{dayBookings.length - 3} további</div>}
-                  </div>
-                </div>
-              );
-            })}
+        
+        {/* Mobile view - compact list */}
+        <div className="sm:hidden">
+          <div className="grid grid-cols-7 bg-slate-950/50">
+            {["H", "K", "Sz", "Cs", "P", "Szo", "V"].map((d, idx) => (
+              <div key={idx} className="p-1 text-center text-[10px] text-slate-500 font-medium">{d}</div>
+            ))}
           </div>
-        ))}
+          {weeks.map((week, i) => (
+            <div key={i} className="grid grid-cols-7 border-t border-slate-800">
+              {week.map(day => {
+                const dayBookings = getBookingsForDate(day);
+                const isToday = isSameDay(day, new Date());
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                return (
+                  <div 
+                    key={day.toISOString()} 
+                    className={`min-h-[50px] p-1 border-r border-slate-800 last:border-r-0 ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/10' : ''}`}
+                    onClick={() => {
+                      if (dayBookings.length > 0) {
+                        setCurrentDate(day);
+                        setView("day");
+                      }
+                    }}
+                  >
+                    <div className={`text-[10px] font-medium ${isToday ? 'text-green-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'}`}>
+                      {format(day, "d")}
+                    </div>
+                    {dayBookings.length > 0 && (
+                      <div className="mt-0.5">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mx-auto" title={`${dayBookings.length} foglalás`} />
+                        {dayBookings.length > 1 && (
+                          <div className="text-[8px] text-center text-slate-400">+{dayBookings.length - 1}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
 
   return (
     <div className="space-y-3 sm:space-y-4" data-testid="calendar-page">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:gap-4">
         <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 sm:w-7 sm:h-7 text-green-400" />
           Foglalási naptár
         </h1>
         
+        {/* Controls */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-          <div className="flex gap-2">
-            <Select value={location} onValueChange={setLocation}>
-              <SelectTrigger className="w-full sm:w-36 bg-slate-900 border-slate-700 text-white text-sm">
-                <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700">
-                {LOCATIONS.map(loc => (
-                  <SelectItem key={loc} value={loc} className="text-white">{loc === "all" ? "Minden telephely" : loc}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Location filter */}
+          <Select value={location} onValueChange={setLocation}>
+            <SelectTrigger className="w-full sm:w-36 bg-slate-900 border-slate-700 text-white text-sm">
+              <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-900 border-slate-700">
+              {LOCATIONS.map(loc => (
+                <SelectItem key={loc} value={loc} className="text-white">{loc === "all" ? "Minden telephely" : loc}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
+          {/* Worker filter - only shown when not in workers view mode */}
+          {viewMode !== "workers" && (
             <Select value={selectedWorker} onValueChange={setSelectedWorker}>
               <SelectTrigger className="w-full sm:w-40 bg-slate-900 border-slate-700 text-white text-sm">
                 <User className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
@@ -385,18 +618,46 @@ const Calendar = () => {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          )}
 
+          {/* Time period view selector */}
           <div className="flex bg-slate-900 rounded-lg border border-slate-700 p-1">
             {[{ id: "day", label: "Nap" }, { id: "week", label: "Hét" }, { id: "month", label: "Hónap" }].map(v => (
-              <button key={v.id} onClick={() => setView(v.id)} className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${view === v.id ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              <button 
+                key={v.id} 
+                onClick={() => { setView(v.id); if (v.id === "month") setViewMode("standard"); }}
+                className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${view === v.id ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
                 {v.label}
               </button>
             ))}
           </div>
+          
+          {/* View mode toggle - only for day view */}
+          {view === "day" && (
+            <div className="flex bg-slate-900 rounded-lg border border-slate-700 p-1">
+              <button 
+                onClick={() => setViewMode("standard")} 
+                className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm flex items-center gap-1 ${viewMode === "standard" ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="Standard nézet"
+              >
+                <Grid3X3 className="w-3 h-3" />
+                <span className="hidden sm:inline">Standard</span>
+              </button>
+              <button 
+                onClick={() => setViewMode("workers")} 
+                className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm flex items-center gap-1 ${viewMode === "workers" ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="Munkásonkénti nézet"
+              >
+                <Columns3 className="w-3 h-3" />
+                <span className="hidden sm:inline">Munkások</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Navigation */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => navigate("prev")} className="border-slate-700 text-white px-2 sm:px-3">
           <ChevronLeft className="w-4 h-4" />
@@ -407,17 +668,20 @@ const Calendar = () => {
         </Button>
       </div>
 
+      {/* Status legend */}
       <div className="flex flex-wrap gap-1 sm:gap-2">
         {Object.entries(STATUS_LABELS).map(([status, label]) => (
           <Badge key={status} className={`${STATUS_COLORS[status]} text-[10px] sm:text-xs px-1.5 sm:px-2`}>{label}</Badge>
         ))}
       </div>
 
+      {/* Calendar content */}
       {loading ? (
         <div className="text-center py-20 text-slate-500">Betöltés...</div>
       ) : (
         <>
-          {view === "day" && renderDayView()}
+          {view === "day" && viewMode === "standard" && renderDayView()}
+          {view === "day" && viewMode === "workers" && renderWorkersDayView()}
           {view === "week" && renderWeekView()}
           {view === "month" && renderMonthView()}
         </>
