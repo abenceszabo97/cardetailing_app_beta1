@@ -156,6 +156,10 @@ export const Settings = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   
+  // Data cleanup state
+  const [orphanedData, setOrphanedData] = useState(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  
   const [newWorker, setNewWorker] = useState({
     name: "",
     phone: "",
@@ -222,6 +226,64 @@ export const Settings = () => {
       setDeleteWorkerId(null);
     } catch (error) {
       toast.error("Hiba a dolgozó törlésekor");
+    }
+  };
+
+  // Data cleanup functions
+  const fetchOrphanedData = async () => {
+    setCleanupLoading(true);
+    try {
+      const res = await axios.get(`${API}/stats/orphaned-data`, { withCredentials: true });
+      setOrphanedData(res.data);
+    } catch (error) {
+      toast.error("Hiba az adatok lekérésekor");
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
+  const handleCleanupWorker = async (workerName) => {
+    if (!window.confirm(`Biztosan törölni szeretnéd "${workerName}" összes munkáját és statisztikáját?`)) return;
+    
+    setCleanupLoading(true);
+    try {
+      const res = await axios.delete(`${API}/stats/cleanup-worker/${encodeURIComponent(workerName)}`, { withCredentials: true });
+      toast.success(`${res.data.jobs_deleted} munka törölve!`);
+      fetchOrphanedData();
+    } catch (error) {
+      toast.error("Hiba a törlés során");
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
+  const handleCleanupCustomer = async (customerName) => {
+    if (!window.confirm(`Biztosan törölni szeretnéd "${customerName}" összes adatát?`)) return;
+    
+    setCleanupLoading(true);
+    try {
+      const res = await axios.delete(`${API}/stats/cleanup-customer/${encodeURIComponent(customerName)}`, { withCredentials: true });
+      toast.success(`${res.data.jobs_deleted} munka törölve!`);
+      fetchOrphanedData();
+    } catch (error) {
+      toast.error("Hiba a törlés során");
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
+  const handleCleanupAllOrphaned = async () => {
+    if (!window.confirm("Biztosan törölni szeretnéd az összes árva adatot (törölt dolgozók és ügyfelek munkáit)?")) return;
+    
+    setCleanupLoading(true);
+    try {
+      const res = await axios.delete(`${API}/stats/cleanup-all-orphaned`, { withCredentials: true });
+      toast.success(`${res.data.orphaned_worker_jobs_deleted + res.data.orphaned_customer_jobs_deleted} munka törölve!`);
+      setOrphanedData(null);
+    } catch (error) {
+      toast.error("Hiba a törlés során");
+    } finally {
+      setCleanupLoading(false);
     }
   };
 
@@ -828,6 +890,98 @@ export const Settings = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Data Cleanup Section */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
+            <Trash2 className="w-5 h-5 text-red-400" />
+            Adattisztítás
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-slate-400 text-sm">
+            Itt törölheted a törölt dolgozókhoz és ügyfelekhez tartozó régi munkákat és statisztikákat.
+          </p>
+          
+          <Button 
+            onClick={fetchOrphanedData}
+            disabled={cleanupLoading}
+            variant="outline"
+            className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+          >
+            {cleanupLoading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Keresés...</>
+            ) : (
+              <><Trash2 className="w-4 h-4 mr-2" /> Árva adatok keresése</>
+            )}
+          </Button>
+
+          {orphanedData && (
+            <div className="space-y-4 mt-4 p-4 bg-slate-950/50 rounded-lg border border-slate-700">
+              {/* Orphaned Workers */}
+              {orphanedData.orphaned_workers?.length > 0 && (
+                <div>
+                  <h4 className="text-white font-semibold mb-2">
+                    Törölt dolgozók munkái ({orphanedData.orphaned_worker_job_count} munka)
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {orphanedData.orphaned_workers.map(name => (
+                      <Badge 
+                        key={name}
+                        className="bg-red-500/20 text-red-400 border border-red-500/30 cursor-pointer hover:bg-red-500/30"
+                        onClick={() => handleCleanupWorker(name)}
+                      >
+                        {name} <X className="w-3 h-3 ml-1" />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Orphaned Customers */}
+              {orphanedData.orphaned_customers?.length > 0 && (
+                <div>
+                  <h4 className="text-white font-semibold mb-2">
+                    Törölt ügyfelek munkái ({orphanedData.orphaned_customer_job_count} munka)
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {orphanedData.orphaned_customers.map(name => (
+                      <Badge 
+                        key={name}
+                        className="bg-orange-500/20 text-orange-400 border border-orange-500/30 cursor-pointer hover:bg-orange-500/30"
+                        onClick={() => handleCleanupCustomer(name)}
+                      >
+                        {name} <X className="w-3 h-3 ml-1" />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No orphaned data */}
+              {orphanedData.orphaned_workers?.length === 0 && orphanedData.orphaned_customers?.length === 0 && (
+                <p className="text-green-400 text-center py-4">
+                  <Check className="w-5 h-5 inline mr-2" />
+                  Nincs árva adat - minden rendben!
+                </p>
+              )}
+
+              {/* Delete all button */}
+              {(orphanedData.orphaned_worker_job_count > 0 || orphanedData.orphaned_customer_job_count > 0) && (
+                <Button 
+                  onClick={handleCleanupAllOrphaned}
+                  disabled={cleanupLoading}
+                  className="w-full bg-red-600 hover:bg-red-500 mt-4"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Összes árva adat törlése ({orphanedData.orphaned_worker_job_count + orphanedData.orphaned_customer_job_count} munka)
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

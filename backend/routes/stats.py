@@ -269,7 +269,7 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
             day_performance[dow]["revenue"] += job["price"]
             day_performance[dow]["cars"] += 1
             day_performance[dow]["count"] += 1
-        except:
+        except (ValueError, KeyError, TypeError):
             pass
     
     for i in range(7):
@@ -292,4 +292,122 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
             "revenue_change_percent": round(revenue_change, 1)
         },
         "day_performance": list(day_performance.values())
+    }
+
+
+
+@router.get("/stats/orphaned-data")
+async def get_orphaned_data(user: User = Depends(get_current_user)):
+    """Get data that belongs to deleted workers/customers"""
+    if user.role != "admin":
+        return {"error": "Csak admin használhatja"}
+    
+    # Get all current worker IDs
+    workers = await db.workers.find({}, {"worker_id": 1, "_id": 0}).to_list(1000)
+    active_worker_ids = set(w["worker_id"] for w in workers)
+    
+    # Get all current customer IDs
+    customers = await db.customers.find({}, {"customer_id": 1, "_id": 0}).to_list(10000)
+    active_customer_ids = set(c["customer_id"] for c in customers)
+    
+    # Find jobs with deleted workers
+    all_jobs = await db.jobs.find({}, {"_id": 0, "job_id": 1, "worker_id": 1, "worker_name": 1, "customer_id": 1, "customer_name": 1, "plate_number": 1, "date": 1, "price": 1}).to_list(10000)
+    
+    orphaned_worker_jobs = []
+    orphaned_worker_names = set()
+    for job in all_jobs:
+        if job.get("worker_id") and job["worker_id"] not in active_worker_ids:
+            orphaned_worker_jobs.append(job)
+            if job.get("worker_name"):
+                orphaned_worker_names.add(job["worker_name"])
+    
+    orphaned_customer_jobs = []
+    orphaned_customer_names = set()
+    for job in all_jobs:
+        if job.get("customer_id") and job["customer_id"] not in active_customer_ids:
+            orphaned_customer_jobs.append(job)
+            if job.get("customer_name"):
+                orphaned_customer_names.add(job["customer_name"])
+    
+    return {
+        "orphaned_workers": list(orphaned_worker_names),
+        "orphaned_worker_job_count": len(orphaned_worker_jobs),
+        "orphaned_customers": list(orphaned_customer_names),
+        "orphaned_customer_job_count": len(orphaned_customer_jobs),
+        "sample_jobs": orphaned_worker_jobs[:10]
+    }
+
+@router.delete("/stats/cleanup-worker/{worker_name}")
+async def cleanup_worker_data(worker_name: str, user: User = Depends(get_current_user)):
+    """Delete all jobs and data associated with a worker name"""
+    if user.role != "admin":
+        return {"error": "Csak admin használhatja"}
+    
+    # Delete jobs by worker name
+    result = await db.jobs.delete_many({"worker_name": worker_name})
+    jobs_deleted = result.deleted_count
+    
+    # Delete bookings by worker name
+    booking_result = await db.bookings.delete_many({"worker_name": worker_name})
+    bookings_deleted = booking_result.deleted_count
+    
+    # Delete shifts by worker name (if any remain)
+    shift_result = await db.shifts.delete_many({"worker_name": worker_name})
+    shifts_deleted = shift_result.deleted_count
+    
+    return {
+        "message": f"{worker_name} adatai törölve",
+        "jobs_deleted": jobs_deleted,
+        "bookings_deleted": bookings_deleted,
+        "shifts_deleted": shifts_deleted
+    }
+
+@router.delete("/stats/cleanup-customer/{customer_name}")
+async def cleanup_customer_data(customer_name: str, user: User = Depends(get_current_user)):
+    """Delete all jobs and data associated with a customer name"""
+    if user.role != "admin":
+        return {"error": "Csak admin használhatja"}
+    
+    # Delete jobs by customer name
+    result = await db.jobs.delete_many({"customer_name": customer_name})
+    jobs_deleted = result.deleted_count
+    
+    # Delete bookings by customer name
+    booking_result = await db.bookings.delete_many({"customer_name": customer_name})
+    bookings_deleted = booking_result.deleted_count
+    
+    return {
+        "message": f"{customer_name} adatai törölve",
+        "jobs_deleted": jobs_deleted,
+        "bookings_deleted": bookings_deleted
+    }
+
+@router.delete("/stats/cleanup-all-orphaned")
+async def cleanup_all_orphaned_data(user: User = Depends(get_current_user)):
+    """Delete all jobs belonging to deleted workers and customers"""
+    if user.role != "admin":
+        return {"error": "Csak admin használhatja"}
+    
+    # Get all current worker IDs
+    workers = await db.workers.find({}, {"worker_id": 1, "_id": 0}).to_list(1000)
+    active_worker_ids = [w["worker_id"] for w in workers]
+    
+    # Get all current customer IDs  
+    customers = await db.customers.find({}, {"customer_id": 1, "_id": 0}).to_list(10000)
+    active_customer_ids = [c["customer_id"] for c in customers]
+    
+    # Delete orphaned worker jobs
+    worker_result = await db.jobs.delete_many({
+        "worker_id": {"$nin": active_worker_ids, "$ne": None, "$exists": True}
+    })
+    
+    # Delete orphaned customer jobs
+    customer_result = await db.jobs.delete_many({
+        "customer_id": {"$nin": active_customer_ids, "$ne": None, "$exists": True}
+    })
+    
+    return {
+        "message": "Árva adatok törölve",
+        "orphaned_worker_jobs_deleted": worker_result.deleted_count,
+        "orphaned_customer_jobs_deleted": customer_result.deleted_count
     }
