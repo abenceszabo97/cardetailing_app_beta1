@@ -3,42 +3,35 @@
 ## Eredeti probléma leírás
 X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal.
 
+## V3.6 - Jelenléti rendszer (2025-03-25)
+
+### ✅ Be/Kilépés funkció
+- **Új "Jelenlét" tab** a Dolgozók oldalon
+- Dolgozónkénti kártyák különböző státuszokkal:
+  - Nem jelentkezett: "Belépés" gomb (zöld)
+  - Bejelentkezve: Zöld keret, "X óta" badge, "Kilépés" gomb (piros)
+  - Kijelentkezett: Kék keret, "X óra" badge, "Kijelentkezett" badge
+- Napi összesítő: Dolgozók, Bejelentkezve, Kijelentkezett, Nem jelentkezett
+
+### ✅ Backend API-k
+- `POST /api/attendance/check-in` - Bejelentkezés
+- `POST /api/attendance/check-out` - Kijelentkezés (+ ledolgozott órák számítás)
+- `GET /api/attendance/today` - Mai jelenléti rekordok
+- `GET /api/attendance/worker/{id}` - Dolgozó jelenléti története
+- `GET /api/attendance/stats/{id}` - Dolgozó jelenléti statisztikák
+
 ## V3.5 - Pénztár funkciók (2025-03-25)
-
-### ✅ Készpénz kivétel funkció
-- **"Új kivétel" gomb** a Napzárás szekcióban
-- Dialógus megnyílik: összeg + indoklás mezők
-- Kivétel rögzítése frissíti a listát és a várható egyenleget
-- Kivétel lista: indoklás, felhasználó, időpont, összeg
-- Backend: `POST /api/day-records/withdraw`
-
-### ✅ Előző nap záró egyenlege
-- **Napnyitáskor** megjelenik az előző nap záró egyenlege
-- "Előző nap záró egyenlegének átvétele" gomb
-- Eltérés megjelenítése ha volt (+/-)
-
-### ✅ Napzárás részletes számítás
-- Nyitó egyenleg
-- + Készpénz bevétel
-- - Készpénz kivételek (piros)
-- = Várható záró egyenleg (zöld)
+- Készpénz kivétel funkció
+- Előző nap záró egyenlege napnyitáskor
+- Napzárás részletes számítás (Nyitó + Bevétel - Kivételek = Záró)
 
 ## V3.4 - P0 Fejlesztések (2025-03-25)
-
-### ✅ Munkások modul - Műszakkezelés javítások
-- Napra kattintás: új műszak dialógus dátummal
-- Műszak szerkesztés dialógus
-- Mobil nézet: kártya alapú napi lista
-
-### ✅ Statisztika modul - Korábbi napok megtekintése
-- Dátumválasztó: balra/jobbra nyilak + dátum input
-- Történelmi nézet narancssárga kerettel
-- "Ma" gomb a visszaugráshoz
+- Munkások műszakszerkesztés (napra kattintás, edit dialógus)
+- Statisztika korábbi napok megtekintése (dátumnavigátor)
 
 ## V3.3 - Naptár modul (2025-03-25)
-- Naptár munkásonkénti oszlopnézet
+- Munkásonkénti oszlopnézet
 - Mobil nézet javítás
-- Dashboard "Hozzárendelésre vár" javítás
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI
@@ -52,13 +45,14 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **API**: https://api.xcleandetailapp.hu
 
 ## P0 - Következő teendők
-- [ ] Jelenléti rendszer - Be/kilépés funkció
-- [ ] Havi jelenléti PDF riport
+- [ ] Havi jelenléti PDF riport generálás
 - [ ] Betegszabadság/szabadság napok kezelése
+- [ ] Jelenléti történelem megtekintése
 
 ## P1 - Közepes prioritás  
 - [ ] Statisztikák - További mobil UI javítások
 - [ ] Nap zárás részletes összesítő PDF
+- [ ] Dolgozói értesítések (SMS/email)
 
 ## P2 - Későbbi fejlesztés
 - [ ] Google Naptár integráció
@@ -67,9 +61,10 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [ ] Kedvezmények rendszer
 
 ## Changelog
-- 2025-03-25: V3.5 - Készpénz kivétel funkció, Előző nap záró egyenlege, Napzárás részletes számítás
-- 2025-03-25: V3.4 - Munkások műszakszerkesztés, Statisztika history nézet
-- 2025-03-25: V3.3 - Naptár munkásonkénti oszlopnézet, mobil nézet javítás
-- 2025-03-25: V3.2 - Időblokkolás, Új ügyfél, Dashboard javítások
+- 2025-03-25: V3.6 - Jelenléti rendszer (be/kilépés, összesítő)
+- 2025-03-25: V3.5 - Készpénz kivétel, Előző nap záró egyenleg
+- 2025-03-25: V3.4 - Műszakszerkesztés, Statisztika history
+- 2025-03-25: V3.3 - Naptár oszlopnézet, mobil javítás
+- 2025-03-25: V3.2 - Időblokkolás, Új ügyfél
 - 2025-03-25: V3.1 - Cloudinary integráció
 - 2025-03-25: V3.0 - Teljesen új BookingPage
