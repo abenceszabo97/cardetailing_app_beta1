@@ -101,7 +101,15 @@ async def get_today_jobs(location: Optional[str] = None, user: User = Depends(ge
     
     for b in bookings:
         existing_job = next((j for j in jobs if j.get("booking_id") == b["booking_id"]), None)
-        if not existing_job:
+        if existing_job:
+            # Merge booking data into existing job (for phone, time_slot, car_type)
+            if not existing_job.get("phone") and b.get("phone"):
+                existing_job["phone"] = b.get("phone")
+            if not existing_job.get("time_slot") and b.get("time_slot"):
+                existing_job["time_slot"] = b.get("time_slot")
+            if not existing_job.get("car_type") and b.get("car_type"):
+                existing_job["car_type"] = b.get("car_type")
+        else:
             jobs.append({
                 "job_id": f"bkg_{b['booking_id']}",
                 "booking_id": b["booking_id"],
@@ -118,7 +126,8 @@ async def get_today_jobs(location: Optional[str] = None, user: User = Depends(ge
                 "status": "foglalt" if b.get("status") == "foglalt" else b.get("status", "foglalt"),
                 "is_booking": True,
                 "phone": b.get("phone"),
-                "car_type": b.get("car_type")
+                "car_type": b.get("car_type"),
+                "email": b.get("email")
             })
     
     jobs.sort(key=lambda x: x.get("date", "") or x.get("time_slot", ""))
@@ -221,6 +230,10 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     "location": booking.get("location", ""),
                     "payment_method": update_data.get("payment_method"),
                     "date": datetime.fromisoformat(f"{booking['date']}T{booking.get('time_slot', '00:00')}:00").isoformat(),
+                    "time_slot": booking.get("time_slot"),
+                    "phone": booking.get("phone"),
+                    "car_type": booking.get("car_type"),
+                    "email": booking.get("email"),
                     "notes": booking.get("notes", ""),
                     "images_before": {},
                     "images_after": {},
