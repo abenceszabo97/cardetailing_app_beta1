@@ -247,10 +247,15 @@ export const Dashboard = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const uploadRes = await axios.post(`${API}/upload`, formData, {
-        withCredentials: true,
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // Use the new Cloudinary-based upload endpoint with entity context
+      const uploadRes = await axios.post(
+        `${API}/files/upload?entity_type=job&entity_id=${selectedJob.job_id}`, 
+        formData, 
+        {
+          withCredentials: true,
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }
+      );
       
       const imageUrl = uploadRes.data.url;
       const currentImages = type === 'before' 
@@ -265,10 +270,17 @@ export const Dashboard = () => {
         [type === 'before' ? 'images_before' : 'images_after']: imagesObj
       }, { withCredentials: true });
       
+      // Update selectedJob with new image
+      setSelectedJob(prev => ({
+        ...prev,
+        [type === 'before' ? 'images_before' : 'images_after']: imagesObj
+      }));
+      
       toast.success("Kép feltöltve!");
       fetchData();
     } catch (error) {
-      toast.error("Hiba a kép feltöltésekor");
+      console.error("Upload error:", error);
+      toast.error(error.response?.data?.detail || "Hiba a kép feltöltésekor");
     } finally {
       setUploading(null);
       setCurrentUploadSlot(null);
@@ -312,7 +324,19 @@ export const Dashboard = () => {
     const images = type === 'before' ? job?.images_before : job?.images_after;
     if (!images) return null;
     if (Array.isArray(images)) return null; // Old format
-    return images[slotId] || null;
+    const imageUrl = images[slotId];
+    if (!imageUrl) return null;
+    
+    // Handle relative URLs (old format: /api/images/img_xxx)
+    if (imageUrl.startsWith('/api/')) {
+      return `${API.replace('/api', '')}${imageUrl}`;
+    }
+    // Handle full Cloudinary URLs
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    // Otherwise prepend API base
+    return `${API.replace('/api', '')}${imageUrl}`;
   };
 
   const getStatusBadge = (status) => {
@@ -873,22 +897,23 @@ export const Dashboard = () => {
                           <div key={slot.id} className="relative">
                             <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
                               {imageUrl ? (
-                                <div className="relative w-full h-full group">
+                                <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
                                   <img 
                                     src={imageUrl} 
                                     alt={slot.label} 
-                                    className="w-full h-full object-cover cursor-pointer"
-                                    onClick={() => setFullscreenImage(imageUrl)}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
+                                    loading="lazy"
                                   />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                                    <button onClick={(e) => { e.stopPropagation(); setFullscreenImage(imageUrl); }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 pointer-events-auto">
                                       <ZoomIn className="w-4 h-4 text-white" />
                                     </button>
-                                    <button onClick={() => handleRemoveImage(selectedJob.job_id, 'before', slot.id)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
+                                    <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedJob.job_id, 'before', slot.id); }} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500 pointer-events-auto">
                                       <X className="w-4 h-4 text-white" />
                                     </button>
                                   </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 pointer-events-none">
                                     <Check className="w-3 h-3 text-green-400 inline mr-1" />
                                     <span className="text-[10px] text-white">{slot.label}</span>
                                   </div>
@@ -929,22 +954,23 @@ export const Dashboard = () => {
                           <div key={slot.id} className="relative">
                             <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
                               {imageUrl ? (
-                                <div className="relative w-full h-full group">
+                                <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
                                   <img 
                                     src={imageUrl} 
                                     alt={slot.label} 
-                                    className="w-full h-full object-cover cursor-pointer"
-                                    onClick={() => setFullscreenImage(imageUrl)}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
+                                    loading="lazy"
                                   />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                                    <button onClick={(e) => { e.stopPropagation(); setFullscreenImage(imageUrl); }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 pointer-events-auto">
                                       <ZoomIn className="w-4 h-4 text-white" />
                                     </button>
-                                    <button onClick={() => handleRemoveImage(selectedJob.job_id, 'after', slot.id)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
+                                    <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedJob.job_id, 'after', slot.id); }} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500 pointer-events-auto">
                                       <X className="w-4 h-4 text-white" />
                                     </button>
                                   </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 pointer-events-none">
                                     <Check className="w-3 h-3 text-green-400 inline mr-1" />
                                     <span className="text-[10px] text-white">{slot.label}</span>
                                   </div>
@@ -1050,13 +1076,34 @@ export const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen Image Viewer */}
+      {/* Fullscreen Image Viewer - Improved */}
       {fullscreenImage && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullscreenImage(null)}>
-          <button className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30" onClick={() => setFullscreenImage(null)}>
-            <X className="w-6 h-6 text-white" />
+        <div 
+          className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center cursor-pointer" 
+          onClick={() => setFullscreenImage(null)}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <button 
+            className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000] cursor-pointer" 
+            onClick={(e) => { e.stopPropagation(); setFullscreenImage(null); }}
+          >
+            <X className="w-8 h-8 text-white" />
           </button>
-          <img src={fullscreenImage} alt="Teljes méret" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
+          <div className="w-full h-full p-4 flex items-center justify-center">
+            <img 
+              src={fullscreenImage} 
+              alt="Teljes méret" 
+              className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl cursor-default" 
+              onClick={(e) => e.stopPropagation()} 
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23374151" width="200" height="200"/><text x="50%" y="50%" fill="%239CA3AF" font-size="14" text-anchor="middle" dy=".3em">Kép nem elérhető</text></svg>';
+              }}
+            />
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm pointer-events-none">
+            Kattints bárhová a bezáráshoz
+          </div>
         </div>
       )}
     </div>
