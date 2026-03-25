@@ -197,23 +197,36 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
             existing_job = await db.jobs.find_one({"booking_id": booking_id}, {"_id": 0})
             
             if existing_job:
-                # Update existing job
+                # Update existing job with all fields
                 await db.jobs.update_one(
                     {"booking_id": booking_id},
                     {"$set": update_data}
                 )
                 
-                # ALSO update the booking status to keep them in sync
+                # ALSO update the booking to keep them in sync
+                booking_sync = {"status": update_data.get("status", "folyamatban")}
+                if "price" in update_data:
+                    booking_sync["price"] = update_data["price"]
+                if "service_id" in update_data:
+                    booking_sync["service_id"] = update_data["service_id"]
+                if "service_name" in update_data:
+                    booking_sync["service_name"] = update_data["service_name"]
+                if "worker_id" in update_data:
+                    booking_sync["worker_id"] = update_data["worker_id"]
+                if "worker_name" in update_data:
+                    booking_sync["worker_name"] = update_data["worker_name"]
+                    
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
-                    {"$set": {"status": update_data.get("status", "folyamatban")}}
+                    {"$set": booking_sync}
                 )
                 
                 if update_data.get("status") == "kesz" and update_data.get("payment_method"):
-                    # Update customer total_spent
+                    # Update customer total_spent with the actual updated price
+                    final_price = update_data.get("price", existing_job.get("price", 0))
                     await db.customers.update_one(
                         {"plate_number": booking["plate_number"]},
-                        {"$inc": {"total_spent": booking.get("price", 0)}}
+                        {"$inc": {"total_spent": final_price}}
                     )
                 return {"message": "Munka frissítve"}
             else:
@@ -266,12 +279,38 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 
                 return {"message": "Munka létrehozva a foglalásból"}
         else:
-            # Just update booking status
-            await db.bookings.update_one(
-                {"booking_id": booking_id},
-                {"$set": {"status": update_data.get("status", booking.get("status"))}}
-            )
-            return {"message": "Foglalás státusza frissítve"}
+            # Update booking with all provided fields (price, service, worker, etc.)
+            booking_update = {}
+            
+            # Map job fields to booking fields
+            if "price" in update_data:
+                booking_update["price"] = update_data["price"]
+            if "service_id" in update_data:
+                booking_update["service_id"] = update_data["service_id"]
+            if "service_name" in update_data:
+                booking_update["service_name"] = update_data["service_name"]
+            if "worker_id" in update_data:
+                booking_update["worker_id"] = update_data["worker_id"]
+            if "worker_name" in update_data:
+                booking_update["worker_name"] = update_data["worker_name"]
+            if "time_slot" in update_data:
+                booking_update["time_slot"] = update_data["time_slot"]
+            if "car_type" in update_data:
+                booking_update["car_type"] = update_data["car_type"]
+            if "phone" in update_data:
+                booking_update["phone"] = update_data["phone"]
+            if "notes" in update_data:
+                booking_update["notes"] = update_data["notes"]
+            if "status" in update_data:
+                booking_update["status"] = update_data["status"]
+            
+            if booking_update:
+                await db.bookings.update_one(
+                    {"booking_id": booking_id},
+                    {"$set": booking_update}
+                )
+            
+            return {"message": "Foglalás frissítve"}
     
     # Regular job update
     if "worker_id" in update_data:
