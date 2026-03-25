@@ -28,13 +28,16 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("X-CLEAN API starting up...")
     
-    # Initialize Object Storage
+    # Check Cloudinary configuration
     try:
-        from services.storage_service import init_storage
-        init_storage()
-        logger.info("Object Storage initialized")
+        from services.storage_service import get_cloudinary_config
+        config = get_cloudinary_config()
+        if config["configured"]:
+            logger.info(f"Cloudinary configured: {config['cloud_name']}")
+        else:
+            logger.warning("Cloudinary not configured - image uploads will fail")
     except Exception as e:
-        logger.warning(f"Object Storage init failed (non-critical): {e}")
+        logger.warning(f"Cloudinary config check failed: {e}")
     
     yield
     # Shutdown

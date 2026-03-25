@@ -307,7 +307,7 @@ const BookingPage = () => {
             <img 
               src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
               alt="X-CLEAN Logo" 
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain mix-blend-multiply"
             />
           </div>
           <p className="text-slate-400">Online időpontfoglalás</p>

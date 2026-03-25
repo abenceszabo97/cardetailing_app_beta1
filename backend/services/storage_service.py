@@ -1,103 +1,141 @@
 """
-Object Storage Service - Emergent Object Storage Integration
+Cloudinary Storage Service - Image Upload Integration
+Images stored in Cloudinary, metadata in MongoDB
 """
+import cloudinary
+import cloudinary.uploader
+import cloudinary.utils
 import os
-import uuid
+import time
 import logging
-import requests
-from typing import Tuple, Optional
+from typing import Optional
 
-STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
-APP_NAME = "xclean-carwash"
+# Initialize Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
-# Module-level storage key - set once and reused
-_storage_key: Optional[str] = None
+ALLOWED_FOLDERS = ("jobs/", "bookings/", "customers/", "uploads/", "blacklist/")
 
-MIME_TYPES = {
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg", 
-    "png": "image/png",
-    "gif": "image/gif",
-    "webp": "image/webp",
-    "pdf": "application/pdf",
-    "json": "application/json",
-    "csv": "text/csv",
-    "txt": "text/plain"
-}
+def get_cloudinary_config():
+    """Get Cloudinary configuration status"""
+    return {
+        "configured": bool(os.getenv("CLOUDINARY_CLOUD_NAME") and os.getenv("CLOUDINARY_API_KEY")),
+        "cloud_name": os.getenv("CLOUDINARY_CLOUD_NAME")
+    }
 
-def init_storage() -> str:
+def generate_signature(folder: str = "uploads", resource_type: str = "image") -> dict:
     """
-    Initialize storage and get session-scoped storage key.
-    Call ONCE at startup. Returns a reusable storage_key.
+    Generate signed upload parameters for frontend direct upload to Cloudinary.
+    Returns signature, timestamp, and other params needed for upload.
     """
-    global _storage_key
-    if _storage_key:
-        return _storage_key
+    # Validate folder
+    if not any(folder.startswith(f) for f in ALLOWED_FOLDERS):
+        folder = "uploads/" + folder
     
-    if not EMERGENT_KEY:
-        raise ValueError("EMERGENT_LLM_KEY not configured")
+    timestamp = int(time.time())
+    params = {
+        "timestamp": timestamp,
+        "folder": folder,
+        "resource_type": resource_type
+    }
+    
+    signature = cloudinary.utils.api_sign_request(
+        params,
+        os.getenv("CLOUDINARY_API_SECRET")
+    )
+    
+    return {
+        "signature": signature,
+        "timestamp": timestamp,
+        "cloud_name": os.getenv("CLOUDINARY_CLOUD_NAME"),
+        "api_key": os.getenv("CLOUDINARY_API_KEY"),
+        "folder": folder,
+        "resource_type": resource_type
+    }
+
+def upload_image(file_bytes: bytes, folder: str = "uploads", filename: str = None) -> dict:
+    """
+    Upload image directly from backend (for server-side uploads).
+    Returns Cloudinary response with url, public_id, etc.
+    """
+    # Validate folder
+    if not any(folder.startswith(f) for f in ALLOWED_FOLDERS):
+        folder = "uploads/" + folder
     
     try:
-        resp = requests.post(
-            f"{STORAGE_URL}/init",
-            json={"emergent_key": EMERGENT_KEY},
-            timeout=30
+        # Build public_id if filename provided
+        public_id = None
+        if filename:
+            # Remove extension for public_id
+            name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
+            public_id = f"{folder}/{name_without_ext}"
+        
+        result = cloudinary.uploader.upload(
+            file_bytes,
+            folder=folder if not public_id else None,
+            public_id=public_id,
+            resource_type="image",
+            overwrite=True,
+            invalidate=True
         )
-        resp.raise_for_status()
-        _storage_key = resp.json()["storage_key"]
-        logging.info("Object Storage initialized successfully")
-        return _storage_key
+        
+        return {
+            "success": True,
+            "url": result["secure_url"],
+            "public_id": result["public_id"],
+            "width": result.get("width"),
+            "height": result.get("height"),
+            "format": result.get("format"),
+            "bytes": result.get("bytes")
+        }
     except Exception as e:
-        logging.error(f"Failed to initialize storage: {e}")
-        raise
+        logging.error(f"Cloudinary upload failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
-def get_storage_key() -> str:
-    """Get storage key, initializing if needed"""
-    global _storage_key
-    if not _storage_key:
-        return init_storage()
-    return _storage_key
+def delete_image(public_id: str) -> dict:
+    """
+    Delete image from Cloudinary.
+    """
+    try:
+        result = cloudinary.uploader.destroy(public_id, invalidate=True)
+        return {
+            "success": result.get("result") == "ok",
+            "result": result
+        }
+    except Exception as e:
+        logging.error(f"Cloudinary delete failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
-def put_object(path: str, data: bytes, content_type: str) -> dict:
+def get_optimized_url(public_id: str, width: int = None, height: int = None, crop: str = "fill") -> str:
     """
-    Upload file to object storage.
-    Returns {"path": "...", "size": 123, "etag": "..."}
+    Generate optimized Cloudinary URL with transformations.
     """
-    key = get_storage_key()
-    resp = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data,
-        timeout=120
-    )
-    resp.raise_for_status()
-    return resp.json()
+    transformations = ["q_auto", "f_auto"]
+    
+    if width:
+        transformations.append(f"w_{width}")
+    if height:
+        transformations.append(f"h_{height}")
+    if crop and (width or height):
+        transformations.append(f"c_{crop}")
+    
+    transform_str = ",".join(transformations)
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+    
+    return f"https://res.cloudinary.com/{cloud_name}/image/upload/{transform_str}/{public_id}"
 
-def get_object(path: str) -> Tuple[bytes, str]:
+def get_thumbnail_url(public_id: str, size: int = 200) -> str:
     """
-    Download file from object storage.
-    Returns (content_bytes, content_type)
+    Generate thumbnail URL.
     """
-    key = get_storage_key()
-    resp = requests.get(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key},
-        timeout=60
-    )
-    resp.raise_for_status()
-    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
-
-def generate_storage_path(user_id: str, filename: str) -> str:
-    """
-    Generate a unique storage path for a file.
-    Format: {app_name}/uploads/{user_id}/{uuid}.{ext}
-    """
-    ext = filename.split(".")[-1].lower() if "." in filename else "bin"
-    unique_id = uuid.uuid4().hex
-    return f"{APP_NAME}/uploads/{user_id}/{unique_id}.{ext}"
-
-def get_content_type(filename: str) -> str:
-    """Get MIME type from filename extension"""
-    ext = filename.split(".")[-1].lower() if "." in filename else ""
-    return MIME_TYPES.get(ext, "application/octet-stream")
+    return get_optimized_url(public_id, width=size, height=size, crop="thumb")
