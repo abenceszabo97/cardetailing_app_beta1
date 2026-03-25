@@ -10,6 +10,7 @@ class Shift(BaseModel):
     location: str
     start_time: datetime
     end_time: datetime
+    shift_type: str = "normal"  # normal, vacation, sick_leave
     # Lunch break
     lunch_start: Optional[str] = None  # e.g. "12:00"
     lunch_end: Optional[str] = None    # e.g. "12:30"
@@ -20,6 +21,7 @@ class ShiftCreate(BaseModel):
     location: str
     start_time: datetime
     end_time: datetime
+    shift_type: str = "normal"  # normal, vacation, sick_leave
     lunch_start: Optional[str] = None
     lunch_end: Optional[str] = None
 
@@ -30,3 +32,4 @@ class ShiftUpdate(BaseModel):
     end_time: Optional[datetime] = None
     lunch_start: Optional[str] = None
     lunch_end: Optional[str] = None
+    shift_type: Optional[str] = None  # normal, vacation, sick_leave

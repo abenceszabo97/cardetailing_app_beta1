@@ -167,48 +167,119 @@ export const DayManagement = () => {
   const generateDayClosePDF = () => {
     const doc = new jsPDF();
     const today = format(new Date(), "yyyy. MMMM dd.", { locale: hu });
+    const withdrawals = todayRecord?.withdrawals || [];
+    const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+    const expectedClosing = (todayRecord?.opening_balance || 0) + stats.cash - totalWithdrawals;
     
     doc.setFontSize(20);
     doc.text("X-CLEAN Napi Zarasi Osszesito", 14, 22);
     doc.setFontSize(12);
     doc.text(`Datum: ${today}`, 14, 32);
     doc.text(`Telephely: ${selectedLocation}`, 14, 40);
-    doc.text(`Nyito egyenleg: ${(todayRecord?.opening_balance || 0).toLocaleString()} Ft`, 14, 48);
     
     doc.setFontSize(14);
-    doc.text("Napi osszesites", 14, 62);
+    doc.text("Penzforgalom", 14, 54);
     
     autoTable(doc, {
-      startY: 68,
+      startY: 60,
+      head: [["Megnevezes", "Ertek"]],
+      body: [
+        ["Nyito egyenleg", `${(todayRecord?.opening_balance || 0).toLocaleString()} Ft`],
+        ["Keszpenz bevetel (+)", `+${stats.cash.toLocaleString()} Ft`],
+        ["Keszpenz kivetelek (-)", `-${totalWithdrawals.toLocaleString()} Ft`],
+        ["Varhato zaro egyenleg", `${expectedClosing.toLocaleString()} Ft`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 11 }
+    });
+    
+    let currentY = doc.lastAutoTable?.finalY || 100;
+    
+    // Withdrawals detail
+    if (withdrawals.length > 0) {
+      currentY += 10;
+      doc.setFontSize(14);
+      doc.text("Keszpenz kivetelek reszletezese", 14, currentY);
+      
+      autoTable(doc, {
+        startY: currentY + 6,
+        head: [["Idopont", "Indoklas", "Szemely", "Osszeg"]],
+        body: withdrawals.map(w => [
+          format(new Date(w.timestamp), "HH:mm"),
+          w.reason,
+          w.withdrawn_by,
+          `-${w.amount.toLocaleString()} Ft`
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 10 }
+      });
+      currentY = doc.lastAutoTable?.finalY || currentY + 50;
+    }
+    
+    // Daily summary
+    currentY += 10;
+    doc.setFontSize(14);
+    doc.text("Napi osszesites", 14, currentY);
+    
+    autoTable(doc, {
+      startY: currentY + 6,
       head: [["Megnevezes", "Ertek"]],
       body: [
         ["Elkeszult autok", `${stats.today_cars} db`],
         ["Osszes bevetel", `${stats.today_revenue.toLocaleString()} Ft`],
         ["Keszpenz bevetel", `${stats.cash.toLocaleString()} Ft`],
         ["Kartya bevetel", `${stats.card.toLocaleString()} Ft`],
-        ["Varhato zaro egyenleg", `${((todayRecord?.opening_balance || 0) + stats.cash).toLocaleString()} Ft`],
       ],
       theme: "grid",
       headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 11 }
     });
+    currentY = doc.lastAutoTable?.finalY || currentY + 50;
     
+    // Completed jobs
     const completedJobs = todayJobs.filter(j => j.status === "kesz");
     if (completedJobs.length > 0) {
-      const finalY = doc.lastAutoTable?.finalY || 120;
+      currentY += 10;
       doc.setFontSize(14);
-      doc.text("Elkeszult munkak", 14, finalY + 14);
+      doc.text("Elkeszult munkak", 14, currentY);
       
       autoTable(doc, {
-        startY: finalY + 20,
-        head: [["Rendszam", "Szolgaltatas", "Fizetes", "Osszeg"]],
+        startY: currentY + 6,
+        head: [["Rendszam", "Szolgaltatas", "Dolgozo", "Fizetes", "Osszeg"]],
         body: completedJobs.map(j => [
           j.plate_number || "-",
           j.service_name || "-",
+          j.worker_name || "-",
           j.payment_method === "keszpenz" ? "Keszpenz" : "Kartya",
           `${j.price.toLocaleString()} Ft`
         ]),
         theme: "grid",
         headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 9 }
+      });
+    }
+    
+    // Cancelled/no-show jobs
+    const cancelledJobs = todayJobs.filter(j => j.status === "nem_jott_el" || j.status === "lemondta");
+    if (cancelledJobs.length > 0) {
+      currentY = doc.lastAutoTable?.finalY || currentY + 50;
+      currentY += 10;
+      doc.setFontSize(14);
+      doc.text("Lemondott / Nem jelent meg", 14, currentY);
+      
+      autoTable(doc, {
+        startY: currentY + 6,
+        head: [["Rendszam", "Szolgaltatas", "Statusz"]],
+        body: cancelledJobs.map(j => [
+          j.plate_number || "-",
+          j.service_name || "-",
+          j.status === "nem_jott_el" ? "Nem jelent meg" : "Lemondta"
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [100, 50, 50] },
+        styles: { fontSize: 9 }
       });
     }
     

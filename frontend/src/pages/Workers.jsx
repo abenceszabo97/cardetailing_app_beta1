@@ -93,6 +93,8 @@ export const Workers = () => {
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
   const [editingShift, setEditingShift] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [attendanceReport, setAttendanceReport] = useState(null);
+  const [leaveStats, setLeaveStats] = useState([]);
 
   const generateWorkerPDF = () => {
     const doc = new jsPDF();
@@ -142,6 +144,75 @@ export const Workers = () => {
     }
     
     return doc;
+  };
+
+  const generateAttendancePDF = async () => {
+    try {
+      const res = await axios.get(`${API}/shifts/attendance-report?month=${statsMonth}`, { withCredentials: true });
+      const report = res.data;
+      
+      const doc = new jsPDF();
+      const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
+      
+      doc.setFontSize(20);
+      doc.text("X-CLEAN Jelenléti Ív", 14, 22);
+      doc.setFontSize(12);
+      doc.text(`Honap: ${monthLabel}`, 14, 32);
+      
+      let currentY = 42;
+      
+      for (const worker of report.workers) {
+        // Check if we need a new page
+        if (currentY > 240) {
+          doc.addPage();
+          currentY = 20;
+        }
+        
+        doc.setFontSize(14);
+        doc.setTextColor(34, 197, 94); // Green
+        doc.text(worker.worker_name, 14, currentY);
+        doc.setTextColor(0, 0, 0);
+        currentY += 6;
+        
+        doc.setFontSize(10);
+        doc.text(`Osszes ora: ${worker.total_hours} | Munkanapok: ${worker.normal_days} | Szabadsag: ${worker.vacation_days} | Betegszabadsag: ${worker.sick_days}`, 14, currentY);
+        currentY += 6;
+        
+        if (worker.shifts.length > 0) {
+          autoTable(doc, {
+            startY: currentY,
+            head: [["Datum", "Nap", "Kezdes", "Befejezes", "Orak", "Tipus"]],
+            body: worker.shifts.map(s => [
+              s.date,
+              s.day_name.substring(0, 3),
+              s.start_time,
+              s.end_time,
+              `${s.hours} ora`,
+              s.shift_type === "normal" ? "Munka" : s.shift_type === "vacation" ? "Szabadsag" : "Beteg"
+            ]),
+            theme: "grid",
+            headStyles: { fillColor: [30, 41, 59], fontSize: 8 },
+            styles: { fontSize: 8 },
+            margin: { left: 14 }
+          });
+          currentY = doc.lastAutoTable?.finalY + 10 || currentY + 50;
+        } else {
+          currentY += 10;
+        }
+      }
+      
+      return doc;
+    } catch (error) {
+      toast.error("Hiba a jelenleti iv generalasanal");
+      return null;
+    }
+  };
+
+  const handleDownloadAttendancePDF = async () => {
+    const doc = await generateAttendancePDF();
+    if (doc) {
+      savePDF(doc, `xclean_jelenleti_iv_${statsMonth}.pdf`);
+    }
   };
 
   const savePDF = async (doc, defaultFilename) => {
@@ -281,7 +352,7 @@ export const Workers = () => {
       await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
       toast.success("Műszak sikeresen létrehozva!");
       setIsNewShiftOpen(false);
-      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "", lunch_start: "", lunch_end: "" });
+      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "", shift_type: "normal", lunch_start: "", lunch_end: "" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a műszak létrehozásakor");
@@ -306,6 +377,7 @@ export const Workers = () => {
       location: shift.location,
       start_time: shift.start_time.slice(0, 16), // Format for datetime-local input
       end_time: shift.end_time.slice(0, 16),
+      shift_type: shift.shift_type || "normal",
       lunch_start: shift.lunch_start || "",
       lunch_end: shift.lunch_end || ""
     });
@@ -318,6 +390,7 @@ export const Workers = () => {
         location: editingShift.location,
         start_time: editingShift.start_time,
         end_time: editingShift.end_time,
+        shift_type: editingShift.shift_type || "normal",
         lunch_start: editingShift.lunch_start || null,
         lunch_end: editingShift.lunch_end || null
       }, { withCredentials: true });
@@ -337,6 +410,7 @@ export const Workers = () => {
       location: "Debrecen",
       start_time: `${dateStr}T08:00`,
       end_time: `${dateStr}T16:00`,
+      shift_type: "normal",
       lunch_start: "12:00",
       lunch_end: "12:30"
     });
@@ -1126,23 +1200,24 @@ export const Workers = () => {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex gap-2 ml-auto">
+            <div className="flex gap-2 ml-auto flex-wrap">
               <Button 
                 onClick={handleDownloadWorkerPDF}
                 className="bg-slate-800 hover:bg-slate-700 text-white"
                 data-testid="download-worker-pdf-btn"
               >
                 <Download className="w-4 h-4 mr-2" />
-                PDF letöltés
+                <span className="hidden sm:inline">PDF letöltés</span>
+                <span className="sm:hidden">PDF</span>
               </Button>
               <Button 
-                onClick={handleEmailWorkerPDF}
-                variant="outline"
-                className="border-slate-700 text-slate-300 hover:bg-slate-800"
-                data-testid="email-worker-pdf-btn"
+                onClick={handleDownloadAttendancePDF}
+                className="bg-green-600 hover:bg-green-500 text-white"
+                data-testid="download-attendance-pdf-btn"
               >
-                <Mail className="w-4 h-4 mr-2" />
-                Küldés emailben
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Jelenléti ív</span>
+                <span className="sm:hidden">Jelenlét</span>
               </Button>
             </div>
           </div>
@@ -1358,6 +1433,19 @@ export const Workers = () => {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Típus</label>
+                <Select value={editingShift.shift_type || "normal"} onValueChange={(v) => setEditingShift({ ...editingShift, shift_type: v })}>
+                  <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="normal" className="text-white">Munkanap</SelectItem>
+                    <SelectItem value="vacation" className="text-yellow-400">Szabadság</SelectItem>
+                    <SelectItem value="sick_leave" className="text-red-400">Betegszabadság</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Ebédszünet kezdete</label>
@@ -1367,6 +1455,7 @@ export const Workers = () => {
                     onChange={(e) => setEditingShift({ ...editingShift, lunch_start: e.target.value })}
                     className="bg-slate-950 border-slate-700 text-white"
                     placeholder="12:00"
+                    disabled={editingShift.shift_type !== "normal"}
                   />
                 </div>
                 <div>
@@ -1377,6 +1466,7 @@ export const Workers = () => {
                     onChange={(e) => setEditingShift({ ...editingShift, lunch_end: e.target.value })}
                     className="bg-slate-950 border-slate-700 text-white"
                     placeholder="12:30"
+                    disabled={editingShift.shift_type !== "normal"}
                   />
                 </div>
               </div>

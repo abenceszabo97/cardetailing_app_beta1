@@ -374,7 +374,7 @@ const Calendar = () => {
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         {/* Desktop view */}
         <div className="hidden sm:block">
-          <div className="grid grid-cols-[60px_repeat(7,1fr)] divide-x divide-slate-800">
+          <div className="grid grid-cols-[70px_repeat(7,1fr)] divide-x divide-slate-800">
             <div className="bg-slate-950/50" />
             {days.map(day => (
               <div key={day.toISOString()} className={`p-2 text-center bg-slate-950/50 ${isSameDay(day, new Date()) ? 'bg-green-500/10' : ''}`}>
@@ -385,23 +385,25 @@ const Calendar = () => {
           </div>
           <div className="max-h-[500px] overflow-y-auto">
             {hours.map(hour => (
-              <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] divide-x divide-slate-800 border-t border-slate-800 min-h-[50px]">
-                <div className="p-1 text-xs text-slate-500 text-right pr-2">{hour}:00</div>
+              <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] divide-x divide-slate-800 border-t border-slate-800 min-h-[56px]">
+                <div className="p-1 text-xs text-slate-500 text-right pr-2 pt-2">{hour}:00</div>
                 {days.map(day => {
                   const slotBookings = getBookingsForSlot(day, hour);
                   return (
-                    <div key={day.toISOString()} className="p-1 space-y-1">
-                      {slotBookings.map(booking => (
+                    <div key={day.toISOString()} className="p-0.5 overflow-hidden">
+                      {slotBookings.slice(0, 2).map(booking => (
                         <div
                           key={booking.booking_id}
-                          className={`p-1 rounded text-xs cursor-pointer truncate ${STATUS_COLORS[booking.status]}`}
+                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-pointer border-l-2 ${STATUS_COLORS[booking.status]} hover:brightness-110`}
                           onClick={() => openBookingDetails(booking)}
-                          title={`${booking.customer_name} - ${booking.plate_number} | Dolgozó: ${booking.worker_name || 'Nincs'}`}
+                          title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
                         >
-                          <span className="font-medium">{booking.time_slot}</span> {booking.customer_name?.split(' ')[0]}
-                          {booking.worker_name && <span className="text-blue-300 ml-1">({booking.worker_name?.split(' ')[0]})</span>}
+                          <div className="font-semibold truncate">{booking.plate_number}</div>
                         </div>
                       ))}
+                      {slotBookings.length > 2 && (
+                        <div className="text-[9px] text-slate-500 text-center">+{slotBookings.length - 2}</div>
+                      )}
                     </div>
                   );
                 })}
@@ -498,15 +500,33 @@ const Calendar = () => {
                 const isToday = isSameDay(day, new Date());
                 const isCurrentMonth = isSameMonth(day, currentDate);
                 return (
-                  <div key={day.toISOString()} className={`min-h-[80px] p-1 ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/5' : ''}`}>
-                    <div className={`text-xs font-medium mb-1 ${isToday ? 'text-green-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'}`}>{format(day, "d")}</div>
+                  <div 
+                    key={day.toISOString()} 
+                    className={`min-h-[90px] p-1.5 cursor-pointer hover:bg-slate-800/30 transition-colors ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/5 ring-1 ring-inset ring-green-500/30' : ''}`}
+                    onClick={() => { setCurrentDate(day); setView("day"); }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-sm font-semibold ${isToday ? 'text-green-400' : isCurrentMonth ? 'text-white' : 'text-slate-600'}`}>{format(day, "d")}</span>
+                      {dayBookings.length > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${dayBookings.length > 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700 text-slate-300'}`}>
+                          {dayBookings.length}
+                        </span>
+                      )}
+                    </div>
                     <div className="space-y-0.5">
-                      {dayBookings.slice(0, 3).map(booking => (
-                        <div key={booking.booking_id} className={`text-xs p-0.5 rounded truncate cursor-pointer ${STATUS_COLORS[booking.status]}`} onClick={() => openBookingDetails(booking)} title={`${booking.customer_name} | Dolgozó: ${booking.worker_name || 'Nincs'}`}>
-                          {booking.time_slot} {booking.customer_name?.split(' ')[0]} {booking.worker_name && <span className="text-blue-300">({booking.worker_name?.split(' ')[0]})</span>}
+                      {dayBookings.slice(0, 2).map(booking => (
+                        <div 
+                          key={booking.booking_id} 
+                          className={`text-[10px] px-1 py-0.5 rounded border-l-2 truncate ${STATUS_COLORS[booking.status]}`} 
+                          onClick={(e) => { e.stopPropagation(); openBookingDetails(booking); }}
+                          title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
+                        >
+                          <span className="font-medium">{booking.time_slot}</span> {booking.plate_number}
                         </div>
                       ))}
-                      {dayBookings.length > 3 && <div className="text-xs text-slate-500">+{dayBookings.length - 3} további</div>}
+                      {dayBookings.length > 2 && (
+                        <div className="text-[9px] text-slate-500 pl-1">+{dayBookings.length - 2} további</div>
+                      )}
                     </div>
                   </div>
                 );

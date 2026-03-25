@@ -44,6 +44,7 @@ async def create_shift(data: ShiftCreate, user: User = Depends(get_current_user)
         location=data.location,
         start_time=data.start_time,
         end_time=data.end_time,
+        shift_type=data.shift_type,
         lunch_start=data.lunch_start,
         lunch_end=data.lunch_end
     )
@@ -162,3 +163,112 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
         })
     
     return result
+
+@router.get("/shifts/attendance-report")
+async def get_attendance_report(month: Optional[str] = None, worker_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get detailed attendance report for PDF generation"""
+    if not month:
+        month = datetime.now(timezone.utc).strftime("%Y-%m")
+    
+    query = {"start_time": {"$regex": f"^{month}"}}
+    if worker_id:
+        query["worker_id"] = worker_id
+    
+    shifts = await db.shifts.find(query, {"_id": 0}).sort("start_time", 1).to_list(500)
+    
+    # Group by worker
+    workers_data = {}
+    for shift in shifts:
+        wid = shift["worker_id"]
+        if wid not in workers_data:
+            workers_data[wid] = {
+                "worker_id": wid,
+                "worker_name": shift.get("worker_name", ""),
+                "shifts": [],
+                "total_hours": 0,
+                "normal_days": 0,
+                "vacation_days": 0,
+                "sick_days": 0
+            }
+        
+        start = datetime.fromisoformat(shift["start_time"])
+        end = datetime.fromisoformat(shift["end_time"])
+        hours = (end - start).total_seconds() / 3600
+        
+        # Subtract lunch if exists
+        if shift.get("lunch_start") and shift.get("lunch_end"):
+            try:
+                lunch_start = datetime.strptime(shift["lunch_start"], "%H:%M")
+                lunch_end = datetime.strptime(shift["lunch_end"], "%H:%M")
+                lunch_hours = (lunch_end - lunch_start).total_seconds() / 3600
+                hours -= lunch_hours
+            except:
+                pass
+        
+        shift_type = shift.get("shift_type", "normal")
+        
+        workers_data[wid]["shifts"].append({
+            "date": start.strftime("%Y-%m-%d"),
+            "day_name": start.strftime("%A"),
+            "start_time": start.strftime("%H:%M"),
+            "end_time": end.strftime("%H:%M"),
+            "hours": round(hours, 2),
+            "shift_type": shift_type,
+            "lunch": f"{shift.get('lunch_start', '')}-{shift.get('lunch_end', '')}" if shift.get('lunch_start') else None
+        })
+        
+        if shift_type == "normal":
+            workers_data[wid]["total_hours"] += hours
+            workers_data[wid]["normal_days"] += 1
+        elif shift_type == "vacation":
+            workers_data[wid]["vacation_days"] += 1
+        elif shift_type == "sick_leave":
+            workers_data[wid]["sick_days"] += 1
+    
+    # Round totals
+    for wid in workers_data:
+        workers_data[wid]["total_hours"] = round(workers_data[wid]["total_hours"], 1)
+    
+    return {
+        "month": month,
+        "workers": list(workers_data.values())
+    }
+
+@router.get("/shifts/leave-stats")
+async def get_leave_stats(year: Optional[str] = None, worker_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get vacation and sick leave statistics"""
+    if not year:
+        year = datetime.now(timezone.utc).strftime("%Y")
+    
+    query = {"start_time": {"$regex": f"^{year}"}}
+    if worker_id:
+        query["worker_id"] = worker_id
+    
+    shifts = await db.shifts.find(query, {"_id": 0}).to_list(1000)
+    
+    # Group by worker
+    stats = {}
+    for shift in shifts:
+        wid = shift["worker_id"]
+        if wid not in stats:
+            stats[wid] = {
+                "worker_id": wid,
+                "worker_name": shift.get("worker_name", ""),
+                "vacation_days": 0,
+                "sick_days": 0,
+                "normal_days": 0
+            }
+        
+        shift_type = shift.get("shift_type", "normal")
+        if shift_type == "vacation":
+            stats[wid]["vacation_days"] += 1
+        elif shift_type == "sick_leave":
+            stats[wid]["sick_days"] += 1
+        else:
+            stats[wid]["normal_days"] += 1
+    
+    return {
+        "year": year,
+        "workers": list(stats.values())
+    }
+
