@@ -799,10 +799,9 @@ export const Dashboard = () => {
                                     {getImageCount(job)}
                                   </Button>
                                   
-                                  {/* Edit button */}
-                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2 sm:px-3" onClick={() => handleEditJob(job)}>
-                                    <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
-                                    <span className="hidden sm:inline">Szerkeszt</span>
+                                  {/* Edit button - icon only */}
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2" onClick={() => handleEditJob(job)} title="Szerkesztés">
+                                    <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                                   </Button>
                                   
                                   {job.status === "foglalt" && (
@@ -823,13 +822,11 @@ export const Dashboard = () => {
                                     <>
                                       <Button size="sm" className="h-8 sm:h-7 text-xs bg-green-600 hover:bg-green-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
                                         <Wallet className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                        <span className="hidden xs:inline">Készpénz</span>
-                                        <span className="xs:hidden">💵</span>
+                                        Készpénz
                                       </Button>
                                       <Button size="sm" className="h-8 sm:h-7 text-xs bg-blue-600 hover:bg-blue-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
                                         <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                        <span className="hidden xs:inline">Kártya</span>
-                                        <span className="xs:hidden">💳</span>
+                                        Kártya
                                       </Button>
                                     </>
                                   )}
@@ -929,10 +926,9 @@ export const Dashboard = () => {
                                 {getImageCount(job)}
                               </Button>
                               
-                              {/* Edit button */}
-                              <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2 sm:px-3" onClick={() => handleEditJob(job)}>
-                                <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
-                                <span className="hidden sm:inline">Szerkeszt</span>
+                              {/* Edit button - icon only */}
+                              <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2" onClick={() => handleEditJob(job)} title="Szerkesztés">
+                                <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                               </Button>
                               
                               {job.status === "foglalt" && (
@@ -953,13 +949,11 @@ export const Dashboard = () => {
                                 <>
                                   <Button size="sm" className="h-8 sm:h-7 text-xs bg-green-600 hover:bg-green-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
                                     <Wallet className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                    <span className="hidden xs:inline">Készpénz</span>
-                                    <span className="xs:hidden">💵</span>
+                                    Készpénz
                                   </Button>
                                   <Button size="sm" className="h-8 sm:h-7 text-xs bg-blue-600 hover:bg-blue-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
                                     <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                    <span className="hidden xs:inline">Kártya</span>
-                                    <span className="xs:hidden">💳</span>
+                                    Kártya
                                   </Button>
                                 </>
                               )}
