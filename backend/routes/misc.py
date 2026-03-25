@@ -40,12 +40,37 @@ async def upload_image(file: UploadFile = File(...), user: User = Depends(get_cu
     return {"image_id": image_id, "url": f"/api/images/{image_id}"}
 
 @router.get("/images/{image_id}")
-async def get_image(image_id: str, user: User = Depends(get_current_user)):
-    """Get image by ID"""
+async def get_image(image_id: str):
+    """Get image by ID - returns actual image content"""
+    from fastapi.responses import Response
+    
     img = await db.images.find_one({"image_id": image_id}, {"_id": 0})
     if not img:
         raise HTTPException(status_code=404, detail="Kép nem található")
-    return img
+    
+    # Decode base64 and return as image
+    try:
+        # Handle both formats: 'data' field (raw base64) and 'data_url' field (data URL format)
+        if "data" in img:
+            base64_data = img["data"]
+        elif "data_url" in img:
+            # Extract base64 from data URL format: "data:image/png;base64,..."
+            data_url = img["data_url"]
+            if ";base64," in data_url:
+                base64_data = data_url.split(";base64,")[1]
+            else:
+                base64_data = data_url
+        else:
+            raise HTTPException(status_code=500, detail="Kép adat nem található")
+        
+        image_data = base64.b64decode(base64_data)
+        content_type = img.get("content_type", "image/jpeg")
+        return Response(content=image_data, media_type=content_type)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error decoding image {image_id}: {e}")
+        raise HTTPException(status_code=500, detail="Hiba a kép dekódolásakor")
 
 # ===================== SMS (TWILIO) =====================
 

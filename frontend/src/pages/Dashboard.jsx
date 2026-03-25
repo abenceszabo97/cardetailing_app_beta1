@@ -324,7 +324,19 @@ export const Dashboard = () => {
     const images = type === 'before' ? job?.images_before : job?.images_after;
     if (!images) return null;
     if (Array.isArray(images)) return null; // Old format
-    return images[slotId] || null;
+    const imageUrl = images[slotId];
+    if (!imageUrl) return null;
+    
+    // Handle relative URLs (old format: /api/images/img_xxx)
+    if (imageUrl.startsWith('/api/')) {
+      return `${API.replace('/api', '')}${imageUrl}`;
+    }
+    // Handle full Cloudinary URLs
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    // Otherwise prepend API base
+    return `${API.replace('/api', '')}${imageUrl}`;
   };
 
   const getStatusBadge = (status) => {

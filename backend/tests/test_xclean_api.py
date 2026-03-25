@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime, timedelta
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://carwash-admin-3.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://fleet-ops-64.preview.emergentagent.com')
 SESSION_TOKEN = "test_fresh_session"
 
 @pytest.fixture(scope="module")
