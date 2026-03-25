@@ -3,68 +3,58 @@
 ## Eredeti probléma leírás
 X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal.
 
-## V3.6 - Jelenléti rendszer (2025-03-25)
+## V3.7 - Mai fejlesztések (2025-03-25)
 
-### ✅ Be/Kilépés funkció
-- **Új "Jelenlét" tab** a Dolgozók oldalon
-- Dolgozónkénti kártyák különböző státuszokkal:
-  - Nem jelentkezett: "Belépés" gomb (zöld)
-  - Bejelentkezve: Zöld keret, "X óta" badge, "Kilépés" gomb (piros)
-  - Kijelentkezett: Kék keret, "X óra" badge, "Kijelentkezett" badge
-- Napi összesítő: Dolgozók, Bejelentkezve, Kijelentkezett, Nem jelentkezett
+### ✅ Jelenléti PDF generálás
+- **Jelenléti ív** gomb a Statisztika tab-on (zöld gomb)
+- Részletes riport dolgozónként: dátum, nap, kezdés-befejezés, órák, típus
+- Összesítés: munkanapok, szabadság, betegszabadság
+- Backend: `GET /api/shifts/attendance-report?month=YYYY-MM`
 
-### ✅ Backend API-k
-- `POST /api/attendance/check-in` - Bejelentkezés
-- `POST /api/attendance/check-out` - Kijelentkezés (+ ledolgozott órák számítás)
-- `GET /api/attendance/today` - Mai jelenléti rekordok
-- `GET /api/attendance/worker/{id}` - Dolgozó jelenléti története
-- `GET /api/attendance/stats/{id}` - Dolgozó jelenléti statisztikák
+### ✅ Szabadság/Betegszabadság kezelés
+- Műszak típus választó: Munkanap / Szabadság / Betegszabadság
+- Mind az új műszak, mind a szerkesztés dialógusban elérhető
+- Szabadságnál nincs ebédszünet mező
+- Backend: `GET /api/shifts/leave-stats` - éves statisztikák
 
-## V3.5 - Pénztár funkciók (2025-03-25)
-- Készpénz kivétel funkció
-- Előző nap záró egyenlege napnyitáskor
-- Napzárás részletes számítás (Nyitó + Bevétel - Kivételek = Záró)
+### ✅ Naptár átláthatóbbá tétele
+- **Havi nézet:** Tiszta cellák, foglalások száma badge-ben
+- Foglalások bal oldali színes csíkkal (státusz szerint)
+- Napra kattintva napi nézetre vált
+- **Heti nézet:** Egyszerűsített megjelenés, max 2 foglalás/slot
+- **Mobil nézet:** Napi kártyák foglalás részletekkel
 
-## V3.4 - P0 Fejlesztések (2025-03-25)
-- Munkások műszakszerkesztés (napra kattintás, edit dialógus)
-- Statisztika korábbi napok megtekintése (dátumnavigátor)
+### ✅ Nap zárás riport bővítése
+- Pénzforgalom összesítő: Nyitó + Bevétel - Kivételek = Várható záró
+- Készpénz kivételek részletezése: időpont, indoklás, személy, összeg
+- Elkészült munkák táblázat: rendszám, szolgáltatás, dolgozó, fizetés
+- Lemondott/Nem jelent meg munkák listája
 
-## V3.3 - Naptár modul (2025-03-25)
-- Munkásonkénti oszlopnézet
-- Mobil nézet javítás
+## Korábbi verziók
+- V3.6: Pénztár funkciók (készpénz kivétel, előző nap egyenlege)
+- V3.5: Munkások műszakszerkesztés, Statisztika history
+- V3.4: Naptár munkásonkénti oszlopnézet
+- V3.3-V3.0: Booking page, Dashboard, Cloudinary
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI
 - **Backend**: FastAPI, Motor (MongoDB async)
 - **Integrations**: Groq (AI), Resend (Email), Cloudinary (Képek)
-- **Deployment**: Railway (backend), Vercel (frontend)
+- **PDF**: jsPDF + jspdf-autotable
 
 ## Éles domainok
 - **Admin**: https://app.xcleandetailapp.hu
 - **Booking**: https://booking.xcleandetailapp.hu
 - **API**: https://api.xcleandetailapp.hu
 
-## P0 - Következő teendők
-- [ ] Havi jelenléti PDF riport generálás
-- [ ] Betegszabadság/szabadság napok kezelése
-- [ ] Jelenléti történelem megtekintése
-
-## P1 - Közepes prioritás  
-- [ ] Statisztikák - További mobil UI javítások
-- [ ] Nap zárás részletes összesítő PDF
-- [ ] Dolgozói értesítések (SMS/email)
-
-## P2 - Későbbi fejlesztés
+## P1 - Közepes prioritás (Következő feladatok)
 - [ ] Google Naptár integráció
-- [ ] Számlázás integráció (Billingo)
-- [ ] SMS értesítés (Twilio)
+- [ ] Billingo számlázás integráció
+- [ ] SMS értesítések (Twilio)
 - [ ] Kedvezmények rendszer
 
 ## Changelog
-- 2025-03-25: V3.6 - Jelenléti rendszer (be/kilépés, összesítő)
-- 2025-03-25: V3.5 - Készpénz kivétel, Előző nap záró egyenleg
-- 2025-03-25: V3.4 - Műszakszerkesztés, Statisztika history
-- 2025-03-25: V3.3 - Naptár oszlopnézet, mobil javítás
-- 2025-03-25: V3.2 - Időblokkolás, Új ügyfél
-- 2025-03-25: V3.1 - Cloudinary integráció
-- 2025-03-25: V3.0 - Teljesen új BookingPage
+- 2025-03-25: V3.7 - Jelenléti PDF, Szabadság kezelés, Naptár javítás, Nap zárás riport
+- 2025-03-25: V3.6 - Pénztár funkciók
+- 2025-03-25: V3.5 - Műszakszerkesztés, Statisztika history
+- 2025-03-25: V3.4 - Naptár oszlopnézet

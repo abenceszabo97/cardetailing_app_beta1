@@ -892,35 +892,52 @@ export const Workers = () => {
                       </div>
                     </div>
                     
-                    {/* Lunch Break */}
-                    <div className="border-t border-slate-700 pt-4 mt-4">
-                      <Label className="text-slate-300 flex items-center gap-2 mb-3">
-                        <Clock className="w-4 h-4" />
-                        Ebédszünet (opcionális)
-                      </Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-slate-400 text-sm">Kezdete</Label>
-                          <Input
-                            type="time"
-                            value={newShift.lunch_start || ""}
-                            onChange={(e) => setNewShift({...newShift, lunch_start: e.target.value})}
-                            className="bg-slate-950 border-slate-700 text-white"
-                            placeholder="12:00"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-slate-400 text-sm">Vége</Label>
-                          <Input
-                            type="time"
-                            value={newShift.lunch_end || ""}
-                            onChange={(e) => setNewShift({...newShift, lunch_end: e.target.value})}
-                            className="bg-slate-950 border-slate-700 text-white"
-                            placeholder="12:30"
-                          />
+                    {/* Shift Type */}
+                    <div>
+                      <Label className="text-slate-300">Típus</Label>
+                      <Select value={newShift.shift_type || "normal"} onValueChange={(v) => setNewShift({...newShift, shift_type: v})}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="normal" className="text-white">Munkanap</SelectItem>
+                          <SelectItem value="vacation" className="text-yellow-400">Szabadság</SelectItem>
+                          <SelectItem value="sick_leave" className="text-red-400">Betegszabadság</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Lunch Break - only for normal shifts */}
+                    {(newShift.shift_type === "normal" || !newShift.shift_type) && (
+                      <div className="border-t border-slate-700 pt-4 mt-4">
+                        <Label className="text-slate-300 flex items-center gap-2 mb-3">
+                          <Clock className="w-4 h-4" />
+                          Ebédszünet (opcionális)
+                        </Label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-slate-400 text-sm">Kezdete</Label>
+                            <Input
+                              type="time"
+                              value={newShift.lunch_start || ""}
+                              onChange={(e) => setNewShift({...newShift, lunch_start: e.target.value})}
+                              className="bg-slate-950 border-slate-700 text-white"
+                              placeholder="12:00"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-slate-400 text-sm">Vége</Label>
+                            <Input
+                              type="time"
+                              value={newShift.lunch_end || ""}
+                              onChange={(e) => setNewShift({...newShift, lunch_end: e.target.value})}
+                              className="bg-slate-950 border-slate-700 text-white"
+                              placeholder="12:30"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                     
                     <Button 
                       onClick={handleCreateShift}
