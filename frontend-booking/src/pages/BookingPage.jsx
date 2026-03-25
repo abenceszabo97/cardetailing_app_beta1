@@ -68,6 +68,7 @@ const BookingPage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedExtras, setSelectedExtras] = useState([]);
+  const [selectedPromotion, setSelectedPromotion] = useState(null);
   
   // Form state
   const [form, setForm] = useState({
@@ -106,18 +107,21 @@ const BookingPage = () => {
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-  // Calculate price
+  // Calculate price - supports promotions
   const getPrice = () => {
+    if (selectedPromotion) return selectedPromotion.price;
     if (!selectedSize || !selectedCategory || !selectedPackage || !pricingData) return 0;
     return pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[selectedPackage] || 0;
   };
 
   const getFeatures = () => {
+    if (selectedPromotion) return selectedPromotion.features || [];
     if (!selectedCategory || !selectedPackage || !pricingData) return [];
     return pricingData.package_features[selectedCategory]?.[selectedPackage] || [];
   };
 
   const getDuration = () => {
+    if (selectedPromotion) return selectedPromotion.duration || 70;
     if (!selectedSize || !selectedCategory || !pricingData) return 0;
     let base = pricingData.duration_matrix[selectedSize]?.[selectedCategory] || 60;
     if (selectedPackage === "VIP") base = Math.round(base * 1.5);
@@ -133,6 +137,25 @@ const BookingPage = () => {
   };
 
   const getTotalPrice = () => getPrice() + getExtrasTotal();
+
+  // Select a promotion
+  const selectPromotion = (promo) => {
+    setSelectedPromotion(promo);
+    // Auto-select size and category based on promotion
+    if (promo.car_sizes?.length > 0) {
+      setSelectedSize(promo.car_sizes[promo.car_sizes.length - 1]); // Largest allowed
+    }
+    setSelectedCategory(promo.category);
+    setSelectedPackage(promo.package);
+  };
+
+  // Clear promotion and go back to normal selection
+  const clearPromotion = () => {
+    setSelectedPromotion(null);
+    setSelectedSize(null);
+    setSelectedCategory(null);
+    setSelectedPackage(null);
+  };
 
   // Plate lookup
   const lookupPlate = useCallback(async (plate) => {
@@ -192,7 +215,7 @@ const BookingPage = () => {
   };
 
   const canGoNext = () => {
-    if (step === 1) return selectedSize && selectedCategory && selectedPackage;
+    if (step === 1) return (selectedPromotion || (selectedSize && selectedCategory && selectedPackage));
     if (step === 2) return form.date && form.time_slot;
     if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && !isBlacklisted;
     return true;
@@ -201,20 +224,26 @@ const BookingPage = () => {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      // Create service name from selection
-      const serviceName = `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Külső+Belső'} ${selectedPackage}`;
+      // Create service name from selection or promotion
+      let serviceName;
+      if (selectedPromotion) {
+        serviceName = `${selectedPromotion.name} - ${selectedPromotion.description}`;
+      } else {
+        serviceName = `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Külső+Belső'} ${selectedPackage}`;
+      }
       
       const bookingData = {
         ...form,
         car_type: form.car_type || CAR_SIZE_INFO[selectedSize]?.description || selectedSize,
-        service_id: `dynamic_${selectedSize}_${selectedCategory}_${selectedPackage}`,
+        service_id: selectedPromotion ? `promo_${selectedPromotion.id}` : `dynamic_${selectedSize}_${selectedCategory}_${selectedPackage}`,
         service_name: serviceName,
         price: getTotalPrice(),
         duration: getDuration(),
         extras: selectedExtras,
         car_size: selectedSize,
         package_type: selectedPackage,
-        category: selectedCategory
+        category: selectedCategory,
+        promotion_id: selectedPromotion?.id || null
       };
       
       await axios.post(`${API}/bookings`, bookingData);
@@ -348,7 +377,86 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Car Size Selection */}
+              {/* Active Promotions Banner */}
+              {pricingData?.promotions?.length > 0 && !selectedPromotion && (
+                <div className="space-y-3">
+                  <label className="text-sm text-pink-400 mb-2 block font-medium flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" /> Aktuális akciók
+                  </label>
+                  {pricingData.promotions.map(promo => (
+                    <button
+                      key={promo.id}
+                      onClick={() => selectPromotion(promo)}
+                      className="w-full p-4 rounded-xl border-2 border-pink-500/50 bg-gradient-to-r from-pink-500/10 to-orange-500/10 hover:from-pink-500/20 hover:to-orange-500/20 transition-all text-left"
+                      data-testid={`promo-${promo.id}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-pink-500/30 text-pink-300 border-pink-500/50">
+                            {promo.badge || '🎉 AKCIÓ'}
+                          </Badge>
+                          <span className="text-white font-bold text-lg">{promo.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-pink-400 text-2xl font-bold">{promo.price.toLocaleString()} Ft</span>
+                          {promo.original_price && (
+                            <span className="text-slate-500 text-sm line-through ml-2">{promo.original_price.toLocaleString()} Ft</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-slate-400 text-sm">{promo.description}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                        <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> ~{promo.duration} perc</span>
+                        <span className="flex items-center gap-1"><Car className="w-3 h-3" /> {promo.car_sizes?.join(', ')} méretig</span>
+                        {promo.valid_until && <span>Érvényes: {promo.valid_until}-ig</span>}
+                      </div>
+                    </button>
+                  ))}
+                  <div className="text-center text-slate-500 text-sm pt-2">— vagy válassz egyedi szolgáltatást —</div>
+                </div>
+              )}
+
+              {/* Selected Promotion Banner */}
+              {selectedPromotion && (
+                <div className="p-4 rounded-xl border-2 border-pink-500 bg-gradient-to-r from-pink-500/20 to-orange-500/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Badge className="bg-pink-500/30 text-pink-300 border-pink-500/50 mb-2">
+                        {selectedPromotion.badge || '🎉 AKCIÓ KIVÁLASZTVA'}
+                      </Badge>
+                      <h3 className="text-white font-bold text-lg">{selectedPromotion.name}</h3>
+                      <p className="text-slate-400 text-sm">{selectedPromotion.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-pink-400 text-3xl font-bold">{selectedPromotion.price.toLocaleString()} Ft</span>
+                      <button 
+                        onClick={clearPromotion}
+                        className="block mt-2 text-xs text-slate-500 hover:text-white transition-colors"
+                      >
+                        <X className="w-3 h-3 inline mr-1" /> Másik szolgáltatás
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-pink-500/30">
+                    <span className="text-slate-400 text-sm">Tartalmazza:</span>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {selectedPromotion.features?.slice(0, 6).map((f, i) => (
+                        <Badge key={i} variant="outline" className="text-xs border-slate-600 text-slate-400">
+                          <Check className="w-3 h-3 mr-1 text-green-500" />{f}
+                        </Badge>
+                      ))}
+                      {selectedPromotion.features?.length > 6 && (
+                        <Badge variant="outline" className="text-xs border-slate-600 text-slate-500">
+                          +{selectedPromotion.features.length - 6} további
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Car Size Selection - only show if no promotion selected */}
+              {!selectedPromotion && (
               <div>
                 <label className="text-sm text-slate-400 mb-3 block font-medium">1. Autó mérete</label>
                 <div className="grid grid-cols-5 gap-2">
@@ -380,9 +488,10 @@ const BookingPage = () => {
                   </p>
                 )}
               </div>
+              )}
 
-              {/* Category Selection */}
-              {selectedSize && (
+              {/* Category Selection - only show if no promotion selected */}
+              {!selectedPromotion && selectedSize && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">2. Szolgáltatás típusa</label>
                   <div className="grid grid-cols-3 gap-3">
@@ -412,8 +521,8 @@ const BookingPage = () => {
                 </div>
               )}
 
-              {/* Package Selection with Features */}
-              {selectedSize && selectedCategory && (
+              {/* Package Selection with Features - only show if no promotion selected */}
+              {!selectedPromotion && selectedSize && selectedCategory && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">3. Csomag választás</label>
                   <div className="grid grid-cols-3 gap-3">
@@ -472,8 +581,8 @@ const BookingPage = () => {
                 </div>
               )}
 
-              {/* Package Features Detail */}
-              {selectedPackage && (
+              {/* Package Features Detail - only show if no promotion selected */}
+              {!selectedPromotion && selectedPackage && (
                 <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700">
                   <h4 className="text-white font-medium mb-3 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-green-400" />
@@ -490,10 +599,12 @@ const BookingPage = () => {
                 </div>
               )}
 
-              {/* Extra Services */}
-              {selectedPackage && extras.length > 0 && (
+              {/* Extra Services - show for both promotion and manual selection */}
+              {(selectedPromotion || selectedPackage) && extras.length > 0 && (
                 <div>
-                  <label className="text-sm text-slate-400 mb-3 block font-medium">4. Extra szolgáltatások (opcionális)</label>
+                  <label className="text-sm text-slate-400 mb-3 block font-medium">
+                    {selectedPromotion ? 'Extra szolgáltatások (opcionális)' : '4. Extra szolgáltatások (opcionális)'}
+                  </label>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {extras.map(extra => (
                       <div
@@ -528,9 +639,13 @@ const BookingPage = () => {
                 </div>
               )}
 
-              {/* Price Summary */}
-              {selectedPackage && (
-                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/30">
+              {/* Price Summary - show for both promotion and manual selection */}
+              {(selectedPromotion || selectedPackage) && (
+                <div className={`rounded-xl p-4 border ${
+                  selectedPromotion 
+                    ? 'bg-gradient-to-r from-pink-500/10 to-orange-500/10 border-pink-500/30'
+                    : 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30'
+                }`}>
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="text-slate-400 text-sm">Összesen fizetendő</span>
@@ -540,8 +655,16 @@ const BookingPage = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-green-400 text-3xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
-                      {getExtrasTotal() > 0 && (
+                      <span className={`text-3xl font-bold ${selectedPromotion ? 'text-pink-400' : 'text-green-400'}`}>
+                        {getTotalPrice().toLocaleString()} Ft
+                      </span>
+                      {selectedPromotion && selectedPromotion.original_price && (
+                        <div className="text-xs text-slate-500">
+                          <span className="line-through">{selectedPromotion.original_price.toLocaleString()} Ft</span>
+                          <span className="text-pink-400 ml-2">Megtakarítás: {(selectedPromotion.original_price - selectedPromotion.price).toLocaleString()} Ft</span>
+                        </div>
+                      )}
+                      {!selectedPromotion && getExtrasTotal() > 0 && (
                         <div className="text-xs text-slate-500">
                           (alap: {getPrice().toLocaleString()} + extrák: {getExtrasTotal().toLocaleString()})
                         </div>

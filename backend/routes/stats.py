@@ -56,7 +56,18 @@ async def get_dashboard_stats(location: Optional[str] = None, user: User = Depen
         "month_cars": month_cars,
         "month_revenue": month_revenue,
         "month_cash": month_cash,
-        "month_card": month_card
+        "month_card": month_card,
+        # New: cancelled/no-show stats
+        "today_cancelled": await db.jobs.count_documents({
+            **query_base,
+            "status": {"$in": ["nem_jott_el", "lemondta"]},
+            "date": {"$gte": today.isoformat(), "$lt": tomorrow.isoformat()}
+        }),
+        "month_cancelled": await db.jobs.count_documents({
+            **query_base,
+            "status": {"$in": ["nem_jott_el", "lemondta"]},
+            "date": {"$gte": month_start.isoformat(), "$lt": tomorrow.isoformat()}
+        })
     }
 
 @router.get("/stats/daily")

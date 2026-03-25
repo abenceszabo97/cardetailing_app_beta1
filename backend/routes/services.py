@@ -9,7 +9,7 @@ from models.user import User
 from models.service import (
     Service, ServiceCreate, 
     PACKAGE_FEATURES, PRICE_MATRIX, DURATION_MATRIX, 
-    EXTRA_SERVICES, CAR_SIZE_INFO
+    EXTRA_SERVICES, CAR_SIZE_INFO, PROMOTIONS
 )
 
 router = APIRouter()
@@ -23,14 +23,23 @@ async def get_services(user: User = Depends(get_current_user)):
 @router.get("/services/pricing-data")
 async def get_pricing_data():
     """Get all pricing data for the booking page (public, no auth)"""
+    # Filter active promotions
+    active_promotions = [p for p in PROMOTIONS if p.get("active", True)]
+    
     return {
         "package_features": PACKAGE_FEATURES,
         "price_matrix": PRICE_MATRIX,
         "duration_matrix": DURATION_MATRIX,
         "car_sizes": CAR_SIZE_INFO,
         "packages": ["Eco", "Pro", "VIP"],
-        "categories": ["kulso", "belso", "komplett"]
+        "categories": ["kulso", "belso", "komplett"],
+        "promotions": active_promotions
     }
+
+@router.get("/services/promotions")
+async def get_promotions():
+    """Get active promotions (public, no auth)"""
+    return [p for p in PROMOTIONS if p.get("active", True)]
 
 @router.get("/services/extras")
 async def get_extra_services():

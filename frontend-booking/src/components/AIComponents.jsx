@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { API } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -11,6 +10,8 @@ import {
   TrendingUp, ChevronDown, ChevronUp, Upload, X,
   MessageCircle, Send, Bot, User
 } from "lucide-react";
+
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 // AI Chatbot Component
 export const AIChatbot = () => {

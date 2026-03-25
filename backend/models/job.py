@@ -58,10 +58,14 @@ class Job(BaseModel):
     worker_id: Optional[str] = None
     worker_name: Optional[str] = None
     price: float
-    status: str = "foglalt"  # foglalt, folyamatban, kesz
+    status: str = "foglalt"  # foglalt, folyamatban, kesz, nem_jott_el, lemondta
     location: str
     payment_method: Optional[str] = None  # keszpenz, kartya
     date: datetime
+    time_slot: Optional[str] = None
+    car_type: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     notes: Optional[str] = None
     # New structured image storage - Dict with slot_id -> image_url
     images_before: Dict[str, str] = Field(default_factory=dict)

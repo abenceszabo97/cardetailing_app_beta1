@@ -183,3 +183,33 @@ CAR_SIZE_INFO = {
     "XL": {"name": "XL - SUV", "description": "SUV, crossover", "examples": "VW Tiguan, Toyota RAV4, BMW X3"},
     "XXL": {"name": "XXL - Nagy SUV", "description": "Terepjáró, kisbusz", "examples": "VW Touareg, Range Rover, Ford Transit"}
 }
+
+# Promotional/Special offers
+PROMOTIONS = [
+    {
+        "id": "tavaszi_akcio",
+        "name": "Tavaszi akció",
+        "description": "Komplett külső+belső tisztítás M méretig",
+        "price": 15990,
+        "original_price": 16400,  # M Komplett Pro ár
+        "discount_percent": 3,
+        "category": "komplett",
+        "car_sizes": ["S", "M"],
+        "package": "Pro",
+        "features": [
+            "Külső tisztítás",
+            "Külső ablakfelületek tisztítása",
+            "Wax",
+            "Falcok tisztítása",
+            "Felni- és gumitisztítás",
+            "Porszívózás (alapos)",
+            "Belső ablakfelületek tisztítása",
+            "Portalanítás",
+            "Műanyag felületek tisztítása"
+        ],
+        "duration": 70,
+        "badge": "🌸 AKCIÓ",
+        "valid_until": "2025-04-30",
+        "active": True
+    }
+]
