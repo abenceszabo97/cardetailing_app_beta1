@@ -83,9 +83,25 @@ async def lookup_customer_by_plate(plate_number: str):
 @router.post("/bookings")
 async def create_booking(data: BookingCreate):
     """Create a new booking (public, no auth required)"""
-    service = await db.services.find_one({"service_id": data.service_id}, {"_id": 0})
-    if not service:
-        raise HTTPException(status_code=404, detail="Szolgáltatás nem található")
+    # Get service info if available (for traditional bookings)
+    service = None
+    service_name = data.service_name
+    price = data.price
+    
+    if not data.service_id.startswith("dynamic_"):
+        # Traditional service lookup
+        service = await db.services.find_one({"service_id": data.service_id}, {"_id": 0})
+        if service:
+            service_name = service["name"]
+            price = service["price"]
+    
+    if not service_name:
+        # Build service name from car_size, category, package
+        category_names = {"kulso": "Külső", "belso": "Belső", "komplett": "Komplett"}
+        service_name = f"{data.car_size or ''} - {category_names.get(data.category, '')} {data.package_type or ''}".strip()
+    
+    if not price:
+        price = 0
     
     worker_name = None
     if data.worker_id:
@@ -93,15 +109,39 @@ async def create_booking(data: BookingCreate):
         if worker:
             worker_name = worker["name"]
     
+    # Calculate extras price
+    extras_price = 0
+    if data.extras:
+        for extra_id in data.extras:
+            extra = await db.services.find_one({"service_id": extra_id, "service_type": "extra"}, {"_id": 0})
+            if extra:
+                extras_price += extra.get("price") or extra.get("min_price", 0)
+    
     booking = Booking(
-        customer_name=data.customer_name, car_type=data.car_type,
-        plate_number=data.plate_number.upper(), email=data.email, phone=data.phone,
-        address=data.address, invoice_name=data.invoice_name,
-        invoice_tax_number=data.invoice_tax_number, invoice_address=data.invoice_address,
-        service_id=data.service_id, service_name=service["name"],
-        worker_id=data.worker_id, worker_name=worker_name,
-        location=data.location, date=data.date, time_slot=data.time_slot,
-        price=service["price"], notes=data.notes
+        customer_name=data.customer_name, 
+        car_type=data.car_type or "",
+        plate_number=data.plate_number.upper(), 
+        email=data.email, 
+        phone=data.phone,
+        address=data.address, 
+        invoice_name=data.invoice_name,
+        invoice_tax_number=data.invoice_tax_number, 
+        invoice_address=data.invoice_address,
+        service_id=data.service_id, 
+        service_name=service_name,
+        worker_id=data.worker_id, 
+        worker_name=worker_name,
+        location=data.location, 
+        date=data.date, 
+        time_slot=data.time_slot,
+        price=price + extras_price, 
+        notes=data.notes,
+        car_size=data.car_size,
+        package_type=data.package_type,
+        category=data.category,
+        duration=data.duration,
+        extras=data.extras,
+        extras_price=extras_price if extras_price > 0 else None
     )
     
     doc = booking.model_dump()

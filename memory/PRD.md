@@ -20,168 +20,109 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Képek**: 9 előtte + 9 utána kép feltöltése munkákhoz
 - **Telephely**: Csak Debrecen (Budapest eltávolítva)
 
-### V2 Funkciók (2025-12-16)
-- **Publikus foglalási oldal** (`/booking`): 4 lépéses wizard bejelentkezés nélkül
-  - Lépés 1: Telephely és szolgáltatás választás (kategória szűréssel)
-  - Lépés 2: **Naptár szerű időpont választás** - heti nézet, vizuális szabad/foglalt jelzés
-  - Lépés 3: Személyes adatok + gyors rendszám keresés + **Második autó opció**
-  - Lépés 4: Összegzés és foglalás véglegesítése
-  - **Rendszám alapú gyors foglalás**: Visszatérő ügyfelek automatikus adatbetöltés
-  - **VIP státusz**: 5+ sikeres mosás után VIP badge
-- **Foglalási értesítések**: Új foglaláskor, módosításkor, státusz változáskor automatikus push értesítés
-- **Foglalási naptár** (`/calendar`): Napi/heti/havi nézet foglalások kezelésére, foglalás módosítás
-- **Blacklist/tiltólista**: Problémás ügyfelek kezelése rendszám alapján
-- **AI Backend végpontok**: Upsell, fotó elemzés, árajánlat (Gemini) - backend kész
+### V3.0 - Teljesen Új Foglalási Oldal (2025-03-25)
+- **✅ Átdolgozott BookingPage UI**:
+  - **1. Autó méret választás** - S/M/L/XL/XXL autó piktogramokkal
+    - S: Ferdehátú, kisautó (Swift, Polo, Corsa)
+    - M: Sedan, kompakt (Golf, Corolla, Audi A3)
+    - L: Kombi, nagy sedan (Passat, Octavia)
+    - XL: SUV, crossover (Tiguan, RAV4, BMW X3)
+    - XXL: Terepjáró, kisbusz (Touareg, Range Rover, Transit)
+  - **2. Szolgáltatás típus** - Külső / Belső / Komplett (Külső+Belső)
+  - **3. Csomag választás** - Eco / Pro / VIP árakkal és feature listával
+    - VIP: Liquid kerámia, prémium szolgáltatások
+    - Pro: Bővített csomag (wax, falcok, felni)
+    - Eco: Alap tisztítás
+  - **4. Extra szolgáltatások** - Opcionális kiegészítők
+    - Vízkő eltávolítás, gyanta eltávolítás
+    - Ózonos fertőtlenítés, kárpittisztítás
+    - Bőrápolás, állatszőr eltávolítás
+  - **5. Időpont választás** - Heti naptár nézet
+  - **6. Személyes adatok** - Gyors rendszám keresés
+  - **7. Összegzés** - Végső ár kalkuláció
 
-### V2.1 - Felhasználónév/Jelszó auth (2025-12-20)
-- **✅ Felhasználónév + Jelszó bejelentkezés**: Google Auth lecserélve
-  - Admin hozhat létre új felhasználókat
-  - Jelszó visszaállítás admin által
-  - Felhasználó aktiválás/deaktiválás
-- **✅ Két autó foglalása egymás után**: Minden ügyfélnek elérhető
-- **✅ Push értesítések bővítve**: Módosítás és státusz változáskor
-- **✅ AI komponensek frontend**: Upsell, fotó elemzés, árajánlat komponensek
-- **✅ server.py refaktorálás kész** (routes/, models/ moduláris struktúra)
+- **✅ Backend Pricing API**:
+  - `/api/services/pricing-data` - Teljes ármatrix és csomag tartalom
+  - `/api/services/extras` - Extra szolgáltatások listája
+  - `/api/services/calculate-price` - Ár kalkuláció
+  - `/api/services/sync-pricing` - Árak szinkronizálása DB-be
 
-### V2.2 - Dolgozó megjelenítés és ebédszünet (2025-12-20)
-- **✅ Dolgozó név megjelenítése**: Dashboard "Mai munkák" és Naptár nézetben kiemelt dolgozó badge
-- **✅ Ebédszünet felvitele műszakhoz**: Kezdete/Vége időpontok, megjelenítés a naptárban
-- **✅ Settings menüpont mindenki számára**: Profil és jelszóváltás minden felhasználónak elérhető
+- **✅ Object Storage integráció** (Emergent):
+  - `/api/files/upload` - Fájl feltöltés
+  - `/api/files/upload-multiple` - Több fájl feltöltése
+  - `/api/files/{file_id}` - Fájl lekérdezés
+  - `/api/files/{file_id}/download` - Fájl letöltés
+  - `/api/files/entity/{entity_type}/{entity_id}` - Entitáshoz tartozó fájlok
 
-### V2.3 - Frontend refaktorálás és mobiloptimalizálás (2025-12-20)
-- **✅ Frontend szétválasztás két alkalmazásra**:
-  - `/app/frontend-admin` - Admin dashboard (védett útvonalak)
-  - `/app/frontend-booking` - Publikus foglalási oldal (auth nélkül)
-- **✅ Céglogó hozzáadva**: Login és Booking oldalon, zöld háttérrel
-- **✅ Teljes mobil reszponzivitás**: Minden admin oldal optimalizálva mobilra és tabletre
-  - Dashboard: 2 oszlopos KPI kártyák mobilon
-  - Naptár: Kompakt szűrők, kisebb gombok
-  - Workers, Statistics, Inventory, Services, DayManagement, Settings: Mind reszponzív
-  - CustomerDetail: Mobil-barát kártya elrendezés
-  - Booking: Skálázódó lépések, naptár, időpontok
+- **✅ Ár mátrix az X-CLEAN árlista alapján**:
+  ```
+  Méret     Külső Eco/Pro/VIP    Belső Eco/Pro/VIP    Komplett Eco/Pro/VIP
+  S         4,000/7,800/9,700    3,000/5,300/6,700    6,000/11,800/14,700
+  M         4,800/8,600/10,800   3,500/6,000/7,400    7,500/13,100/16,400
+  L         5,500/9,400/11,700   4,000/6,400/8,000    8,600/14,200/17,800
+  XL        6,300/10,700/13,400  4,800/7,400/9,300    10,100/16,400/20,500
+  XXL       8,000/11,700/14,600  6,300/7,700/9,600    13,000/17,400/21,700
+  ```
 
-### V2.4 - AI Chatbot (2025-12-20)
-- **✅ AI Chatbot hozzáadva a foglalási oldalhoz**
-  - Lebegő chat gomb jobb alsó sarokban
-  - Valós idejű beszélgetés a Gemini AI-val
-  - Szolgáltatásokról, árakról, nyitvatartásról informál
-  - Gyors kérdés gombok (Szolgáltatások, Árak, Nyitvatartás, Foglalás)
-  - Session kezelés a folyamatos beszélgetéshez
-
-### V2.5 - Megnevezett Előtte-Utána Képek (2025-12-20)
-- **✅ Slot-alapú képfeltöltési rendszer**:
-  - Előtte képek: Kültér (Előlről jobb/bal, Hátul jobb/bal), Beltér (Elől bal/jobb, Hátul bal/jobb)
-  - Utána képek: Előlről jobb/bal, Hátul jobb/bal, Beltér (Elől bal/jobb, Hátul bal/jobb)
-- **✅ Összehasonlító nézet**: Előtte-Utána képek egymás mellett
-- **✅ Ügyfél előzményekben képek megtekintése**: Korábbi munkák képei visszanézhetők
-- **✅ Tabs: Feltöltés / Előtte-Utána nézetek**
-
-### V2.6 - Feketelista Bizonyíték Képek (2025-12-21)
-- **✅ Feketelista bizonyíték képek feltöltése** (opcionális):
-  - Calendar oldalon tiltólistára helyezésnél képfeltöltés lehetőség
-  - Customers oldalon bizonyíték képek megtekintése dialógusban
-  - Backend model frissítve: `evidence_images` mező hozzáadva
-- **✅ Fullscreen képnézegető** a bizonyíték képekhez
-
-### Implementálva de API kulcsok szükségesek
-- **SMS értesítés (Twilio)**: Ügyfél értesítés munka elkészüléséről
-- **Email küldés (Resend)**: PDF riportok és foglalás visszaigazolás emailben
+### Korábbi verziók
+- V2.6 - Feketelista bizonyíték képek (2025-12-21)
+- V2.5 - Megnevezett Előtte-Utána képek (2025-12-20)
+- V2.4 - AI Chatbot (2025-12-20)
+- V2.3 - Frontend szétválasztás (admin/booking) (2025-12-20)
+- V2.2 - Dolgozó megjelenítés, ebédszünet (2025-12-20)
+- V2.1 - Username/password auth (2025-12-20)
+- V2.0 - Booking rendszer, AI backend (2025-12-16)
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI, Recharts, jsPDF, date-fns
 - **Backend**: FastAPI, Motor (MongoDB async), Pydantic, bcrypt, python-jose (JWT)
 - **Database**: MongoDB
 - **Auth**: Felhasználónév + Jelszó (JWT tokens, bcrypt hash)
-- **Deployment**: Railway-ready (Procfile, railway.json)
+- **Integrations**: 
+  - Groq (AI chatbot, upsell)
+  - Resend (Email visszaigazolások)
+  - Emergent Object Storage (Képfeltöltés)
+- **Deployment**: Railway (backend), Vercel (frontend)
+
+## Éles domainok
+- **Admin**: https://app.xcleandetailapp.hu
+- **Booking**: https://booking.xcleandetailapp.hu
+- **API**: https://api.xcleandetailapp.hu
 
 ## Tesztelési állapot
-- 9. iteráció: Backend 100% (12/12), Frontend 100%
-- Utolsó teszt: 2025. december 20.
+- Utolsó teszt: 2025. március 25.
 - Teszt credentials: admin / admin123
+- Preview URL: https://wash-management-dev.preview.emergentagent.com
 
-## Befejezett feladatok
-- [x] Foglalás módosítás funkció (naptárban szerkesztés)
-- [x] Blacklist/tiltólista kezelés
-- [x] Budapest eltávolítása
-- [x] Teszt adatok törlése
-- [x] server.py refaktorálás (2255 sor → moduláris struktúra)
-- [x] Felhasználónév/jelszó bejelentkezés
-- [x] Két autó foglalása egymás után
-- [x] Push értesítések (módosítás, státusz változás)
-- [x] AI komponensek frontend
-- [x] Dolgozó megjelenítés dashboard és naptárban
-- [x] Ebédszünet felvitele műszakhoz
-- [x] Settings mindenki számára elérhető
-- [x] AI Chatbot a foglalási oldalon
-
-## P0 - Következő iteráció (Kiemelt prioritás)
-- [ ] Google Naptár integráció - Foglalások automatikus szinkronizálása
-- [ ] Foglalás megerősítő automatikus email küldés (Resend API kulcs szükséges)
+## P0 - Következő teendők (Kiemelt prioritás)
+- [ ] Railway deploy frissítés az új kóddal (pricing API, object storage)
+- [ ] Dashboard dolgozónkénti nézet (2 dolgozó oszlopban)
+- [ ] Új státuszok: "Nem jött el", "Lemondta"
+- [ ] Fizetési mód megjelenítés "Kész" státusznál
 
 ## P1 - Közepes prioritás  
-- [ ] Számlázás integráció (pl. Billingo, számlázz.hu)
+- [ ] Google Naptár integráció
+- [ ] Számlázás integráció (Billingo)
 - [ ] E-nyugta integráció
-- [ ] Elkészült autó SMS értesítés (Twilio API kulcs szükséges)
+- [ ] SMS értesítés (Twilio)
 
 ## P2 - Későbbi fejlesztés
-- [ ] Automatikus PDF napzárás és email küldés
-- [ ] AI Marketing (SMS/email emlékeztetők, kuponok, hűségprogram)
-- [ ] AI Analytics
+- [ ] Időblokkolás logika (dolgozó foglaltság kezelése)
+- [ ] Új ügyfél felvitel a dashboard-ról
+- [ ] Kedvezmények rendszer (pl. Lion Office Center -10%)
+- [ ] Automatikus PDF napzárás email
 
 ## P3 - Backlog
-- [ ] Twilio API kulcsok konfigurálása az SMS küldéshez
-- [ ] Resend API kulcs konfigurálása az email küldéshez
-
-## Fájl struktúra
-```
-/app/backend/                 # Változatlan - közös API
-├── main.py                   # Entry point
-├── config.py                 # Konfiguráció + JWT settings
-├── database.py               # MongoDB kapcsolat
-├── dependencies.py           # Auth (JWT decode)
-├── models/                   # Pydantic modellek
-├── routes/                   # API végpontok
-
-/app/frontend/                # Eredeti (referencia)
-
-/app/frontend-admin/          # Admin Dashboard App (V2.3)
-├── src/
-│   ├── App.js               # Admin routing (védett útvonalak)
-│   ├── pages/
-│   │   ├── Login.jsx        # Admin bejelentkezés
-│   │   ├── Dashboard.jsx    # Főoldal
-│   │   ├── Calendar.jsx     # Naptár
-│   │   ├── Customers.jsx    # Ügyfelek
-│   │   ├── Workers.jsx      # Dolgozók + műszakok
-│   │   ├── Inventory.jsx    # Készlet
-│   │   ├── Statistics.jsx   # Statisztikák
-│   │   ├── Services.jsx     # Szolgáltatások
-│   │   ├── DayManagement.jsx# Napnyitás/zárás
-│   │   └── Settings.jsx     # Beállítások
-│   └── components/
-│       ├── Sidebar.jsx      # Navigáció
-│       └── NotificationBell.jsx
-
-/app/frontend-booking/        # Publikus Foglalási App (V2.3)
-├── src/
-│   ├── App.js               # Publikus routing (auth nélkül)
-│   ├── pages/
-│   │   └── BookingPage.jsx  # 4 lépéses foglalási wizard
-│   └── components/
-│       └── AIComponents.jsx # AI ajánlások
-```
-
-## Fontos megjegyzések
-- **Emergent LLM Key egyenleg**: 24.95 USD (feltöltve)
-- **Admin credentials**: admin / admin123
-- **Felhasználó kezelés**: Settings oldalon (/settings) admin jogosultsággal
+- [ ] Jelenléti rendszer (be/kijelentkezés, PDF export)
+- [ ] Munkaidő számítás (ebédszünet levonás)
+- [ ] Statisztika mobil UI javítás
+- [ ] Régi /app/frontend és server_old.py törlése
 
 ## Changelog
-- 2025-12-21: V2.6 - Feketelista bizonyíték képek feltöltése és megtekintése
-- 2025-12-20: V2.5 - Megnevezett Előtte-Utána képek slot rendszerrel, összehasonlító nézet
-- 2025-12-20: V2.4 - AI Chatbot hozzáadva a foglalási oldalhoz
-- 2025-12-20: V2.3 - Frontend refaktorálás: Admin és Booking app szétválasztása, teljes mobil reszponzivitás
-- 2025-12-20: V2.2 - Dolgozó megjelenítés, ebédszünet, Settings mindenki számára
-- 2025-12-20: V2.1 - Username/password auth, two car booking, notifications, AI frontend
-- 2025-12-19: Server.py refactor, data cleanup, Budapest removed
-- 2025-12-16: V2 - Booking system, notifications, blacklist, AI backend
+- 2025-03-25: V3.0 - Teljesen új BookingPage az árlista alapján, Object Storage integráció
+- 2025-03-24: Production deployment fixes (CORS, Railway, Vercel)
+- 2025-03-23: Groq AI integráció, Resend email integráció
+- 2025-12-21: V2.6 - Feketelista bizonyíték képek
+- 2025-12-20: V2.5 - Megnevezett Előtte-Utána képek
+- 2025-12-20: V2.4 - AI Chatbot
+- 2025-12-20: V2.3 - Frontend refaktorálás

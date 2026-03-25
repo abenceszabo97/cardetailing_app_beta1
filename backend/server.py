@@ -27,6 +27,15 @@ logger.info(f"CORS Origins configured: {CORS_ORIGINS}")
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("X-CLEAN API starting up...")
+    
+    # Initialize Object Storage
+    try:
+        from services.storage_service import init_storage
+        init_storage()
+        logger.info("Object Storage initialized")
+    except Exception as e:
+        logger.warning(f"Object Storage init failed (non-critical): {e}")
+    
     yield
     # Shutdown
     logger.info("X-CLEAN API shutting down...")

@@ -3,61 +3,98 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
 import { 
   Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
-  Calendar, Users, Timer, AlertTriangle, Plus, X
+  Calendar, Users, Timer, AlertTriangle, Plus, X, Check
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
-import { AIChatbot, AIUpsellSuggestions } from "../components/AIComponents";
+import { AIChatbot } from "../components/AIComponents";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
+// Car size icons as SVG components
+const CarIcons = {
+  S: () => (
+    <svg viewBox="0 0 64 32" className="w-full h-full" fill="currentColor">
+      <path d="M12 24c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm40 6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM55 12l-6-8H20l-8 8H4v8h4c0 3.3 2.7 6 6 6s6-2.7 6-6h24c0 3.3 2.7 6 6 6s6-2.7 6-6h4v-8h-5zm-33-6h24l4 6H18l4-6z"/>
+    </svg>
+  ),
+  M: () => (
+    <svg viewBox="0 0 64 32" className="w-full h-full" fill="currentColor">
+      <path d="M12 24c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm40 6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM58 12l-5-8H16l-6 8H2v10h4c0 3.3 2.7 6 6 6s6-2.7 6-6h28c0 3.3 2.7 6 6 6s6-2.7 6-6h4V12h-4zm-42-6h32l3 6H13l3-6z"/>
+    </svg>
+  ),
+  L: () => (
+    <svg viewBox="0 0 72 32" className="w-full h-full" fill="currentColor">
+      <path d="M14 24c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm44 6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM66 12l-4-8H18l-8 8H2v10h6c0 3.3 2.7 6 6 6s6-2.7 6-6h32c0 3.3 2.7 6 6 6s6-2.7 6-6h6V12h-4zm-50-6h40l3 6H13l3-6z"/>
+    </svg>
+  ),
+  XL: () => (
+    <svg viewBox="0 0 64 36" className="w-full h-full" fill="currentColor">
+      <path d="M12 28c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm40 6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM58 8H48V4H16v4H6c-2 0-4 2-4 4v12h6c0 3.3 2.7 6 6 6s6-2.7 6-6h24c0 3.3 2.7 6 6 6s6-2.7 6-6h6V12c0-2-2-4-4-4zm-40 4h28v6H18v-6z"/>
+    </svg>
+  ),
+  XXL: () => (
+    <svg viewBox="0 0 72 40" className="w-full h-full" fill="currentColor">
+      <path d="M14 32c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm44 6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM66 8H56V4H16v4H6c-2 0-4 2-4 4v16h6c0 3.3 2.7 6 6 6s6-2.7 6-6h32c0 3.3 2.7 6 6 6s6-2.7 6-6h6V12c0-2-2-4-4-4zM20 20v-8h32v8H20z"/>
+    </svg>
+  )
+};
+
+const CAR_SIZE_INFO = {
+  S: { name: "S - Kis autó", description: "Ferdehátú, kisautó", examples: "Suzuki Swift, VW Polo, Opel Corsa" },
+  M: { name: "M - Közepes", description: "Sedan, kompakt", examples: "VW Golf, Toyota Corolla, Audi A3" },
+  L: { name: "L - Nagy", description: "Kombi, nagy sedan", examples: "VW Passat, Skoda Octavia Kombi" },
+  XL: { name: "XL - SUV", description: "SUV, crossover", examples: "VW Tiguan, Toyota RAV4, BMW X3" },
+  XXL: { name: "XXL - Nagy SUV", description: "Terepjáró, kisbusz", examples: "Range Rover, Ford Transit" }
+};
+
 const BookingPage = () => {
   const [step, setStep] = useState(1);
-  const [locations, setLocations] = useState([]);
-  const [services, setServices] = useState([]);
+  const [pricingData, setPricingData] = useState(null);
+  const [extras, setExtras] = useState([]);
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  // Selection state
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedExtras, setSelectedExtras] = useState([]);
+  
+  // Form state
   const [form, setForm] = useState({
     customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
     address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
-    service_id: "", worker_id: "", location: "", date: "", time_slot: "", notes: ""
+    worker_id: "", location: "Debrecen", date: "", time_slot: "", notes: ""
   });
+  
   const [showInvoice, setShowInvoice] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [customerFound, setCustomerFound] = useState(null);
   const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [serviceCategory, setServiceCategory] = useState("all");
-  // Second car state
-  const [addSecondCar, setAddSecondCar] = useState(false);
-  const [secondCar, setSecondCar] = useState({
-    car_type: "",
-    plate_number: "",
-    service_id: ""
-  });
-  
-  // AI features state
-  const [showAIFeatures, setShowAIFeatures] = useState(false);
 
+  // Load pricing data and extras
   useEffect(() => {
-    console.log("API URL:", API);
-    axios.get(`${API}/bookings/public-locations`)
-      .then(r => setLocations(Array.isArray(r.data) ? r.data : []))
-      .catch(err => { console.error("Locations error:", err); setLocations([]); });
-    axios.get(`${API}/bookings/public-services`)
-      .then(r => setServices(Array.isArray(r.data) ? r.data : []))
-      .catch(err => { console.error("Services error:", err); setServices([]); });
+    axios.get(`${API}/services/pricing-data`)
+      .then(r => setPricingData(r.data))
+      .catch(err => console.error("Pricing data error:", err));
+    
+    axios.get(`${API}/services/extras`)
+      .then(r => setExtras(Array.isArray(r.data) ? r.data : []))
+      .catch(err => console.error("Extras error:", err));
   }, []);
 
+  // Load slots when date changes
   useEffect(() => {
     if (form.location && form.date) {
       setLoadingSlots(true);
@@ -69,14 +106,35 @@ const BookingPage = () => {
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-  const selectedService = services.find(s => s.service_id === form.service_id);
-  
-  const filteredServices = serviceCategory === "all" 
-    ? services 
-    : services.filter(s => s.category === serviceCategory);
+  // Calculate price
+  const getPrice = () => {
+    if (!selectedSize || !selectedCategory || !selectedPackage || !pricingData) return 0;
+    return pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[selectedPackage] || 0;
+  };
 
-  const categories = [...new Set(services.map(s => s.category))];
+  const getFeatures = () => {
+    if (!selectedCategory || !selectedPackage || !pricingData) return [];
+    return pricingData.package_features[selectedCategory]?.[selectedPackage] || [];
+  };
 
+  const getDuration = () => {
+    if (!selectedSize || !selectedCategory || !pricingData) return 0;
+    let base = pricingData.duration_matrix[selectedSize]?.[selectedCategory] || 60;
+    if (selectedPackage === "VIP") base = Math.round(base * 1.5);
+    else if (selectedPackage === "Pro") base = Math.round(base * 1.2);
+    return base;
+  };
+
+  const getExtrasTotal = () => {
+    return selectedExtras.reduce((sum, extraId) => {
+      const extra = extras.find(e => e.service_id === extraId || e.name === extraId);
+      return sum + (extra?.price || extra?.min_price || 0);
+    }, 0);
+  };
+
+  const getTotalPrice = () => getPrice() + getExtrasTotal();
+
+  // Plate lookup
   const lookupPlate = useCallback(async (plate) => {
     if (!plate || plate.length < 5) {
       setCustomerFound(null);
@@ -85,7 +143,6 @@ const BookingPage = () => {
     }
     setLookingUp(true);
     try {
-      // Check blacklist first
       const blacklistRes = await axios.get(`${API}/blacklist/check/${encodeURIComponent(plate)}`);
       if (blacklistRes.data.blacklisted) {
         setIsBlacklisted(true);
@@ -96,7 +153,6 @@ const BookingPage = () => {
       }
       setIsBlacklisted(false);
       
-      // Then lookup customer
       const response = await axios.get(`${API}/bookings/lookup-plate/${encodeURIComponent(plate)}`);
       if (response.data.found) {
         setCustomerFound(response.data);
@@ -108,7 +164,7 @@ const BookingPage = () => {
           car_type: response.data.car_type || prev.car_type,
           address: response.data.address || prev.address
         }));
-        toast.success("Visszatérő ügyfél! Adatok betöltve.", { duration: 3000 });
+        toast.success("Visszatérő ügyfél! Adatok betöltve.");
       } else {
         setCustomerFound(null);
       }
@@ -127,28 +183,43 @@ const BookingPage = () => {
     }
   };
 
+  const toggleExtra = (extraId) => {
+    setSelectedExtras(prev => 
+      prev.includes(extraId) 
+        ? prev.filter(id => id !== extraId)
+        : [...prev, extraId]
+    );
+  };
+
   const canGoNext = () => {
-    if (step === 1) return form.location && form.service_id;
+    if (step === 1) return selectedSize && selectedCategory && selectedPackage;
     if (step === 2) return form.date && form.time_slot;
-    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && form.car_type && !isBlacklisted;
+    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && !isBlacklisted;
     return true;
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const bookingData = { ...form };
-      // Add second car if enabled
-      if (addSecondCar && secondCar.plate_number && secondCar.service_id) {
-        bookingData.second_car = secondCar;
-      }
-      const response = await axios.post(`${API}/bookings`, bookingData);
+      // Create service name from selection
+      const serviceName = `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Külső+Belső'} ${selectedPackage}`;
+      
+      const bookingData = {
+        ...form,
+        car_type: form.car_type || CAR_SIZE_INFO[selectedSize]?.description || selectedSize,
+        service_id: `dynamic_${selectedSize}_${selectedCategory}_${selectedPackage}`,
+        service_name: serviceName,
+        price: getTotalPrice(),
+        duration: getDuration(),
+        extras: selectedExtras,
+        car_size: selectedSize,
+        package_type: selectedPackage,
+        category: selectedCategory
+      };
+      
+      await axios.post(`${API}/bookings`, bookingData);
       setSuccess(true);
-      if (response.data.second_booking) {
-        toast.success("Mindkét foglalás sikeresen rögzítve!");
-      } else {
-        toast.success("Foglalás sikeresen rögzítve!");
-      }
+      toast.success("Foglalás sikeresen rögzítve!");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba a foglalás során");
     }
@@ -158,20 +229,20 @@ const BookingPage = () => {
   const resetForm = () => {
     setSuccess(false);
     setStep(1);
+    setSelectedSize(null);
+    setSelectedCategory(null);
+    setSelectedPackage(null);
+    setSelectedExtras([]);
     setCustomerFound(null);
-    setAddSecondCar(false);
-    setSecondCar({ car_type: "", plate_number: "", service_id: "" });
     setForm({
       customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
       address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
-      service_id: "", worker_id: "", location: "", date: "", time_slot: "", notes: ""
+      worker_id: "", location: "Debrecen", date: "", time_slot: "", notes: ""
     });
   };
 
-  // Get week days for calendar
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
 
-  // Slot availability color
   const getSlotStyle = (slot) => {
     if (!slot.is_available) return "bg-slate-800/50 text-slate-600 cursor-not-allowed border-slate-700/50";
     const percent = slot.availability_percent;
@@ -180,39 +251,45 @@ const BookingPage = () => {
     return "bg-orange-500/20 text-orange-400 border-orange-500/50 hover:bg-orange-500/30";
   };
 
+  if (!pricingData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+      </div>
+    );
+  }
+
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtNi42MjcgMC0xMiA1LjM3My0xMiAxMnM1LjM3MyAxMiAxMiAxMiAxMi01LjM3MyAxMi0xMi01LjM3My0xMi0xMi0xMnptMCAyMGMtNC40MTggMC04LTMuNTgyLTgtOHMzLjU4Mi04IDgtOCA4IDMuNTgyIDggOC0zLjU4MiA4LTggOHoiIGZpbGw9IiMxMGIyODEiIGZpbGwtb3BhY2l0eT0iLjAzIi8+PC9nPjwvc3ZnPg==')] opacity-50" />
-        <Card className="w-full max-w-md bg-slate-900/90 border-slate-800 backdrop-blur-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
+        <Card className="w-full max-w-md bg-slate-900/90 border-slate-800 backdrop-blur-xl">
+          <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
           <CardContent className="p-8 text-center">
             <div className="w-20 h-20 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10 text-green-400" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Foglalás sikeres!</h2>
-            <p className="text-slate-400 mb-2">Kedves {form.customer_name},</p>
             <p className="text-slate-400 mb-4">
-              Foglalását rögzítettük: <strong className="text-white">{form.date}</strong> - <strong className="text-green-400">{form.time_slot}</strong>
+              Időpont: <strong className="text-white">{form.date}</strong> - <strong className="text-green-400">{form.time_slot}</strong>
             </p>
-            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 text-left border border-slate-800">
-              <div className="flex items-center gap-3 mb-3">
-                <Car className="w-5 h-5 text-green-400" />
-                <span className="text-white font-medium">{selectedService?.name}</span>
+            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-800">
+              <div className="text-left space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Csomag:</span>
+                  <span className="text-white">{selectedSize} - {selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} {selectedPackage}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Rendszám:</span>
+                  <span className="text-white font-mono">{form.plate_number}</span>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-slate-400">Telephely:</div>
-                <div className="text-white">{form.location}</div>
-                <div className="text-slate-400">Rendszám:</div>
-                <div className="text-white font-mono">{form.plate_number}</div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
+              <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
                 <span className="text-slate-400">Fizetendő:</span>
-                <span className="text-green-400 text-xl font-bold">{selectedService?.price?.toLocaleString()} Ft</span>
+                <span className="text-green-400 text-2xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
               </div>
             </div>
             <p className="text-slate-500 text-sm mb-4">Visszaigazoló e-mailt küldtünk.</p>
-            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium" onClick={resetForm}>
+            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600" onClick={resetForm}>
               <Sparkles className="w-4 h-4 mr-2" /> Új foglalás
             </Button>
           </CardContent>
@@ -223,200 +300,261 @@ const BookingPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtNi42MjcgMC0xMiA1LjM3My0xMiAxMnM1LjM3MyAxMiAxMiAxMiAxMi01LjM3MyAxMi0xMi01LjM3My0xMi0xMi0xMnptMCAyMGMtNC40MTggMC04LTMuNTgyLTgtOHMzLjU4Mi04IDgtOCA4IDMuNTgyIDggOC0zLjU4MiA4LTggOHoiIGZpbGw9IiMxMGIyODEiIGZpbGwtb3BhY2l0eT0iLjAzIi8+PC9nPjwvc3ZnPg==')] opacity-50" />
-      
-      <div className="w-full max-w-2xl relative">
-        {/* Header with Company Logo */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 md:w-32 sm:h-28 md:h-32 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg shadow-green-500/20 p-2 sm:p-3">
+      <div className="w-full max-w-3xl relative">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-3 shadow-lg shadow-green-500/20 p-2">
             <img 
               src="https://customer-assets.emergentagent.com/job_80351f3f-7954-46a7-9193-7dcbfbf56786/artifacts/lnbybw8y_59e55ae7-d1bd-2941-05b0-2eeff82c6764.png" 
               alt="X-CLEAN Logo" 
-              className="w-full h-full object-contain mix-blend-multiply"
-              data-testid="company-logo"
+              className="w-full h-full object-contain"
             />
           </div>
-          <p className="text-slate-400 text-sm sm:text-base">Online időpontfoglalás</p>
+          <p className="text-slate-400">Online időpontfoglalás</p>
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6 sm:mb-8 overflow-x-auto px-2">
+        <div className="flex items-center justify-center gap-2 mb-6">
           {[
             { num: 1, label: "Szolgáltatás", icon: Sparkles },
             { num: 2, label: "Időpont", icon: Calendar },
             { num: 3, label: "Adatok", icon: User },
             { num: 4, label: "Összegzés", icon: CheckCircle2 }
           ].map((s, i) => (
-            <div key={s.num} className="flex items-center flex-shrink-0">
+            <div key={s.num} className="flex items-center">
               <div className={`flex flex-col items-center ${step >= s.num ? 'opacity-100' : 'opacity-40'}`}>
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center transition-all duration-300 ${
-                  step >= s.num 
-                    ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/20' 
-                    : 'bg-slate-800'
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                  step >= s.num ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg' : 'bg-slate-800'
                 }`}>
-                  <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
+                  <s.icon className={`w-5 h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
                 </div>
-                <span className={`text-[10px] sm:text-xs mt-1 ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
+                <span className={`text-xs mt-1 ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
               </div>
-              {i < 3 && <div className={`w-6 sm:w-12 h-0.5 mx-0.5 sm:mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
+              {i < 3 && <div className={`w-8 h-0.5 mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
             </div>
           ))}
         </div>
 
-        {/* Step 1: Location & Service */}
+        {/* Step 1: Car Size, Category, Package Selection */}
         {step === 1 && (
           <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-1">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-green-400" />
+                  <Car className="w-5 h-5 text-green-400" />
                 </div>
-                Telephely és szolgáltatás
+                Válaszd ki a szolgáltatást
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Car Size Selection */}
               <div>
-                <label className="text-sm text-slate-400 mb-2 block">Telephely *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {locations.map(loc => (
-                    <button
-                      key={loc}
-                      onClick={() => set("location", loc)}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        form.location === loc 
-                          ? 'border-green-500 bg-green-500/10' 
-                          : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
-                      }`}
-                      data-testid={`location-${loc}`}
-                    >
-                      <MapPin className={`w-5 h-5 mx-auto mb-2 ${form.location === loc ? 'text-green-400' : 'text-slate-500'}`} />
-                      <span className={`font-medium ${form.location === loc ? 'text-white' : 'text-slate-300'}`}>{loc}</span>
-                    </button>
-                  ))}
+                <label className="text-sm text-slate-400 mb-3 block font-medium">1. Autó mérete</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.entries(CAR_SIZE_INFO).map(([size, info]) => {
+                    const IconComponent = CarIcons[size];
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center ${
+                          selectedSize === size 
+                            ? 'border-green-500 bg-green-500/10' 
+                            : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                        }`}
+                        data-testid={`size-${size}`}
+                      >
+                        <div className={`w-12 h-8 mb-2 ${selectedSize === size ? 'text-green-400' : 'text-slate-500'}`}>
+                          <IconComponent />
+                        </div>
+                        <span className={`text-sm font-bold ${selectedSize === size ? 'text-white' : 'text-slate-300'}`}>{size}</span>
+                        <span className="text-[10px] text-slate-500 text-center mt-1 leading-tight">{info.description}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+                {selectedSize && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    Példák: {CAR_SIZE_INFO[selectedSize].examples}
+                  </p>
+                )}
               </div>
 
-              {/* Car Type for AI (optional, for better suggestions) */}
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block flex items-center gap-2">
-                  <Car className="w-4 h-4" />
-                  Autó típusa (opcionális - jobb AI javaslatokhoz)
-                </label>
-                <Input
-                  placeholder="pl. BMW X5, Audi A4, stb."
-                  value={form.car_type}
-                  onChange={(e) => set("car_type", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
-                  data-testid="car-type-input"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Szolgáltatás *</label>
-                {/* Category Filter */}
-                <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-                  <button
-                    onClick={() => setServiceCategory("all")}
-                    className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all ${
-                      serviceCategory === "all" ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Összes
-                  </button>
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setServiceCategory(cat)}
-                      className={`px-3 py-1.5 rounded-lg text-sm capitalize whitespace-nowrap transition-all ${
-                        serviceCategory === cat ? 'bg-green-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+              {/* Category Selection */}
+              {selectedSize && (
+                <div>
+                  <label className="text-sm text-slate-400 mb-3 block font-medium">2. Szolgáltatás típusa</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: 'kulso', name: 'Külső', desc: 'Külső tisztítás', icon: '🚿' },
+                      { id: 'belso', name: 'Belső', desc: 'Belső takarítás', icon: '🧹' },
+                      { id: 'komplett', name: 'Külső + Belső', desc: 'Teljes tisztítás', icon: '✨' }
+                    ].map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          selectedCategory === cat.id 
+                            ? 'border-green-500 bg-green-500/10' 
+                            : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                        }`}
+                        data-testid={`category-${cat.id}`}
+                      >
+                        <div className="text-2xl mb-2">{cat.icon}</div>
+                        <span className={`font-semibold block ${selectedCategory === cat.id ? 'text-white' : 'text-slate-300'}`}>
+                          {cat.name}
+                        </span>
+                        <span className="text-xs text-slate-500">{cat.desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-thin" data-testid="booking-services">
-                  {filteredServices.map(svc => (
-                    <div
-                      key={svc.service_id}
-                      onClick={() => set("service_id", svc.service_id)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        form.service_id === svc.service_id 
-                          ? 'border-green-500 bg-green-500/10' 
-                          : 'border-slate-700/50 hover:border-slate-600 bg-slate-800/30'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="text-white font-medium">{svc.name}</span>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-slate-500 text-xs flex items-center gap-1">
-                              <Timer className="w-3 h-3" /> {svc.duration} perc
-                            </span>
-                            {svc.car_size && (
-                              <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
-                                {svc.car_size}
-                              </Badge>
+              )}
+
+              {/* Package Selection with Features */}
+              {selectedSize && selectedCategory && (
+                <div>
+                  <label className="text-sm text-slate-400 mb-3 block font-medium">3. Csomag választás</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {['Eco', 'Pro', 'VIP'].map(pkg => {
+                      const price = pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[pkg] || 0;
+                      const features = pricingData.package_features[selectedCategory]?.[pkg] || [];
+                      const isSelected = selectedPackage === pkg;
+                      
+                      return (
+                        <button
+                          key={pkg}
+                          onClick={() => setSelectedPackage(pkg)}
+                          className={`p-4 rounded-xl border-2 transition-all text-left ${
+                            isSelected 
+                              ? pkg === 'VIP' 
+                                ? 'border-yellow-500 bg-yellow-500/10' 
+                                : pkg === 'Pro'
+                                  ? 'border-blue-500 bg-blue-500/10'
+                                  : 'border-green-500 bg-green-500/10'
+                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                          }`}
+                          data-testid={`package-${pkg}`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <Badge className={
+                              pkg === 'VIP' ? 'bg-yellow-500/20 text-yellow-400' :
+                              pkg === 'Pro' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-slate-500/20 text-slate-400'
+                            }>
+                              {pkg}
+                            </Badge>
+                            {isSelected && <Check className="w-5 h-5 text-green-400" />}
+                          </div>
+                          <div className={`text-2xl font-bold mb-3 ${
+                            pkg === 'VIP' ? 'text-yellow-400' :
+                            pkg === 'Pro' ? 'text-blue-400' :
+                            'text-green-400'
+                          }`}>
+                            {price.toLocaleString()} Ft
+                          </div>
+                          <div className="space-y-1">
+                            {features.slice(0, 4).map((feature, i) => (
+                              <div key={i} className="flex items-center gap-1.5 text-xs text-slate-400">
+                                <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+                                <span className="truncate">{feature}</span>
+                              </div>
+                            ))}
+                            {features.length > 4 && (
+                              <div className="text-xs text-slate-500">+{features.length - 4} további...</div>
                             )}
                           </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Package Features Detail */}
+              {selectedPackage && (
+                <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700">
+                  <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-green-400" />
+                    {selectedPackage} csomag tartalma
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {getFeatures().map((feature, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm text-slate-300">
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Extra Services */}
+              {selectedPackage && extras.length > 0 && (
+                <div>
+                  <label className="text-sm text-slate-400 mb-3 block font-medium">4. Extra szolgáltatások (opcionális)</label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {extras.map(extra => (
+                      <div
+                        key={extra.service_id || extra.name}
+                        onClick={() => toggleExtra(extra.service_id || extra.name)}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                          selectedExtras.includes(extra.service_id || extra.name)
+                            ? 'border-green-500 bg-green-500/10'
+                            : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Checkbox 
+                              checked={selectedExtras.includes(extra.service_id || extra.name)}
+                              className="border-slate-600"
+                            />
+                            <div>
+                              <span className="text-white text-sm">{extra.name}</span>
+                              {extra.description && (
+                                <p className="text-xs text-slate-500">{extra.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-green-400 font-medium">
+                            {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                          </span>
                         </div>
-                        <span className="text-green-400 font-bold text-lg">{svc.price?.toLocaleString()} Ft</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Price Summary */}
+              {selectedPackage && (
+                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/30">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-slate-400 text-sm">Összesen fizetendő</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Timer className="w-4 h-4 text-slate-500" />
+                        <span className="text-slate-500 text-sm">~{getDuration()} perc</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* AI Features Section */}
-              {form.service_id && (
-                <div className="space-y-4 pt-4 border-t border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-white font-medium flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-purple-400" />
-                      AI Asszisztens
-                    </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowAIFeatures(!showAIFeatures)}
-                      className="text-purple-400 hover:text-purple-300"
-                    >
-                      {showAIFeatures ? "Elrejtés" : "Megjelenítés"}
-                    </Button>
-                  </div>
-                  
-                  {showAIFeatures && (
-                    <div className="space-y-4">
-                      {/* AI Upsell Suggestions */}
-                      {form.car_type && selectedService && (
-                        <AIUpsellSuggestions
-                          carType={form.car_type}
-                          currentService={selectedService?.name}
-                          onSelectService={(serviceName) => {
-                            const service = services.find(s => s.name.toLowerCase().includes(serviceName.toLowerCase()));
-                            if (service) {
-                              set("service_id", service.service_id);
-                              toast.success(`${service.name} kiválasztva`);
-                            }
-                          }}
-                        />
-                      )}
-                      
-                      {!form.car_type && (
-                        <p className="text-slate-400 text-sm text-center py-4">
-                          Add meg az autó típusát a javaslatok megjelenítéséhez
-                        </p>
+                    <div className="text-right">
+                      <span className="text-green-400 text-3xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
+                      {getExtrasTotal() > 0 && (
+                        <div className="text-xs text-slate-500">
+                          (alap: {getPrice().toLocaleString()} + extrák: {getExtrasTotal().toLocaleString()})
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Step 2: Calendar Date & Time Selection */}
+        {/* Step 2: Date & Time Selection */}
         {step === 2 && (
           <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-2">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
@@ -454,7 +592,7 @@ const BookingPage = () => {
               </div>
 
               {/* Week Calendar */}
-              <div className="grid grid-cols-7 gap-1 sm:gap-2">
+              <div className="grid grid-cols-7 gap-2">
                 {weekDays.map(day => {
                   const dateStr = format(day, "yyyy-MM-dd");
                   const isPast = isBefore(day, new Date()) && !isToday(day);
@@ -465,19 +603,18 @@ const BookingPage = () => {
                       key={dateStr}
                       onClick={() => !isPast && set("date", dateStr)}
                       disabled={isPast}
-                      className={`p-1.5 sm:p-3 rounded-lg sm:rounded-xl text-center transition-all ${
+                      className={`p-3 rounded-xl text-center transition-all ${
                         isPast 
                           ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed' 
                           : isSelected 
-                            ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
+                            ? 'bg-green-500 text-white shadow-lg' 
                             : isToday(day)
                               ? 'bg-slate-800 text-green-400 border-2 border-green-500/50'
                               : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
                       }`}
-                      data-testid={`date-${dateStr}`}
                     >
-                      <div className="text-[10px] sm:text-xs opacity-70">{format(day, "EEE", { locale: hu })}</div>
-                      <div className="text-sm sm:text-lg font-bold">{format(day, "d")}</div>
+                      <div className="text-xs opacity-70">{format(day, "EEE", { locale: hu })}</div>
+                      <div className="text-lg font-bold">{format(day, "d")}</div>
                     </button>
                   );
                 })}
@@ -486,22 +623,16 @@ const BookingPage = () => {
               {/* Time Slots */}
               {form.date && (
                 <div className="mt-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                    <label className="text-sm text-slate-400">Időpontok - {format(new Date(form.date), "MMMM d.", { locale: hu })}</label>
-                    <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-green-500/30"></span> Szabad</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-yellow-500/30"></span> Korlátozott</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-slate-700/50"></span> Foglalt</span>
-                    </div>
-                  </div>
+                  <label className="text-sm text-slate-400 mb-3 block">
+                    Időpontok - {format(new Date(form.date), "MMMM d.", { locale: hu })}
+                  </label>
                   
                   {loadingSlots ? (
                     <div className="text-center py-8">
                       <Loader2 className="w-8 h-8 mx-auto text-green-400 animate-spin" />
-                      <p className="text-slate-500 text-sm mt-2">Időpontok betöltése...</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 sm:gap-2" data-testid="booking-slots">
+                    <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
                       {slots.map(slot => (
                         <button
                           key={slot.time_slot}
@@ -514,44 +645,24 @@ const BookingPage = () => {
                             }
                           }}
                           disabled={!slot.is_available}
-                          className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all ${
+                          className={`p-3 rounded-xl border-2 transition-all ${
                             form.time_slot === slot.time_slot && slot.is_available
-                              ? 'border-green-400 bg-green-500 text-white shadow-lg shadow-green-500/30'
+                              ? 'border-green-400 bg-green-500 text-white shadow-lg'
                               : getSlotStyle(slot)
                           }`}
-                          data-testid={`slot-${slot.time_slot}`}
                         >
-                          <div className="font-bold text-sm sm:text-base">{slot.time_slot}</div>
+                          <div className="font-bold">{slot.time_slot}</div>
                           {slot.is_available ? (
-                            <div className="text-[10px] sm:text-xs opacity-70 flex items-center justify-center gap-1 mt-0.5 sm:mt-1">
-                              <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {slot.available_workers.length}
+                            <div className="text-xs opacity-70 flex items-center justify-center gap-1 mt-1">
+                              <Users className="w-3 h-3" /> {slot.available_workers.length}
                             </div>
                           ) : (
-                            <div className="text-[10px] sm:text-xs opacity-50 mt-0.5 sm:mt-1">Foglalt</div>
+                            <div className="text-xs opacity-50 mt-1">Foglalt</div>
                           )}
                         </button>
                       ))}
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Worker Selection */}
-              {form.time_slot && slots.find(s => s.time_slot === form.time_slot)?.is_available && (
-                <div className="mt-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                  <label className="text-sm text-slate-400 mb-2 block flex items-center gap-2">
-                    <Users className="w-4 h-4" /> Dolgozó választása (opcionális)
-                  </label>
-                  <Select value={form.worker_id} onValueChange={v => set("worker_id", v)}>
-                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                      <SelectValue placeholder="Automatikus hozzárendelés" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
-                      {(slots.find(s => s.time_slot === form.time_slot)?.available_workers || []).map(w => (
-                        <SelectItem key={w.worker_id} value={w.worker_id} className="text-white">{w.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               )}
             </CardContent>
@@ -571,7 +682,7 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Quick Plate Lookup */}
+              {/* Plate Lookup */}
               <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-xl p-4 border border-green-500/20">
                 <label className="text-sm text-green-400 mb-2 block flex items-center gap-2">
                   <Search className="w-4 h-4" /> Gyors foglalás rendszámmal
@@ -582,7 +693,6 @@ const BookingPage = () => {
                     value={form.plate_number} 
                     onChange={e => handlePlateChange(e.target.value)}
                     className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-lg tracking-wider pr-10" 
-                    data-testid="booking-plate"
                   />
                   {lookingUp && (
                     <Loader2 className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />
@@ -593,11 +703,10 @@ const BookingPage = () => {
                     <CheckCircle2 className="w-5 h-5 text-green-400" />
                     <span className="text-green-400 font-medium">Visszatérő ügyfél!</span>
                     {customerFound.is_vip && (
-                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 ml-auto">
+                      <Badge className="bg-yellow-500/20 text-yellow-400">
                         <Star className="w-3 h-3 mr-1" /> VIP
                       </Badge>
                     )}
-                    <span className="text-slate-500 text-sm ml-auto">{customerFound.completed_bookings} mosás</span>
                   </div>
                 )}
                 {isBlacklisted && (
@@ -606,28 +715,24 @@ const BookingPage = () => {
                       <AlertTriangle className="w-5 h-5" />
                       <span className="font-medium">Ez a rendszám tiltólistán van</span>
                     </div>
-                    {blacklistReason && (
-                      <p className="text-red-400/70 text-sm mt-1 ml-7">{blacklistReason}</p>
-                    )}
-                    <p className="text-slate-500 text-sm mt-2 ml-7">Kérjük forduljon a mosó személyzetéhez.</p>
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <Input placeholder="Név *" value={form.customer_name} onChange={e => set("customer_name", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-name" />
-                <Input placeholder="Autó típusa *" value={form.car_type} onChange={e => set("car_type", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-car-type" />
+                  className="bg-slate-800/50 border-slate-700 text-white" />
+                <Input placeholder="Autó típusa" value={form.car_type} onChange={e => set("car_type", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <Input placeholder="E-mail *" type="email" value={form.email} onChange={e => set("email", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-email" />
+                  className="bg-slate-800/50 border-slate-700 text-white" />
                 <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-phone" />
+                  className="bg-slate-800/50 border-slate-700 text-white" />
               </div>
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
-                className="bg-slate-800/50 border-slate-700 text-white" data-testid="booking-address" />
+                className="bg-slate-800/50 border-slate-700 text-white" />
               
               <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-2">
                 <FileText className="w-4 h-4" /> {showInvoice ? "Számla adatok elrejtése" : "Számlát kérek (ÁFÁ-s)"}
@@ -643,58 +748,7 @@ const BookingPage = () => {
                 </div>
               )}
               <textarea placeholder="Megjegyzés (opcionális)" value={form.notes} onChange={e => set("notes", e.target.value)}
-                className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl p-4 text-sm resize-none h-20" data-testid="booking-notes" />
-              
-              {/* Second Car Option */}
-              <div className="border-t border-slate-700 pt-4 mt-4">
-                <button 
-                  onClick={() => setAddSecondCar(!addSecondCar)} 
-                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${
-                    addSecondCar 
-                      ? "bg-green-500/20 border-green-500/50 text-green-400" 
-                      : "bg-slate-800/30 border-slate-700 text-slate-400 hover:border-green-500/30 hover:text-green-400"
-                  }`}
-                  data-testid="add-second-car-btn"
-                >
-                  {addSecondCar ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                  {addSecondCar ? "Második autó eltávolítása" : "Második autó hozzáadása"}
-                </button>
-                
-                {addSecondCar && (
-                  <div className="mt-4 p-4 bg-green-500/5 border border-green-500/20 rounded-xl space-y-3">
-                    <h4 className="text-green-400 font-medium flex items-center gap-2">
-                      <Car className="w-4 h-4" /> Második autó adatai
-                    </h4>
-                    <p className="text-slate-500 text-sm">Az első autó mosását követő időpontra foglaljuk.</p>
-                    <Input 
-                      placeholder="Rendszám *" 
-                      value={secondCar.plate_number} 
-                      onChange={e => setSecondCar({...secondCar, plate_number: e.target.value.toUpperCase()})}
-                      className="bg-slate-800/50 border-slate-700 text-white uppercase font-mono" 
-                      data-testid="second-car-plate"
-                    />
-                    <Input 
-                      placeholder="Autó típusa" 
-                      value={secondCar.car_type} 
-                      onChange={e => setSecondCar({...secondCar, car_type: e.target.value})}
-                      className="bg-slate-800/50 border-slate-700 text-white" 
-                      data-testid="second-car-type"
-                    />
-                    <Select value={secondCar.service_id} onValueChange={v => setSecondCar({...secondCar, service_id: v})}>
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white" data-testid="second-car-service">
-                        <SelectValue placeholder="Szolgáltatás kiválasztása *" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700 max-h-60">
-                        {services.map(s => (
-                          <SelectItem key={s.service_id} value={s.service_id} className="text-white hover:bg-white/5">
-                            {s.name} - {s.price?.toLocaleString()} Ft
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
+                className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl p-4 text-sm resize-none h-20" />
             </CardContent>
           </Card>
         )}
@@ -714,12 +768,10 @@ const BookingPage = () => {
             <CardContent className="space-y-4">
               {customerFound?.is_vip && (
                 <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                    <Star className="w-5 h-5 text-yellow-400" />
-                  </div>
+                  <Star className="w-6 h-6 text-yellow-400" />
                   <div>
                     <span className="text-yellow-400 font-medium">VIP ügyfél</span>
-                    <p className="text-slate-400 text-sm">{customerFound.completed_bookings}. foglalás | Összesen: {customerFound.total_spent?.toLocaleString()} Ft</p>
+                    <p className="text-slate-400 text-sm">{customerFound.completed_bookings} korábbi mosás</p>
                   </div>
                 </div>
               )}
@@ -727,11 +779,11 @@ const BookingPage = () => {
               <div className="bg-slate-800/50 rounded-xl p-5 space-y-3 border border-slate-700">
                 <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
                   <Car className="w-6 h-6 text-green-400" />
-                  <span className="text-white font-semibold text-lg">{selectedService?.name}</span>
+                  <span className="text-white font-semibold text-lg">
+                    {selectedSize} - {selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} {selectedPackage}
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-y-3 text-sm">
-                  <div className="text-slate-400 flex items-center gap-2"><MapPin className="w-4 h-4" /> Telephely</div>
-                  <div className="text-white text-right">{form.location}</div>
                   <div className="text-slate-400 flex items-center gap-2"><Calendar className="w-4 h-4" /> Időpont</div>
                   <div className="text-white text-right">{form.date} <span className="text-green-400 font-bold">{form.time_slot}</span></div>
                   <div className="text-slate-400 flex items-center gap-2"><User className="w-4 h-4" /> Név</div>
@@ -742,93 +794,83 @@ const BookingPage = () => {
                   <div className="text-white text-right">{form.phone}</div>
                   <div className="text-slate-400 flex items-center gap-2"><Mail className="w-4 h-4" /> Email</div>
                   <div className="text-white text-right truncate">{form.email}</div>
+                  <div className="text-slate-400 flex items-center gap-2"><Timer className="w-4 h-4" /> Időtartam</div>
+                  <div className="text-white text-right">~{getDuration()} perc</div>
                 </div>
+                
+                {/* Selected Features */}
+                <div className="pt-3 border-t border-slate-700">
+                  <span className="text-slate-400 text-sm">A csomag tartalma:</span>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {getFeatures().map((f, i) => (
+                      <Badge key={i} variant="outline" className="text-xs border-slate-600 text-slate-400">
+                        {f}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Selected Extras */}
+                {selectedExtras.length > 0 && (
+                  <div className="pt-3 border-t border-slate-700">
+                    <span className="text-slate-400 text-sm">Extra szolgáltatások:</span>
+                    <div className="mt-2 space-y-1">
+                      {selectedExtras.map(extraId => {
+                        const extra = extras.find(e => e.service_id === extraId || e.name === extraId);
+                        return extra ? (
+                          <div key={extraId} className="flex justify-between text-sm">
+                            <span className="text-slate-300">+ {extra.name}</span>
+                            <span className="text-green-400">{(extra.price || extra.min_price || 0).toLocaleString()} Ft</span>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="pt-4 mt-3 border-t border-slate-700 flex justify-between items-center">
                   <span className="text-slate-300 font-medium">Fizetendő összeg</span>
-                  <span className="text-green-400 text-2xl font-bold">{selectedService?.price?.toLocaleString()} Ft</span>
+                  <span className="text-green-400 text-2xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
                 </div>
               </div>
-              
-              {/* Second Car Summary */}
-              {addSecondCar && secondCar.plate_number && secondCar.service_id && (
-                <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-5 space-y-3">
-                  <div className="flex items-center gap-3 pb-3 border-b border-green-500/20">
-                    <Car className="w-6 h-6 text-green-400" />
-                    <span className="text-white font-semibold text-lg">Második autó</span>
-                    <Badge className="bg-green-500/20 text-green-400 ml-auto">Egymás után</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-y-3 text-sm">
-                    <div className="text-slate-400 flex items-center gap-2"><Car className="w-4 h-4" /> Rendszám</div>
-                    <div className="text-white text-right font-mono">{secondCar.plate_number}</div>
-                    <div className="text-slate-400 flex items-center gap-2"><Car className="w-4 h-4" /> Típus</div>
-                    <div className="text-white text-right">{secondCar.car_type || "-"}</div>
-                    <div className="text-slate-400 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Szolgáltatás</div>
-                    <div className="text-white text-right">{services.find(s => s.service_id === secondCar.service_id)?.name}</div>
-                  </div>
-                  <div className="pt-4 mt-3 border-t border-green-500/20 flex justify-between items-center">
-                    <span className="text-slate-300 font-medium">2. autó</span>
-                    <span className="text-green-400 text-xl font-bold">
-                      {services.find(s => s.service_id === secondCar.service_id)?.price?.toLocaleString()} Ft
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Total if second car */}
-              {addSecondCar && secondCar.plate_number && secondCar.service_id && (
-                <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl p-4 flex justify-between items-center border border-green-500/30">
-                  <span className="text-white font-bold text-lg">Összesen fizetendő</span>
-                  <span className="text-green-400 text-3xl font-bold">
-                    {((selectedService?.price || 0) + (services.find(s => s.service_id === secondCar.service_id)?.price || 0)).toLocaleString()} Ft
-                  </span>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between mt-4 sm:mt-6 gap-2">
+        <div className="flex justify-between mt-6 gap-2">
           <Button 
             variant="outline" 
-            className="border-slate-700 text-slate-300 hover:bg-slate-800 text-sm sm:text-base" 
+            className="border-slate-700 text-slate-300 hover:bg-slate-800" 
             onClick={() => setStep(s => s - 1)} 
             disabled={step === 1}
-            data-testid="booking-prev-btn"
           >
-            <ChevronLeft className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Vissza</span>
+            <ChevronLeft className="w-4 h-4 mr-2" /> Vissza
           </Button>
           {step < 4 ? (
             <Button 
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 sm:px-8 text-sm sm:text-base" 
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
               onClick={() => setStep(s => s + 1)} 
               disabled={!canGoNext()}
-              data-testid="booking-next-btn"
             >
-              Tovább <ChevronRight className="w-4 h-4 ml-1 sm:ml-2" />
+              Tovább <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
             <Button 
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 sm:px-8 text-sm sm:text-base" 
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
               onClick={handleSubmit} 
               disabled={submitting}
-              data-testid="booking-submit-btn"
             >
               {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /> <span className="hidden sm:inline">Foglalás...</span><span className="sm:hidden">...</span>
-                </>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Foglalás...</>
               ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Foglalás véglegesítése</span><span className="sm:hidden">Foglalás</span>
-                </>
+                <><CheckCircle2 className="w-4 h-4 mr-2" /> Foglalás véglegesítése</>
               )}
             </Button>
           )}
         </div>
       </div>
       
-      {/* AI Chatbot */}
       <AIChatbot />
     </div>
   );
