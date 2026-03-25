@@ -1106,7 +1106,8 @@ export const Workers = () => {
           {calendarView === "week" && (
             <Card className="glass-card overflow-hidden">
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                {/* Desktop view - table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full min-w-[800px]">
                     <thead>
                       <tr className="border-b border-slate-800">
@@ -1165,6 +1166,75 @@ export const Workers = () => {
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile view - day cards */}
+                <div className="md:hidden p-3 space-y-3">
+                  {weekDays.map((day) => {
+                    const isToday = isSameDay(day, new Date());
+                    const dayShifts = shifts.filter(s => isSameDay(new Date(s.start_time), day));
+                    
+                    return (
+                      <div 
+                        key={day.toString()}
+                        className={`rounded-lg border ${isToday ? 'border-green-500/50 bg-green-500/5' : 'border-slate-800 bg-slate-900/50'}`}
+                      >
+                        {/* Day header */}
+                        <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold ${isToday ? 'text-green-400' : 'text-white'}`}>
+                              {format(day, "EEEE", { locale: hu })}
+                            </span>
+                            <span className="text-slate-400 text-sm">{format(day, "MMM d", { locale: hu })}</span>
+                          </div>
+                          {dayShifts.length > 0 && (
+                            <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                              {dayShifts.length} műszak
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Day shifts */}
+                        <div className="p-2 space-y-2">
+                          {dayShifts.length === 0 ? (
+                            <p className="text-slate-500 text-sm text-center py-2">Nincs műszak</p>
+                          ) : (
+                            dayShifts.map(shift => {
+                              const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
+                              const colors = getWorkerColor(workerIndex);
+                              return (
+                                <div 
+                                  key={shift.shift_id}
+                                  className={`${colors.light} ${colors.text} rounded-lg p-2 flex items-center justify-between`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-8 rounded ${colors.bg}`} />
+                                    <div>
+                                      <p className="font-medium text-sm">{shift.worker_name}</p>
+                                      <p className="text-xs opacity-80">
+                                        {format(new Date(shift.start_time), 'HH:mm')} - {format(new Date(shift.end_time), 'HH:mm')}
+                                        {shift.lunch_start && (
+                                          <span className="text-yellow-500 ml-2">Ebéd: {shift.lunch_start}-{shift.lunch_end}</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                    onClick={() => setDeleteShiftId(shift.shift_id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
