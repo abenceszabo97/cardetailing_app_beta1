@@ -58,11 +58,24 @@ async def create_shift(data: ShiftCreate, user: User = Depends(get_current_user)
 
 @router.put("/shifts/{shift_id}")
 async def update_shift(shift_id: str, data: ShiftUpdate, user: User = Depends(get_current_user)):
-    """Update shift lunch break"""
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    """Update shift"""
+    update_data = {}
+    
+    for k, v in data.model_dump().items():
+        if v is not None:
+            if k in ["start_time", "end_time"] and isinstance(v, datetime):
+                update_data[k] = v.isoformat()
+            else:
+                update_data[k] = v
     
     if not update_data:
         raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
+    
+    # If worker_id changed, update worker_name too
+    if "worker_id" in update_data:
+        worker = await db.workers.find_one({"worker_id": update_data["worker_id"]}, {"_id": 0})
+        if worker:
+            update_data["worker_name"] = worker["name"]
     
     result = await db.shifts.update_one(
         {"shift_id": shift_id},

@@ -24,5 +24,9 @@ class ShiftCreate(BaseModel):
     lunch_end: Optional[str] = None
 
 class ShiftUpdate(BaseModel):
+    worker_id: Optional[str] = None
+    location: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
     lunch_start: Optional[str] = None
     lunch_end: Optional[str] = None

@@ -91,6 +91,8 @@ export const Workers = () => {
   const [statsMonth, setStatsMonth] = useState(format(new Date(), "yyyy-MM"));
   const [deleteShiftId, setDeleteShiftId] = useState(null);
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
+  const [editingShift, setEditingShift] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
   const generateWorkerPDF = () => {
     const doc = new jsPDF();
@@ -295,6 +297,51 @@ export const Workers = () => {
     } catch (error) {
       toast.error("Hiba a műszak törlésekor");
     }
+  };
+
+  const handleEditShift = (shift) => {
+    setEditingShift({
+      shift_id: shift.shift_id,
+      worker_id: shift.worker_id,
+      location: shift.location,
+      start_time: shift.start_time.slice(0, 16), // Format for datetime-local input
+      end_time: shift.end_time.slice(0, 16),
+      lunch_start: shift.lunch_start || "",
+      lunch_end: shift.lunch_end || ""
+    });
+  };
+
+  const handleSaveShift = async () => {
+    try {
+      await axios.put(`${API}/shifts/${editingShift.shift_id}`, {
+        worker_id: editingShift.worker_id,
+        location: editingShift.location,
+        start_time: editingShift.start_time,
+        end_time: editingShift.end_time,
+        lunch_start: editingShift.lunch_start || null,
+        lunch_end: editingShift.lunch_end || null
+      }, { withCredentials: true });
+      toast.success("Műszak frissítve!");
+      setEditingShift(null);
+      fetchData();
+    } catch (error) {
+      toast.error("Hiba a műszak mentésekor");
+    }
+  };
+
+  const handleDayClick = (day) => {
+    // Pre-fill new shift form with selected day
+    const dateStr = format(day, "yyyy-MM-dd");
+    setNewShift({
+      worker_id: "",
+      location: "Debrecen",
+      start_time: `${dateStr}T08:00`,
+      end_time: `${dateStr}T16:00`,
+      lunch_start: "12:00",
+      lunch_end: "12:30"
+    });
+    setSelectedDay(day);
+    setIsNewShiftOpen(true);
   };
 
   const handleCreateWorker = async () => {
@@ -838,54 +885,124 @@ export const Workers = () => {
           {/* Monthly Calendar */}
           {calendarView === "month" && (
             <Card className="glass-card">
-              <CardContent className="p-4">
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                  {['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'].map((day, idx) => (
-                    <div key={idx} className="text-center text-slate-400 text-sm font-medium py-2">{day}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {monthDays.map((day, idx) => {
-                    const dayShifts = getShiftsForDay(day);
-                    const isToday = isSameDay(day, new Date());
-                    const isCurrentMonth = isSameMonth(day, currentDate);
-                    
-                    return (
-                      <div 
-                        key={idx}
-                        className={`min-h-[100px] p-2 rounded-lg border 
-                          ${isCurrentMonth ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-950/30 border-slate-900'}
-                          ${isToday ? 'ring-2 ring-green-500/50' : ''}`}
-                      >
-                        <div className={`text-sm font-medium mb-1 ${isCurrentMonth ? (isToday ? 'text-green-400' : 'text-white') : 'text-slate-600'}`}>
-                          {format(day, 'd')}
-                        </div>
-                        <div className="space-y-1">
-                          {dayShifts.slice(0, 3).map((shift) => {
-                            const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
-                            const colors = getWorkerColor(workerIndex);
-                            const lunchInfo = shift.lunch_start && shift.lunch_end ? ` | Ebéd: ${shift.lunch_start}-${shift.lunch_end}` : '';
-                            return (
-                              <div 
-                                key={shift.shift_id}
-                                className={`${colors.light} ${colors.text} text-xs p-1 rounded truncate group relative`}
-                                title={`${shift.worker_name}: ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}${lunchInfo}`}
-                              >
-                                <span>{shift.worker_name?.split(' ')[0]}</span>
-                                {shift.lunch_start && <span className="text-yellow-500 ml-1">*</span>}
+              <CardContent className="p-2 sm:p-4">
+                {/* Desktop view */}
+                <div className="hidden sm:block">
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'].map((day, idx) => (
+                      <div key={idx} className="text-center text-slate-400 text-sm font-medium py-2">{day}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {monthDays.map((day, idx) => {
+                      const dayShifts = getShiftsForDay(day);
+                      const isToday = isSameDay(day, new Date());
+                      const isCurrentMonth = isSameMonth(day, currentDate);
+                      
+                      return (
+                        <div 
+                          key={idx}
+                          onClick={() => isCurrentMonth && handleDayClick(day)}
+                          className={`min-h-[100px] p-2 rounded-lg border cursor-pointer transition-colors
+                            ${isCurrentMonth ? 'bg-slate-900/50 border-slate-800 hover:border-green-500/50' : 'bg-slate-950/30 border-slate-900'}
+                            ${isToday ? 'ring-2 ring-green-500/50' : ''}`}
+                        >
+                          <div className={`text-sm font-medium mb-1 ${isCurrentMonth ? (isToday ? 'text-green-400' : 'text-white') : 'text-slate-600'}`}>
+                            {format(day, 'd')}
+                          </div>
+                          <div className="space-y-1">
+                            {dayShifts.slice(0, 3).map((shift) => {
+                              const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
+                              const colors = getWorkerColor(workerIndex);
+                              return (
+                                <div 
+                                  key={shift.shift_id}
+                                  onClick={(e) => { e.stopPropagation(); handleEditShift(shift); }}
+                                  className={`${colors.light} ${colors.text} text-xs p-1 rounded truncate group relative hover:ring-1 hover:ring-white/30`}
+                                  title={`${shift.worker_name}: ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`}
+                                >
+                                  <span>{shift.worker_name?.split(' ')[0]}</span>
+                                  {shift.lunch_start && <span className="text-yellow-500 ml-1">*</span>}
                                   <button
-                                    onClick={() => setDeleteShiftId(shift.shift_id)}
+                                    onClick={(e) => { e.stopPropagation(); setDeleteShiftId(shift.shift_id); }}
                                     className="absolute right-0 top-0 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"
                                   >
                                     <X className="w-2 h-2" />
                                   </button>
-                              </div>
-                            );
-                          })}
-                          {dayShifts.length > 3 && (
-                            <div className="text-xs text-slate-500">+{dayShifts.length - 3}</div>
-                          )}
+                                </div>
+                              );
+                            })}
+                            {dayShifts.length > 3 && (
+                              <div className="text-xs text-slate-500">+{dayShifts.length - 3}</div>
+                            )}
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Mobile view - day cards */}
+                <div className="sm:hidden space-y-2">
+                  {monthDays.filter(day => isSameMonth(day, currentDate)).map((day, idx) => {
+                    const dayShifts = getShiftsForDay(day);
+                    const isToday = isSameDay(day, new Date());
+                    
+                    return (
+                      <div 
+                        key={idx}
+                        className={`rounded-lg border ${isToday ? 'border-green-500/50 bg-green-500/5' : 'border-slate-800 bg-slate-900/50'}`}
+                      >
+                        <div 
+                          className="p-3 flex items-center justify-between cursor-pointer"
+                          onClick={() => handleDayClick(day)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold ${isToday ? 'text-green-400' : 'text-white'}`}>
+                              {format(day, "EEEE", { locale: hu })}
+                            </span>
+                            <span className="text-slate-400">{format(day, "d", { locale: hu })}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {dayShifts.length > 0 && (
+                              <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                                {dayShifts.length} műszak
+                              </Badge>
+                            )}
+                            <Plus className="w-4 h-4 text-green-400" />
+                          </div>
+                        </div>
+                        {dayShifts.length > 0 && (
+                          <div className="px-3 pb-3 space-y-1">
+                            {dayShifts.map((shift) => {
+                              const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
+                              const colors = getWorkerColor(workerIndex);
+                              return (
+                                <div 
+                                  key={shift.shift_id}
+                                  onClick={() => handleEditShift(shift)}
+                                  className={`${colors.light} ${colors.text} text-sm p-2 rounded flex items-center justify-between`}
+                                >
+                                  <div>
+                                    <span className="font-medium">{shift.worker_name}</span>
+                                    <span className="text-xs ml-2">
+                                      {format(new Date(shift.start_time), 'HH:mm')} - {format(new Date(shift.end_time), 'HH:mm')}
+                                    </span>
+                                    {shift.lunch_start && (
+                                      <span className="text-yellow-500 text-xs ml-2">Ebéd: {shift.lunch_start}-{shift.lunch_end}</span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setDeleteShiftId(shift.shift_id); }}
+                                    className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1183,6 +1300,96 @@ export const Workers = () => {
               Törlés
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Shift Dialog */}
+      <Dialog open={!!editingShift} onOpenChange={() => setEditingShift(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-400">
+              <CalendarDays className="w-5 h-5" />
+              Műszak szerkesztése
+            </DialogTitle>
+          </DialogHeader>
+          {editingShift && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Dolgozó</label>
+                <Select value={editingShift.worker_id} onValueChange={(v) => setEditingShift({ ...editingShift, worker_id: v })}>
+                  <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                    <SelectValue placeholder="Válassz dolgozót" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    {workers.map((w) => (
+                      <SelectItem key={w.worker_id} value={w.worker_id} className="text-white">{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Telephely</label>
+                <Select value={editingShift.location} onValueChange={(v) => setEditingShift({ ...editingShift, location: v })}>
+                  <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Műszak kezdete</label>
+                  <Input
+                    type="datetime-local"
+                    value={editingShift.start_time}
+                    onChange={(e) => setEditingShift({ ...editingShift, start_time: e.target.value })}
+                    className="bg-slate-950 border-slate-700 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Műszak vége</label>
+                  <Input
+                    type="datetime-local"
+                    value={editingShift.end_time}
+                    onChange={(e) => setEditingShift({ ...editingShift, end_time: e.target.value })}
+                    className="bg-slate-950 border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Ebédszünet kezdete</label>
+                  <Input
+                    type="time"
+                    value={editingShift.lunch_start}
+                    onChange={(e) => setEditingShift({ ...editingShift, lunch_start: e.target.value })}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="12:00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Ebédszünet vége</label>
+                  <Input
+                    type="time"
+                    value={editingShift.lunch_end}
+                    onChange={(e) => setEditingShift({ ...editingShift, lunch_end: e.target.value })}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="12:30"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setEditingShift(null)} className="border-slate-700">
+                  Mégse
+                </Button>
+                <Button onClick={handleSaveShift} className="bg-green-600 hover:bg-green-700">
+                  <Save className="w-4 h-4 mr-1" /> Mentés
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

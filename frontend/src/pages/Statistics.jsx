@@ -4,6 +4,7 @@ import { API, useAuth } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,10 @@ import {
   Repeat,
   Wallet,
   Calendar,
-  TrendingDown
+  TrendingDown,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays
 } from "lucide-react";
 import { 
   BarChart, 
@@ -56,6 +60,8 @@ export const Statistics = () => {
   const [advancedStats, setAdvancedStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState("all");
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [historyStats, setHistoryStats] = useState(null);
 
   const COLORS = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ec4899', '#14b8a6'];
 
@@ -86,9 +92,59 @@ export const Statistics = () => {
     }
   };
 
+  const fetchHistoryStats = async (date) => {
+    try {
+      const locationParam = selectedLocation !== "all" ? `&location=${selectedLocation}` : "";
+      const res = await axios.get(`${API}/stats/daily-history?date=${date}${locationParam}`, { withCredentials: true });
+      setHistoryStats(res.data);
+    } catch (error) {
+      // If endpoint doesn't exist, calculate from jobs
+      try {
+        const locationParam = selectedLocation !== "all" ? `&location=${selectedLocation}` : "";
+        const jobsRes = await axios.get(`${API}/jobs?date=${date}${locationParam}&status=kesz`, { withCredentials: true });
+        const jobs = jobsRes.data || [];
+        
+        const cashTotal = jobs.filter(j => j.payment_method === 'keszpenz').reduce((sum, j) => sum + (j.price || 0), 0);
+        const cardTotal = jobs.filter(j => j.payment_method === 'kartya').reduce((sum, j) => sum + (j.price || 0), 0);
+        
+        setHistoryStats({
+          date: date,
+          cars_completed: jobs.length,
+          cash_revenue: cashTotal,
+          card_revenue: cardTotal,
+          total_revenue: cashTotal + cardTotal
+        });
+      } catch (e) {
+        setHistoryStats(null);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchStats();
   }, [selectedLocation]);
+
+  useEffect(() => {
+    if (selectedDate !== format(new Date(), "yyyy-MM-dd")) {
+      fetchHistoryStats(selectedDate);
+    } else {
+      setHistoryStats(null);
+    }
+  }, [selectedDate, selectedLocation]);
+
+  const navigateDate = (direction) => {
+    const current = new Date(selectedDate);
+    const newDate = direction === 'prev' 
+      ? new Date(current.setDate(current.getDate() - 1))
+      : new Date(current.setDate(current.getDate() + 1));
+    
+    // Don't allow future dates
+    if (newDate <= new Date()) {
+      setSelectedDate(format(newDate, "yyyy-MM-dd"));
+    }
+  };
+
+  const isToday = selectedDate === format(new Date(), "yyyy-MM-dd");
 
   const generatePDF = async () => {
     const doc = new jsPDF();
@@ -333,44 +389,125 @@ export const Statistics = () => {
 
       {/* Summary Cards */}
       {dashboardStats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+        <>
+          {/* Date Navigator for History */}
           <Card className="glass-card">
-            <CardContent className="p-3 sm:p-4 text-center">
-              <p className="text-[10px] sm:text-xs text-slate-400">Mai autók</p>
-              <p className="text-xl sm:text-2xl font-bold text-white">{dashboardStats.today_cars}</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-green-400" />
+                  <span className="text-white font-medium">Napi statisztika</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigateDate('prev')}
+                    className="border-slate-700 h-8 px-2"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    max={format(new Date(), "yyyy-MM-dd")}
+                    className="bg-slate-900 border-slate-700 text-white w-40 h-8 text-sm"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigateDate('next')}
+                    disabled={isToday}
+                    className="border-slate-700 h-8 px-2"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  {!isToday && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectedDate(format(new Date(), "yyyy-MM-dd"))}
+                      className="border-slate-700 h-8 text-xs"
+                    >
+                      Ma
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="glass-card">
-            <CardContent className="p-3 sm:p-4 text-center">
-              <p className="text-[10px] sm:text-xs text-slate-400">Mai készpénz</p>
-              <p className="text-base sm:text-xl font-bold text-green-400">{(dashboardStats.today_cash || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="p-3 sm:p-4 text-center">
-              <p className="text-[10px] sm:text-xs text-slate-400">Mai kártya</p>
-              <p className="text-base sm:text-xl font-bold text-blue-400">{(dashboardStats.today_card || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="p-3 sm:p-4 text-center">
-              <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
-              <p className="text-xl sm:text-2xl font-bold text-white">{dashboardStats.month_cars}</p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="p-3 sm:p-4 text-center">
-              <p className="text-[10px] sm:text-xs text-slate-400">Havi készpénz</p>
-              <p className="text-base sm:text-xl font-bold text-green-400">{(dashboardStats.month_cash || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="p-3 sm:p-4 text-center">
-              <p className="text-[10px] sm:text-xs text-slate-400">Havi kártya</p>
-              <p className="text-base sm:text-xl font-bold text-blue-400">{(dashboardStats.month_card || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-            </CardContent>
-          </Card>
-        </div>
+
+          {/* Show history stats if not today */}
+          {historyStats && !isToday ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+              <Card className="glass-card border-orange-500/30">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-orange-400">{format(new Date(selectedDate), "yyyy. MMM d.", { locale: hu })}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-400 mt-1">Elkészült autók</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">{historyStats.cars_completed || 0}</p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card border-orange-500/30">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-orange-400">Készpénz</p>
+                  <p className="text-base sm:text-xl font-bold text-green-400">{(historyStats.cash_revenue || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card border-orange-500/30">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-orange-400">Kártya</p>
+                  <p className="text-base sm:text-xl font-bold text-blue-400">{(historyStats.card_revenue || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card border-orange-500/30">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-orange-400">Összesen</p>
+                  <p className="text-base sm:text-xl font-bold text-purple-400">{(historyStats.total_revenue || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+              <Card className="glass-card">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai autók</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">{dashboardStats.today_cars}</p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai készpénz</p>
+                  <p className="text-base sm:text-xl font-bold text-green-400">{(dashboardStats.today_cash || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai kártya</p>
+                  <p className="text-base sm:text-xl font-bold text-blue-400">{(dashboardStats.today_card || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white">{dashboardStats.month_cars}</p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi készpénz</p>
+                  <p className="text-base sm:text-xl font-bold text-green-400">{(dashboardStats.month_cash || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi kártya</p>
+                  <p className="text-base sm:text-xl font-bold text-blue-400">{(dashboardStats.month_card || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </>
       )}
 
       {/* Advanced Analytics */}
