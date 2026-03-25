@@ -2,7 +2,10 @@
 Services Routes
 """
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime, timezone
+from pydantic import BaseModel
+import uuid
 from dependencies import get_current_user
 from database import db
 from models.user import User
@@ -14,6 +17,37 @@ from models.service import (
 
 router = APIRouter()
 
+# Promotion model
+class PromotionCreate(BaseModel):
+    name: str
+    description: str
+    price: float
+    original_price: Optional[float] = None
+    discount_percent: Optional[int] = None
+    category: str = "komplett"
+    car_sizes: List[str] = ["S", "M"]
+    package: str = "Pro"
+    features: Optional[List[str]] = None
+    duration: int = 70
+    badge: str = "🎉 AKCIÓ"
+    valid_until: Optional[str] = None
+    active: bool = True
+
+class PromotionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    original_price: Optional[float] = None
+    discount_percent: Optional[int] = None
+    category: Optional[str] = None
+    car_sizes: Optional[List[str]] = None
+    package: Optional[str] = None
+    features: Optional[List[str]] = None
+    duration: Optional[int] = None
+    badge: Optional[str] = None
+    valid_until: Optional[str] = None
+    active: Optional[bool] = None
+
 @router.get("/services")
 async def get_services(user: User = Depends(get_current_user)):
     """Get all services"""
@@ -23,8 +57,12 @@ async def get_services(user: User = Depends(get_current_user)):
 @router.get("/services/pricing-data")
 async def get_pricing_data():
     """Get all pricing data for the booking page (public, no auth)"""
-    # Filter active promotions
-    active_promotions = [p for p in PROMOTIONS if p.get("active", True)]
+    # Get promotions from database
+    db_promotions = await db.promotions.find({"active": True}, {"_id": 0}).to_list(100)
+    
+    # If no DB promotions, use default
+    if not db_promotions:
+        db_promotions = [p for p in PROMOTIONS if p.get("active", True)]
     
     return {
         "package_features": PACKAGE_FEATURES,
@@ -33,13 +71,89 @@ async def get_pricing_data():
         "car_sizes": CAR_SIZE_INFO,
         "packages": ["Eco", "Pro", "VIP"],
         "categories": ["kulso", "belso", "komplett"],
-        "promotions": active_promotions
+        "promotions": db_promotions
     }
 
 @router.get("/services/promotions")
 async def get_promotions():
-    """Get active promotions (public, no auth)"""
-    return [p for p in PROMOTIONS if p.get("active", True)]
+    """Get all promotions (public, no auth)"""
+    promotions = await db.promotions.find({}, {"_id": 0}).to_list(100)
+    if not promotions:
+        return [p for p in PROMOTIONS if p.get("active", True)]
+    return promotions
+
+@router.get("/services/promotions/admin")
+async def get_promotions_admin(user: User = Depends(get_current_user)):
+    """Get all promotions for admin (including inactive)"""
+    promotions = await db.promotions.find({}, {"_id": 0}).to_list(100)
+    return promotions
+
+@router.post("/services/promotions")
+async def create_promotion(data: PromotionCreate, user: User = Depends(get_current_user)):
+    """Create a new promotion (admin only)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    
+    # Get features from package if not provided
+    features = data.features
+    if not features:
+        features = PACKAGE_FEATURES.get(data.category, {}).get(data.package, [])
+    
+    promotion = {
+        "id": f"promo_{uuid.uuid4().hex[:8]}",
+        "name": data.name,
+        "description": data.description,
+        "price": data.price,
+        "original_price": data.original_price,
+        "discount_percent": data.discount_percent,
+        "category": data.category,
+        "car_sizes": data.car_sizes,
+        "package": data.package,
+        "features": features,
+        "duration": data.duration,
+        "badge": data.badge,
+        "valid_until": data.valid_until,
+        "active": data.active,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.promotions.insert_one(promotion)
+    
+    # Return without _id
+    return {k: v for k, v in promotion.items() if k != "_id"}
+
+@router.put("/services/promotions/{promo_id}")
+async def update_promotion(promo_id: str, data: PromotionUpdate, user: User = Depends(get_current_user)):
+    """Update a promotion (admin only)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
+    
+    result = await db.promotions.update_one(
+        {"id": promo_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Akció nem található")
+    
+    return {"message": "Akció frissítve"}
+
+@router.delete("/services/promotions/{promo_id}")
+async def delete_promotion(promo_id: str, user: User = Depends(get_current_user)):
+    """Delete a promotion (admin only)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    
+    result = await db.promotions.delete_one({"id": promo_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Akció nem található")
+    
+    return {"message": "Akció törölve"}
 
 @router.get("/services/extras")
 async def get_extra_services():
