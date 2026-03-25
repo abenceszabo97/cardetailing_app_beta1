@@ -48,7 +48,7 @@ async def get_jobs(
                 "$gte": start_of_day.isoformat(),
                 "$lt": end_of_day.isoformat()
             }
-        except:
+        except (ValueError, TypeError):
             pass
     
     if status:
@@ -198,10 +198,17 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
             
             if existing_job:
                 # Update existing job
-                result = await db.jobs.update_one(
+                await db.jobs.update_one(
                     {"booking_id": booking_id},
                     {"$set": update_data}
                 )
+                
+                # ALSO update the booking status to keep them in sync
+                await db.bookings.update_one(
+                    {"booking_id": booking_id},
+                    {"$set": {"status": update_data.get("status", "folyamatban")}}
+                )
+                
                 if update_data.get("status") == "kesz" and update_data.get("payment_method"):
                     # Update customer total_spent
                     await db.customers.update_one(
@@ -272,21 +279,28 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
         if worker:
             update_data["worker_name"] = worker["name"]
     
-    if update_data.get("status") == "kesz":
-        job = await db.jobs.find_one({"job_id": job_id}, {"_id": 0})
-        if job:
-            await db.customers.update_one(
-                {"customer_id": job["customer_id"]},
-                {"$inc": {"total_spent": job["price"]}}
-            )
+    # Get the job first to check for booking_id
+    job = await db.jobs.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Munka nem található")
     
-    result = await db.jobs.update_one(
+    if update_data.get("status") == "kesz":
+        await db.customers.update_one(
+            {"customer_id": job["customer_id"]},
+            {"$inc": {"total_spent": job["price"]}}
+        )
+    
+    await db.jobs.update_one(
         {"job_id": job_id},
         {"$set": update_data}
     )
     
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Munka nem található")
+    # Sync status back to booking if this job came from a booking
+    if job.get("booking_id") and "status" in update_data:
+        await db.bookings.update_one(
+            {"booking_id": job["booking_id"]},
+            {"$set": {"status": update_data["status"]}}
+        )
     
     return {"message": "Munka frissítve"}
 
