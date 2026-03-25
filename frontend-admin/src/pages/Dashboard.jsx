@@ -284,8 +284,12 @@ export const Dashboard = () => {
 
   const handleFileSelected = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedJob || !currentUploadSlot) return;
+    if (!file || !selectedJob || !currentUploadSlot) {
+      console.log("Missing data:", { file: !!file, selectedJob: !!selectedJob, currentUploadSlot });
+      return;
+    }
     
+    // Reset file input immediately
     e.target.value = '';
     
     const { slotId, type } = currentUploadSlot;
@@ -293,8 +297,19 @@ export const Dashboard = () => {
     
     setUploading(slotId);
     try {
+      // Compress image if too large (for mobile photos)
+      let fileToUpload = file;
+      if (file.size > 2 * 1024 * 1024) { // > 2MB
+        try {
+          fileToUpload = await compressImage(file);
+          console.log(`Compressed from ${file.size} to ${fileToUpload.size}`);
+        } catch (compressError) {
+          console.log("Compression failed, using original:", compressError);
+        }
+      }
+      
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileToUpload);
       
       // Use the new Cloudinary-based upload endpoint with entity context
       const uploadRes = await axios.post(
@@ -302,11 +317,16 @@ export const Dashboard = () => {
         formData, 
         {
           withCredentials: true,
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 60000 // 60 second timeout for mobile uploads
         }
       );
       
       const imageUrl = uploadRes.data.url;
+      if (!imageUrl) {
+        throw new Error("No URL returned from upload");
+      }
+      
       const currentImages = type === 'before' 
         ? (job?.images_before || {})
         : (job?.images_after || {});
@@ -334,6 +354,52 @@ export const Dashboard = () => {
       setUploading(null);
       setCurrentUploadSlot(null);
     }
+  };
+
+  // Helper function to compress large images (for mobile)
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = document.createElement('img');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+            } else {
+              reject(new Error('Canvas to blob failed'));
+            }
+          }, 'image/jpeg', 0.7);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleRemoveImage = async (jobId, type, slotId) => {
@@ -810,11 +876,13 @@ export const Dashboard = () => {
                                         <Clock className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
                                         <span className="hidden sm:inline">Indít</span>
                                       </Button>
-                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
-                                        ❌
+                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
+                                        <span className="sm:hidden">❌</span>
+                                        <span className="hidden sm:inline">❌ Nem jött</span>
                                       </Button>
-                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
-                                        🚫
+                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
+                                        <span className="sm:hidden">🚫</span>
+                                        <span className="hidden sm:inline">🚫 Lemondta</span>
                                       </Button>
                                     </>
                                   )}
@@ -937,11 +1005,13 @@ export const Dashboard = () => {
                                     <Clock className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
                                     <span className="hidden sm:inline">Indít</span>
                                   </Button>
-                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
-                                    ❌
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
+                                    <span className="sm:hidden">❌</span>
+                                    <span className="hidden sm:inline">❌ Nem jött</span>
                                   </Button>
-                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
-                                    🚫
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
+                                    <span className="sm:hidden">🚫</span>
+                                    <span className="hidden sm:inline">🚫 Lemondta</span>
                                   </Button>
                                 </>
                               )}
@@ -1010,12 +1080,13 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Hidden file input */}
+      {/* Hidden file input - mobile camera support */}
       <input 
         type="file" 
         ref={fileInputRef} 
         className="hidden" 
-        accept="image/*" 
+        accept="image/*"
+        capture="environment"
         onChange={handleFileSelected}
       />
 
