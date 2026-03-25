@@ -11,11 +11,21 @@ from models.user import User
 router = APIRouter()
 
 @router.get("/stats/dashboard")
-async def get_dashboard_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
-    """Get dashboard statistics"""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow = today + timedelta(days=1)
-    month_start = today.replace(day=1)
+async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get dashboard statistics for a specific date (defaults to today)"""
+    
+    # Parse the target date
+    if date:
+        try:
+            target_date = datetime.fromisoformat(date.replace('Z', '+00:00'))
+        except (ValueError, TypeError):
+            target_date = datetime.now(timezone.utc)
+    else:
+        target_date = datetime.now(timezone.utc)
+    
+    # Create date strings for matching (handle multiple formats)
+    date_str = target_date.strftime("%Y-%m-%d")  # e.g., "2025-03-25"
+    month_str = target_date.strftime("%Y-%m")    # e.g., "2025-03"
     
     query_base = {}
     if location:
@@ -26,57 +36,60 @@ async def get_dashboard_stats(location: Optional[str] = None, user: User = Depen
         if worker:
             query_base["worker_id"] = worker["worker_id"]
     
+    # Get today's completed jobs using regex to match date prefix
     today_query = {
         **query_base,
         "status": "kesz",
-        "date": {"$gte": today.isoformat(), "$lt": tomorrow.isoformat()}
+        "date": {"$regex": f"^{date_str}"}
     }
     today_jobs = await db.jobs.find(today_query, {"_id": 0}).to_list(1000)
     today_cars = len(today_jobs)
-    today_revenue = sum(j["price"] for j in today_jobs)
-    today_cash = sum(j["price"] for j in today_jobs if j.get("payment_method") == "keszpenz")
-    today_card = sum(j["price"] for j in today_jobs if j.get("payment_method") == "kartya")
+    today_revenue = sum(j.get("price", 0) for j in today_jobs)
+    today_cash = sum(j.get("price", 0) for j in today_jobs if j.get("payment_method") == "keszpenz")
+    today_card = sum(j.get("price", 0) for j in today_jobs if j.get("payment_method") == "kartya")
     
+    # Get month's completed jobs
     month_query = {
         **query_base,
         "status": "kesz",
-        "date": {"$gte": month_start.isoformat(), "$lt": tomorrow.isoformat()}
+        "date": {"$regex": f"^{month_str}"}
     }
-    month_jobs = await db.jobs.find(month_query, {"_id": 0}).to_list(1000)
+    month_jobs = await db.jobs.find(month_query, {"_id": 0}).to_list(10000)
     month_cars = len(month_jobs)
-    month_revenue = sum(j["price"] for j in month_jobs)
-    month_cash = sum(j["price"] for j in month_jobs if j.get("payment_method") == "keszpenz")
-    month_card = sum(j["price"] for j in month_jobs if j.get("payment_method") == "kartya")
+    month_revenue = sum(j.get("price", 0) for j in month_jobs)
+    month_cash = sum(j.get("price", 0) for j in month_jobs if j.get("payment_method") == "keszpenz")
+    month_card = sum(j.get("price", 0) for j in month_jobs if j.get("payment_method") == "kartya")
     
     return {
         "today_cars": today_cars,
         "today_revenue": today_revenue,
         "today_cash": today_cash,
         "today_card": today_card,
+        "cash": today_cash,  # Alias for compatibility
         "month_cars": month_cars,
         "month_revenue": month_revenue,
         "month_cash": month_cash,
         "month_card": month_card,
-        # New: cancelled/no-show stats
+        # Cancelled/no-show stats
         "today_cancelled": await db.jobs.count_documents({
             **query_base,
             "status": {"$in": ["nem_jott_el", "lemondta"]},
-            "date": {"$gte": today.isoformat(), "$lt": tomorrow.isoformat()}
+            "date": {"$regex": f"^{date_str}"}
         }),
         "month_cancelled": await db.jobs.count_documents({
             **query_base,
             "status": {"$in": ["nem_jott_el", "lemondta"]},
-            "date": {"$gte": month_start.isoformat(), "$lt": tomorrow.isoformat()}
+            "date": {"$regex": f"^{month_str}"}
         })
     }
 
 @router.get("/stats/daily")
 async def get_daily_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
     """Get daily statistics for current month"""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = today.replace(day=1)
+    today = datetime.now(timezone.utc)
+    month_str = today.strftime("%Y-%m")  # e.g., "2025-03"
     
-    query = {"status": "kesz", "date": {"$gte": month_start.isoformat()}}
+    query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
     if location:
         query["location"] = location
     
@@ -84,11 +97,13 @@ async def get_daily_stats(location: Optional[str] = None, user: User = Depends(g
     
     daily_stats = {}
     for job in jobs:
-        date_str = job["date"][:10]
+        date_str = job.get("date", "")[:10]
+        if not date_str:
+            continue
         if date_str not in daily_stats:
             daily_stats[date_str] = {"date": date_str, "count": 0, "revenue": 0}
         daily_stats[date_str]["count"] += 1
-        daily_stats[date_str]["revenue"] += job["price"]
+        daily_stats[date_str]["revenue"] += job.get("price", 0)
     
     return list(daily_stats.values())
 
@@ -114,10 +129,10 @@ async def get_monthly_stats(location: Optional[str] = None, user: User = Depends
 @router.get("/stats/workers")
 async def get_worker_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
     """Get worker statistics"""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = today.replace(day=1)
+    today = datetime.now(timezone.utc)
+    month_str = today.strftime("%Y-%m")  # e.g., "2025-03"
     
-    query = {"status": "kesz", "date": {"$gte": month_start.isoformat()}}
+    query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
     if location:
         query["location"] = location
     
@@ -169,10 +184,10 @@ async def get_service_stats(location: Optional[str] = None, user: User = Depends
 @router.get("/stats/locations")
 async def get_location_stats(user: User = Depends(get_current_user)):
     """Get location statistics"""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = today.replace(day=1)
+    today = datetime.now(timezone.utc)
+    month_str = today.strftime("%Y-%m")
     
-    query = {"status": "kesz", "date": {"$gte": month_start.isoformat()}}
+    query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
     jobs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
     
     location_stats = {}
@@ -183,38 +198,38 @@ async def get_location_stats(user: User = Depends(get_current_user)):
         if loc not in location_stats:
             location_stats[loc] = {"location": loc, "count": 0, "revenue": 0}
         location_stats[loc]["count"] += 1
-        location_stats[loc]["revenue"] += job["price"]
+        location_stats[loc]["revenue"] += job.get("price", 0)
     
     return list(location_stats.values())
 
 @router.get("/stats/advanced")
 async def get_advanced_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
     """Get advanced analytics"""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = today.replace(day=1)
+    today = datetime.now(timezone.utc)
+    month_str = today.strftime("%Y-%m")
     
-    if month_start.month == 1:
-        prev_month_start = month_start.replace(year=month_start.year - 1, month=12)
+    # Calculate previous month
+    if today.month == 1:
+        prev_month_str = f"{today.year - 1}-12"
     else:
-        prev_month_start = month_start.replace(month=month_start.month - 1)
-    prev_month_end = month_start
+        prev_month_str = f"{today.year}-{today.month - 1:02d}"
     
     query_base = {"status": "kesz"}
     if location:
         query_base["location"] = location
     
-    current_month_query = {**query_base, "date": {"$gte": month_start.isoformat()}}
+    current_month_query = {**query_base, "date": {"$regex": f"^{month_str}"}}
     current_jobs = await db.jobs.find(current_month_query, {"_id": 0}).to_list(10000)
     
-    prev_month_query = {**query_base, "date": {"$gte": prev_month_start.isoformat(), "$lt": prev_month_end.isoformat()}}
+    prev_month_query = {**query_base, "date": {"$regex": f"^{prev_month_str}"}}
     prev_jobs = await db.jobs.find(prev_month_query, {"_id": 0}).to_list(10000)
     
     all_jobs = await db.jobs.find(query_base, {"_id": 0}).to_list(50000)
     
     current_cars = len(current_jobs)
-    current_revenue = sum(j["price"] for j in current_jobs)
+    current_revenue = sum(j.get("price", 0) for j in current_jobs)
     prev_cars = len(prev_jobs)
-    prev_revenue = sum(j["price"] for j in prev_jobs)
+    prev_revenue = sum(j.get("price", 0) for j in prev_jobs)
     
     avg_revenue_per_car = current_revenue / current_cars if current_cars > 0 else 0
     
@@ -232,7 +247,7 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
         if cid:
             if cid not in customer_spending:
                 customer_spending[cid] = {"customer_id": cid, "name": cname, "total": 0, "jobs": 0}
-            customer_spending[cid]["total"] += job["price"]
+            customer_spending[cid]["total"] += job.get("price", 0)
             customer_spending[cid]["jobs"] += 1
     
     top_customers = sorted(customer_spending.values(), key=lambda x: x["total"], reverse=True)[:10]
@@ -244,7 +259,7 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
         if wid:
             if wid not in employee_revenue:
                 employee_revenue[wid] = {"worker_id": wid, "name": wname, "revenue": 0, "cars": 0}
-            employee_revenue[wid]["revenue"] += job["price"]
+            employee_revenue[wid]["revenue"] += job.get("price", 0)
             employee_revenue[wid]["cars"] += 1
     
     location_revenue = {}
@@ -253,7 +268,7 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
         if loc and loc == "Debrecen":
             if loc not in location_revenue:
                 location_revenue[loc] = {"location": loc, "revenue": 0, "cars": 0}
-            location_revenue[loc]["revenue"] += job["price"]
+            location_revenue[loc]["revenue"] += job.get("price", 0)
             location_revenue[loc]["cars"] += 1
     
     cars_change = ((current_cars - prev_cars) / prev_cars * 100) if prev_cars > 0 else 0
@@ -264,11 +279,13 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
     
     for job in all_jobs:
         try:
-            job_date = datetime.fromisoformat(job["date"].replace("Z", "+00:00"))
-            dow = job_date.weekday()
-            day_performance[dow]["revenue"] += job["price"]
-            day_performance[dow]["cars"] += 1
-            day_performance[dow]["count"] += 1
+            date_str = job.get("date", "")
+            if date_str:
+                job_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                dow = job_date.weekday()
+                day_performance[dow]["revenue"] += job.get("price", 0)
+                day_performance[dow]["cars"] += 1
+                day_performance[dow]["count"] += 1
         except (ValueError, KeyError, TypeError):
             pass
     
