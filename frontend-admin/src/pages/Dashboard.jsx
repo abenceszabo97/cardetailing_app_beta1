@@ -711,8 +711,8 @@ export const Dashboard = () => {
                   <p>Nincs mai munka</p>
                 </div>
               ) : (
-                /* Worker-based view - 2 columns */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                /* Worker-based view - responsive columns */
+                <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
                   {workers.slice(0, 2).map((worker) => {
                     const workerJobs = todayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
                     const unassignedJobs = todayJobs.filter(j => !j.worker_id && !j.worker_name);
@@ -720,54 +720,69 @@ export const Dashboard = () => {
                     return (
                       <div key={worker.worker_id} className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
                         {/* Worker header */}
-                        <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-slate-700 px-4 py-3">
+                        <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-slate-700 px-3 sm:px-4 py-2 sm:py-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-blue-500/30 flex items-center justify-center">
-                                <User className="w-4 h-4 text-blue-400" />
+                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/30 flex items-center justify-center">
+                                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
                               </div>
-                              <span className="text-white font-semibold">{worker.name}</span>
+                              <span className="text-white font-semibold text-sm sm:text-base">{worker.name}</span>
                             </div>
-                            <Badge className="bg-slate-800 text-slate-300">
+                            <Badge className="bg-slate-800 text-slate-300 text-xs">
                               {workerJobs.length} munka
                             </Badge>
                           </div>
                         </div>
                         
                         {/* Worker jobs */}
-                        <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
+                        <div className="p-2 sm:p-3 space-y-2 max-h-[350px] sm:max-h-[400px] overflow-y-auto">
                           {workerJobs.length === 0 ? (
                             <div className="text-center py-4 text-slate-500 text-sm">
                               Nincs hozzárendelt munka
                             </div>
                           ) : (
                             workerJobs.map((job) => (
-                              <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-3 border border-slate-800 hover:border-green-500/30 transition-colors">
-                                <div className="flex items-start justify-between gap-2">
+                              <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-green-500/30 transition-colors">
+                                {/* Mobile: Stack layout, Desktop: Side by side */}
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-bold text-white text-sm">{job.plate_number}</span>
+                                    {/* Header row with plate and status */}
+                                    <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+                                      <span className="font-bold text-white text-sm sm:text-base">{job.plate_number}</span>
                                       {getStatusBadge(job.status)}
+                                      {/* Price on mobile - inline */}
+                                      <span className="text-green-400 font-semibold text-sm sm:hidden ml-auto">{job.price?.toLocaleString()} Ft</span>
                                     </div>
-                                    <p className="text-slate-400 text-xs mt-1 truncate">{job.customer_name}</p>
+                                    
+                                    {/* Customer and service info */}
+                                    <p className="text-slate-400 text-xs sm:text-sm mt-1">{job.customer_name}</p>
                                     <p className="text-slate-500 text-xs truncate">{job.service_name}</p>
-                                    {job.time_slot && (
-                                      <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                                        <Clock className="w-3 h-3" />
-                                        {job.time_slot}
-                                      </div>
-                                    )}
-                                    {job.car_type && (
-                                      <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                                        <Car className="w-3 h-3" />
-                                        {job.car_type}
-                                      </div>
-                                    )}
-                                    {job.phone && (
-                                      <div className="text-xs text-slate-500 mt-1">📞 {job.phone}</div>
-                                    )}
+                                    
+                                    {/* Details row - horizontal on mobile */}
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
+                                      {job.time_slot && (
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          <span>{job.time_slot}</span>
+                                        </div>
+                                      )}
+                                      {job.car_type && (
+                                        <div className="flex items-center gap-1">
+                                          <Car className="w-3 h-3" />
+                                          <span>{job.car_type}</span>
+                                        </div>
+                                      )}
+                                      {job.phone && (
+                                        <a href={`tel:${job.phone}`} className="flex items-center gap-1 text-blue-400 hover:text-blue-300">
+                                          <span>📞</span>
+                                          <span>{job.phone}</span>
+                                        </a>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="text-right flex flex-col items-end gap-1">
+                                  
+                                  {/* Desktop price and image button */}
+                                  <div className="hidden sm:flex flex-col items-end gap-1">
                                     <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
                                     <Button variant="ghost" size="sm" className="h-6 text-[10px] text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
                                       <Image className="w-3 h-3 mr-1" />
@@ -776,48 +791,60 @@ export const Dashboard = () => {
                                   </div>
                                 </div>
                                 
-                                {/* Status actions */}
-                                <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-800">
-                                  {/* Edit button - always visible */}
-                                  <Button size="sm" variant="outline" className="h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700" onClick={() => handleEditJob(job)}>
-                                    <Pencil className="w-3 h-3 mr-1" />Szerkeszt
+                                {/* Action buttons - improved mobile layout */}
+                                <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-slate-800">
+                                  {/* Mobile image button */}
+                                  <Button variant="ghost" size="sm" className="sm:hidden h-8 text-xs text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
+                                    <Image className="w-3.5 h-3.5 mr-1" />
+                                    {getImageCount(job)}
+                                  </Button>
+                                  
+                                  {/* Edit button */}
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2 sm:px-3" onClick={() => handleEditJob(job)}>
+                                    <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
+                                    <span className="hidden sm:inline">Szerkeszt</span>
                                   </Button>
                                   
                                   {job.status === "foglalt" && (
                                     <>
-                                      <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "folyamatban")}>
-                                        <Clock className="w-3 h-3 mr-1" />Indít
+                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "folyamatban")}>
+                                        <Clock className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
+                                        <span className="hidden sm:inline">Indít</span>
                                       </Button>
-                                      <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
-                                        ❌ Nem jött
+                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
+                                        ❌
                                       </Button>
-                                      <Button size="sm" variant="outline" className="h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
-                                        🚫 Lemondta
+                                      <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
+                                        🚫
                                       </Button>
                                     </>
                                   )}
                                   {job.status === "folyamatban" && (
                                     <>
-                                      <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
-                                        <Wallet className="w-3 h-3 mr-1" />Készpénz
+                                      <Button size="sm" className="h-8 sm:h-7 text-xs bg-green-600 hover:bg-green-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
+                                        <Wallet className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
+                                        <span className="hidden xs:inline">Készpénz</span>
+                                        <span className="xs:hidden">💵</span>
                                       </Button>
-                                      <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
-                                        <CreditCard className="w-3 h-3 mr-1" />Kártya
+                                      <Button size="sm" className="h-8 sm:h-7 text-xs bg-blue-600 hover:bg-blue-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
+                                        <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
+                                        <span className="hidden xs:inline">Kártya</span>
+                                        <span className="xs:hidden">💳</span>
                                       </Button>
                                     </>
                                   )}
                                   {job.status === "kesz" && job.payment_method && (
-                                    <Badge className={job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}>
+                                    <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
                                       {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
                                     </Badge>
                                   )}
                                   {job.status === "nem_jott_el" && (
-                                    <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+                                    <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs">
                                       ❌ Nem jelent meg
                                     </Badge>
                                   )}
                                   {job.status === "lemondta" && (
-                                    <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                    <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">
                                       🚫 Lemondva
                                     </Badge>
                                   )}
@@ -841,39 +868,51 @@ export const Dashboard = () => {
                             </div>
                             <span className="text-white font-semibold">Hozzárendelésre vár</span>
                           </div>
-                          <Badge className="bg-orange-500/20 text-orange-300">
+                          <Badge className="bg-orange-500/20 text-orange-300 text-xs">
                             {todayJobs.filter(j => !j.worker_id && !j.worker_name).length} munka
                           </Badge>
                         </div>
                       </div>
-                      <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="p-2 sm:p-3 space-y-2">
                         {todayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
-                          <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-3 border border-slate-800 hover:border-orange-500/30 transition-colors">
-                            <div className="flex items-start justify-between gap-2">
+                          <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-orange-500/30 transition-colors">
+                            {/* Mobile-optimized layout */}
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-bold text-white text-sm">{job.plate_number}</span>
+                                {/* Header row */}
+                                <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+                                  <span className="font-bold text-white text-sm sm:text-base">{job.plate_number}</span>
                                   {getStatusBadge(job.status)}
+                                  <span className="text-green-400 font-semibold text-sm sm:hidden ml-auto">{job.price?.toLocaleString()} Ft</span>
                                 </div>
-                                <p className="text-slate-400 text-xs mt-1">{job.customer_name}</p>
+                                <p className="text-slate-400 text-xs sm:text-sm mt-1">{job.customer_name}</p>
                                 <p className="text-slate-500 text-xs">{job.service_name}</p>
-                                {job.time_slot && (
-                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                                    <Clock className="w-3 h-3" />
-                                    {job.time_slot}
-                                  </div>
-                                )}
-                                {job.car_type && (
-                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                                    <Car className="w-3 h-3" />
-                                    {job.car_type}
-                                  </div>
-                                )}
-                                {job.phone && (
-                                  <div className="text-xs text-slate-500 mt-1">📞 {job.phone}</div>
-                                )}
+                                
+                                {/* Details row */}
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
+                                  {job.time_slot && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      <span>{job.time_slot}</span>
+                                    </div>
+                                  )}
+                                  {job.car_type && (
+                                    <div className="flex items-center gap-1">
+                                      <Car className="w-3 h-3" />
+                                      <span>{job.car_type}</span>
+                                    </div>
+                                  )}
+                                  {job.phone && (
+                                    <a href={`tel:${job.phone}`} className="flex items-center gap-1 text-blue-400 hover:text-blue-300">
+                                      <span>📞</span>
+                                      <span>{job.phone}</span>
+                                    </a>
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-right flex flex-col items-end gap-1">
+                              
+                              {/* Desktop price */}
+                              <div className="hidden sm:flex flex-col items-end gap-1">
                                 <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
                                 <Button variant="ghost" size="sm" className="h-6 text-[10px] text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
                                   <Image className="w-3 h-3 mr-1" />
@@ -882,48 +921,60 @@ export const Dashboard = () => {
                               </div>
                             </div>
                             
-                            {/* Status actions */}
-                            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-800">
-                              {/* Edit button - always visible */}
-                              <Button size="sm" variant="outline" className="h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700" onClick={() => handleEditJob(job)}>
-                                <Pencil className="w-3 h-3 mr-1" />Szerkeszt
+                            {/* Action buttons - mobile optimized */}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-slate-800">
+                              {/* Mobile image button */}
+                              <Button variant="ghost" size="sm" className="sm:hidden h-8 text-xs text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
+                                <Image className="w-3.5 h-3.5 mr-1" />
+                                {getImageCount(job)}
+                              </Button>
+                              
+                              {/* Edit button */}
+                              <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2 sm:px-3" onClick={() => handleEditJob(job)}>
+                                <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
+                                <span className="hidden sm:inline">Szerkeszt</span>
                               </Button>
                               
                               {job.status === "foglalt" && (
                                 <>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "folyamatban")}>
-                                    <Clock className="w-3 h-3 mr-1" />Indít
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "folyamatban")}>
+                                    <Clock className="w-3.5 h-3.5 sm:w-3 sm:h-3 sm:mr-1" />
+                                    <span className="hidden sm:inline">Indít</span>
                                   </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
-                                    ❌ Nem jött
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
+                                    ❌
                                   </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
-                                    🚫 Lemondta
+                                  <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10 px-2" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
+                                    🚫
                                   </Button>
                                 </>
                               )}
                               {job.status === "folyamatban" && (
                                 <>
-                                  <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
-                                    <Wallet className="w-3 h-3 mr-1" />Készpénz
+                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-green-600 hover:bg-green-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
+                                    <Wallet className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
+                                    <span className="hidden xs:inline">Készpénz</span>
+                                    <span className="xs:hidden">💵</span>
                                   </Button>
-                                  <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
-                                    <CreditCard className="w-3 h-3 mr-1" />Kártya
+                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-blue-600 hover:bg-blue-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
+                                    <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
+                                    <span className="hidden xs:inline">Kártya</span>
+                                    <span className="xs:hidden">💳</span>
                                   </Button>
                                 </>
                               )}
                               {job.status === "kesz" && job.payment_method && (
-                                <Badge className={job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}>
+                                <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
                                   {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
                                 </Badge>
                               )}
                               {job.status === "nem_jott_el" && (
-                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs">
                                   ❌ Nem jelent meg
                                 </Badge>
                               )}
                               {job.status === "lemondta" && (
-                                <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">
                                   🚫 Lemondva
                                 </Badge>
                               )}
