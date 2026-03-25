@@ -955,24 +955,23 @@ export const Dashboard = () => {
                           <div key={slot.id} className="relative">
                             <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
                               {imageUrl ? (
-                                <div className="relative w-full h-full group">
+                                <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
                                   <img 
                                     src={imageUrl} 
                                     alt={slot.label} 
-                                    className="w-full h-full object-cover cursor-pointer"
-                                    onClick={() => setFullscreenImage(imageUrl)}
+                                    className="w-full h-full object-cover"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
                                     loading="lazy"
                                   />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                                    <button onClick={(e) => { e.stopPropagation(); setFullscreenImage(imageUrl); }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 pointer-events-auto">
                                       <ZoomIn className="w-4 h-4 text-white" />
                                     </button>
-                                    <button onClick={() => handleRemoveImage(selectedJob.job_id, 'before', slot.id)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
+                                    <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedJob.job_id, 'before', slot.id); }} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500 pointer-events-auto">
                                       <X className="w-4 h-4 text-white" />
                                     </button>
                                   </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 pointer-events-none">
                                     <Check className="w-3 h-3 text-green-400 inline mr-1" />
                                     <span className="text-[10px] text-white">{slot.label}</span>
                                   </div>
@@ -1013,24 +1012,23 @@ export const Dashboard = () => {
                           <div key={slot.id} className="relative">
                             <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
                               {imageUrl ? (
-                                <div className="relative w-full h-full group">
+                                <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
                                   <img 
                                     src={imageUrl} 
                                     alt={slot.label} 
-                                    className="w-full h-full object-cover cursor-pointer"
-                                    onClick={() => setFullscreenImage(imageUrl)}
+                                    className="w-full h-full object-cover"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
                                     loading="lazy"
                                   />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                                    <button onClick={(e) => { e.stopPropagation(); setFullscreenImage(imageUrl); }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 pointer-events-auto">
                                       <ZoomIn className="w-4 h-4 text-white" />
                                     </button>
-                                    <button onClick={() => handleRemoveImage(selectedJob.job_id, 'after', slot.id)} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500">
+                                    <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedJob.job_id, 'after', slot.id); }} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500 pointer-events-auto">
                                       <X className="w-4 h-4 text-white" />
                                     </button>
                                   </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 pointer-events-none">
                                     <Check className="w-3 h-3 text-green-400 inline mr-1" />
                                     <span className="text-[10px] text-white">{slot.label}</span>
                                   </div>
@@ -1139,12 +1137,13 @@ export const Dashboard = () => {
       {/* Fullscreen Image Viewer - Improved */}
       {fullscreenImage && (
         <div 
-          className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center" 
+          className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center cursor-pointer" 
           onClick={() => setFullscreenImage(null)}
+          style={{ pointerEvents: 'auto' }}
         >
           <button 
-            className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10" 
-            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000] cursor-pointer" 
+            onClick={(e) => { e.stopPropagation(); setFullscreenImage(null); }}
           >
             <X className="w-8 h-8 text-white" />
           </button>
@@ -1152,7 +1151,7 @@ export const Dashboard = () => {
             <img 
               src={fullscreenImage} 
               alt="Teljes méret" 
-              className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl" 
+              className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl cursor-default" 
               onClick={(e) => e.stopPropagation()} 
               onError={(e) => {
                 e.target.onerror = null;
@@ -1160,7 +1159,7 @@ export const Dashboard = () => {
               }}
             />
           </div>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm pointer-events-none">
             Kattints bárhová a bezáráshoz
           </div>
         </div>
