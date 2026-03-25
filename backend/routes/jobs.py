@@ -152,6 +152,10 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
         price=data.price,
         location=data.location,
         date=data.date,
+        time_slot=data.time_slot,
+        car_type=data.car_type or customer.get("car_type"),
+        phone=data.phone or customer.get("phone"),
+        email=data.email or customer.get("email"),
         notes=data.notes
     )
     

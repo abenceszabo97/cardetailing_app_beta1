@@ -140,13 +140,79 @@ export const Dashboard = () => {
 
   const handleCreateJob = async () => {
     try {
-      await axios.post(`${API}/jobs`, newJob, { withCredentials: true });
+      let customerId = newJob.customer_id;
+      let customerName = "";
+      let plateNumber = "";
+      let phone = "";
+      let email = "";
+      let carType = "";
+      
+      // If creating new customer
+      if (newJob.isNewCustomer) {
+        if (!newJob.newCustomerName || !newJob.newCustomerPlate) {
+          toast.error("Név és rendszám megadása kötelező!");
+          return;
+        }
+        
+        // Create new customer first
+        const customerData = {
+          name: newJob.newCustomerName,
+          plate_number: newJob.newCustomerPlate.toUpperCase(),
+          phone: newJob.newCustomerPhone || "",
+          email: newJob.newCustomerEmail || "",
+          car_type: newJob.newCustomerCarType || "",
+          location: newJob.location
+        };
+        
+        const customerRes = await axios.post(`${API}/customers`, customerData, { withCredentials: true });
+        customerId = customerRes.data.customer_id;
+        customerName = newJob.newCustomerName;
+        plateNumber = newJob.newCustomerPlate.toUpperCase();
+        phone = newJob.newCustomerPhone || "";
+        email = newJob.newCustomerEmail || "";
+        carType = newJob.newCustomerCarType || "";
+        toast.success("Új ügyfél létrehozva!");
+      } else {
+        // Get existing customer data
+        const customer = customers.find(c => c.customer_id === customerId);
+        if (customer) {
+          customerName = customer.name;
+          plateNumber = customer.plate_number;
+          phone = customer.phone || "";
+          email = customer.email || "";
+          carType = customer.car_type || "";
+        }
+      }
+      
+      // Create job with customer data
+      const jobData = {
+        customer_id: customerId,
+        service_id: newJob.service_id,
+        worker_id: newJob.worker_id,
+        price: newJob.price,
+        location: newJob.location,
+        date: newJob.date,
+        notes: newJob.notes,
+        time_slot: newJob.date ? newJob.date.split("T")[1]?.slice(0, 5) : null,
+        // Include customer info for display
+        phone: phone,
+        email: email,
+        car_type: carType
+      };
+      
+      await axios.post(`${API}/jobs`, jobData, { withCredentials: true });
       toast.success("Munka sikeresen létrehozva!");
       setIsNewJobOpen(false);
-      setNewJob({ customer_id: "", service_id: "", worker_id: "", price: 0, location: "Debrecen", date: new Date().toISOString().slice(0, 16), notes: "" });
+      setNewJob({ 
+        customer_id: "", service_id: "", worker_id: "", price: 0, 
+        location: "Debrecen", date: new Date().toISOString().slice(0, 16), notes: "",
+        isNewCustomer: false, newCustomerName: "", newCustomerPlate: "",
+        newCustomerPhone: "", newCustomerEmail: "", newCustomerCarType: "",
+        customerSearch: ""
+      });
       fetchData();
     } catch (error) {
-      toast.error("Hiba a munka létrehozásakor");
+      toast.error(error.response?.data?.detail || "Hiba a munka létrehozásakor");
     }
   };
 
@@ -301,25 +367,105 @@ export const Dashboard = () => {
                 Új munka
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+            <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-xl font-['Manrope']">Új munka létrehozása</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
+                {/* Customer Selection or New Customer */}
                 <div>
-                  <Label className="text-slate-300">Ügyfél</Label>
-                  <Select value={newJob.customer_id} onValueChange={(v) => setNewJob({...newJob, customer_id: v})}>
-                    <SelectTrigger className="bg-slate-950 border-slate-700">
-                      <SelectValue placeholder="Válassz ügyfelet" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
-                      {customers.map(c => (
-                        <SelectItem key={c.customer_id} value={c.customer_id} className="text-white">
-                          {c.name} - {c.plate_number}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-slate-300">Ügyfél</Label>
+                    <button 
+                      type="button"
+                      onClick={() => setNewJob({...newJob, isNewCustomer: !newJob.isNewCustomer, customer_id: ""})}
+                      className="text-xs text-green-400 hover:text-green-300"
+                    >
+                      {newJob.isNewCustomer ? "← Meglévő ügyfél" : "+ Új ügyfél"}
+                    </button>
+                  </div>
+                  
+                  {newJob.isNewCustomer ? (
+                    <div className="space-y-3 p-3 bg-slate-950/50 rounded-lg border border-slate-700">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-slate-400">Név *</Label>
+                          <Input 
+                            value={newJob.newCustomerName || ""} 
+                            onChange={(e) => setNewJob({...newJob, newCustomerName: e.target.value})}
+                            className="bg-slate-950 border-slate-700 text-white h-9"
+                            placeholder="Ügyfél neve"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">Rendszám *</Label>
+                          <Input 
+                            value={newJob.newCustomerPlate || ""} 
+                            onChange={(e) => setNewJob({...newJob, newCustomerPlate: e.target.value.toUpperCase()})}
+                            className="bg-slate-950 border-slate-700 text-white h-9 uppercase font-mono"
+                            placeholder="ABC-123"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-slate-400">Telefon</Label>
+                          <Input 
+                            value={newJob.newCustomerPhone || ""} 
+                            onChange={(e) => setNewJob({...newJob, newCustomerPhone: e.target.value})}
+                            className="bg-slate-950 border-slate-700 text-white h-9"
+                            placeholder="+36 30 123 4567"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">Email</Label>
+                          <Input 
+                            value={newJob.newCustomerEmail || ""} 
+                            onChange={(e) => setNewJob({...newJob, newCustomerEmail: e.target.value})}
+                            className="bg-slate-950 border-slate-700 text-white h-9"
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-400">Autó típusa</Label>
+                        <Input 
+                          value={newJob.newCustomerCarType || ""} 
+                          onChange={(e) => setNewJob({...newJob, newCustomerCarType: e.target.value})}
+                          className="bg-slate-950 border-slate-700 text-white h-9"
+                          placeholder="pl. VW Golf"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        placeholder="Keresés név vagy rendszám alapján..."
+                        value={newJob.customerSearch || ""}
+                        onChange={(e) => setNewJob({...newJob, customerSearch: e.target.value})}
+                        className="bg-slate-950 border-slate-700 text-white mb-2"
+                      />
+                      <Select value={newJob.customer_id} onValueChange={(v) => setNewJob({...newJob, customer_id: v})}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700">
+                          <SelectValue placeholder="Válassz ügyfelet" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700 max-h-60">
+                          {customers
+                            .filter(c => {
+                              const search = (newJob.customerSearch || "").toLowerCase();
+                              if (!search) return true;
+                              return c.name?.toLowerCase().includes(search) || 
+                                     c.plate_number?.toLowerCase().includes(search);
+                            })
+                            .map(c => (
+                              <SelectItem key={c.customer_id} value={c.customer_id} className="text-white">
+                                {c.name} - {c.plate_number}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label className="text-slate-300">Szolgáltatás</Label>
@@ -372,7 +518,15 @@ export const Dashboard = () => {
                   <Label className="text-slate-300">Megjegyzés</Label>
                   <Input value={newJob.notes} onChange={(e) => setNewJob({...newJob, notes: e.target.value})} className="bg-slate-950 border-slate-700 text-white" placeholder="Opcionális..." />
                 </div>
-                <Button onClick={handleCreateJob} className="w-full bg-green-600 hover:bg-green-500" disabled={!newJob.customer_id || !newJob.service_id}>
+                <Button 
+                  onClick={handleCreateJob} 
+                  className="w-full bg-green-600 hover:bg-green-500" 
+                  disabled={
+                    (!newJob.isNewCustomer && !newJob.customer_id) || 
+                    (newJob.isNewCustomer && (!newJob.newCustomerName || !newJob.newCustomerPlate)) ||
+                    !newJob.service_id
+                  }
+                >
                   Létrehozás
                 </Button>
               </div>

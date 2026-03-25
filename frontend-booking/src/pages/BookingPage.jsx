@@ -95,15 +95,16 @@ const BookingPage = () => {
       .catch(err => console.error("Extras error:", err));
   }, []);
 
-  // Load slots when date changes
+  // Load slots when date changes - include duration for time blocking
   useEffect(() => {
     if (form.location && form.date) {
       setLoadingSlots(true);
-      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}`)
+      const duration = getDuration();
+      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}&duration=${duration || 60}`)
         .then(r => { setSlots(r.data); setLoadingSlots(false); })
         .catch(() => setLoadingSlots(false));
     }
-  }, [form.location, form.date]);
+  }, [form.location, form.date, selectedSize, selectedCategory, selectedPackage, selectedPromotion]);
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 

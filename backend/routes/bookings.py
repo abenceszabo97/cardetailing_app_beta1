@@ -2,8 +2,8 @@
 Bookings Routes
 """
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
-from datetime import datetime, timezone
+from typing import Optional, List
+from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 import logging
@@ -16,22 +16,115 @@ from models.customer import Customer
 
 router = APIRouter()
 
+def time_to_minutes(time_str: str) -> int:
+    """Convert HH:MM to minutes from midnight"""
+    parts = time_str.split(":")
+    return int(parts[0]) * 60 + int(parts[1])
+
+def minutes_to_time(minutes: int) -> str:
+    """Convert minutes from midnight to HH:MM"""
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+def get_blocked_slots(bookings: List[dict], workers_list: List[dict]) -> dict:
+    """
+    Calculate blocked time slots for each worker based on booking duration.
+    Returns dict: {worker_id: set of blocked slot times}
+    """
+    blocked = {w["worker_id"]: set() for w in workers_list}
+    
+    for bkg in bookings:
+        worker_id = bkg.get("worker_id")
+        if not worker_id or worker_id not in blocked:
+            continue
+        
+        time_slot = bkg.get("time_slot")
+        if not time_slot:
+            continue
+        
+        # Get duration (default 60 minutes if not specified)
+        duration = bkg.get("duration") or 60
+        
+        # Calculate blocked slots (in 30-min increments)
+        start_minutes = time_to_minutes(time_slot)
+        end_minutes = start_minutes + duration
+        
+        # Block all 30-min slots within the duration
+        current = start_minutes
+        while current < end_minutes:
+            blocked[worker_id].add(minutes_to_time(current))
+            current += 30
+    
+    return blocked
+
 @router.get("/bookings/available-slots")
-async def get_available_slots(location: str, date: str, service_id: Optional[str] = None):
-    """Get available time slots for a given date and location (public)"""
+async def get_available_slots(
+    location: str, 
+    date: str, 
+    service_id: Optional[str] = None,
+    duration: Optional[int] = None  # Service duration in minutes
+):
+    """
+    Get available time slots for a given date and location (public).
+    Takes into account worker availability based on booking duration.
+    """
     workers_list = await db.workers.find({"location": location, "active": True}, {"_id": 0}).to_list(100)
+    
+    # Get all bookings for the date (excluding cancelled/no-show)
     existing = await db.bookings.find({
-        "location": location, "date": date,
+        "location": location, 
+        "date": date,
         "status": {"$nin": ["lemondta", "nem_jott_el"]}
     }, {"_id": 0}).to_list(500)
+    
+    # Also check jobs for the same date
+    jobs = await db.jobs.find({
+        "location": location,
+        "date": {"$gte": f"{date}T00:00:00", "$lt": f"{date}T23:59:59"},
+        "status": {"$nin": ["lemondta", "nem_jott_el"]}
+    }, {"_id": 0}).to_list(500)
+    
+    # Convert jobs to booking-like format for blocking calculation
+    for job in jobs:
+        existing.append({
+            "worker_id": job.get("worker_id"),
+            "time_slot": job.get("time_slot"),
+            "duration": 60  # Default job duration
+        })
+    
+    # Calculate blocked slots per worker
+    blocked_slots = get_blocked_slots(existing, workers_list)
+    
+    # Service duration for checking if slot fits
+    check_duration = duration or 60
+    slots_needed = (check_duration + 29) // 30  # Round up to 30-min slots
     
     all_slots = []
     for hour in range(8, 19):
         for minute in [0, 30]:
             slot_time = f"{hour:02d}:{minute:02d}"
-            booked_workers = {bkg["worker_id"] for bkg in existing if bkg.get("time_slot") == slot_time and bkg.get("worker_id")}
-            free_workers = [w for w in workers_list if w["worker_id"] not in booked_workers]
-            booked_count = len(booked_workers)
+            slot_minutes = time_to_minutes(slot_time)
+            
+            # Check each worker's availability for this slot AND the required duration
+            free_workers = []
+            for w in workers_list:
+                worker_id = w["worker_id"]
+                is_free = True
+                
+                # Check if all needed slots are free for this worker
+                for i in range(slots_needed):
+                    check_time = minutes_to_time(slot_minutes + (i * 30))
+                    if check_time in blocked_slots.get(worker_id, set()):
+                        is_free = False
+                        break
+                    # Also check if slot goes beyond working hours (19:00)
+                    if slot_minutes + (i * 30) >= 19 * 60:
+                        is_free = False
+                        break
+                
+                if is_free:
+                    free_workers.append(w)
+            
+            booked_count = len(workers_list) - len(free_workers)
             total_workers = len(workers_list)
             
             all_slots.append({

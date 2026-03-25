@@ -3,44 +3,39 @@
 ## Eredeti probléma leírás
 X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal.
 
-## V3.1 - Dashboard és Booking Fejlesztések (2025-03-25)
+## V3.2 - Időblokkolás és Új Ügyfél (2025-03-25)
+
+### ✅ Időblokkolás logika
+- **Dolgozó foglaltság alapú slot blokkolás**
+- Ha egy dolgozó 2 órás munkát végez 08:00-kor, akkor 08:00-10:00 között nem foglalható más munkára
+- A booking oldal automatikusan elküldi a szolgáltatás időtartamát
+- Csak azok a slotok elérhetők, ahol a teljes szolgáltatás időtartama belefér
+- API: `/api/bookings/available-slots?location=X&date=Y&duration=Z`
+
+### ✅ Új ügyfél felvitel a Dashboard-ról
+- **Új munka dialógban:** "Ügyfél" mező melletti **"+ Új ügyfél"** gomb
+- Kattintásra megjelenik az új ügyfél form:
+  - Név * (kötelező)
+  - Rendszám * (kötelező, automatikus nagybetűs)
+  - Telefon
+  - Email
+  - Autó típusa
+- **"← Meglévő ügyfél"** gomb a visszaváltáshoz
+- Ügyfél kereső: "Keresés név vagy rendszám alapján..."
+- Az új ügyfél automatikusan létrejön a munka mentésekor
 
 ### ✅ Akciók kezelése admin felületen
-- **Szolgáltatások oldalon új "Akciók" fül** (rózsaszín, elsőként jelenik meg)
-- **Új akció létrehozása** form:
-  - Akció neve és leírása
-  - Akciós ár és eredeti ár (%-os kedvezmény automatikus számítás)
-  - Kategória (Komplett/Külső/Belső)
-  - Csomag (Eco/Pro/VIP)
-  - Autó méretek választása (S/M/L/XL/XXL)
-  - Időtartam, badge szöveg, érvényesség dátum
-  - Aktív/Inaktív kapcsoló
-- **Akciók szerkesztése és törlése**
-- **Backend API:**
-  - `POST /api/services/promotions` - Új akció
-  - `GET /api/services/promotions/admin` - Admin lista
-  - `PUT /api/services/promotions/{id}` - Frissítés
-  - `DELETE /api/services/promotions/{id}` - Törlés
+- Szolgáltatások oldalon "Akciók" fül
+- Új akció létrehozása, szerkesztése, törlése
+- Akciók megjelennek a foglalási oldalon
 
-### ✅ Booking oldal - Akciós szolgáltatás megjelenítés
-- Akciók automatikusan betöltődnek az adatbázisból
-- Rózsaszín kártya kiemelés
-- Kedvezmény százalék megjelenítés
-- "Tartalmazza:" feature lista
-
-### ✅ Dashboard - Dolgozónkénti nézet
-- 2 dolgozó oszlop egymás mellett (desktop)
-- "Hozzárendelésre vár" szekció (narancssárga)
-- Kompakt munka kártyák
-
-### ✅ Új státuszok
-- "Nem jött el" (❌) - nem számít bevételbe
-- "Lemondta" (🚫) - nem számít bevételbe
-- Fizetési mód badge: 💵 Készpénz / 💳 Kártya
+### ✅ Dashboard dolgozónkénti nézet
+- 2 dolgozó oszlop
+- Új státuszok: "Nem jött el", "Lemondta"
+- Fizetési mód megjelenítés
 
 ### ✅ Cloudinary integráció
-- Cloud name: `dgqq8hea1`
-- Képek Cloudinary-ban, metadata MongoDB-ben
+- Képek felhő tárolása
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI
@@ -53,17 +48,9 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Booking**: https://booking.xcleandetailapp.hu
 - **API**: https://api.xcleandetailapp.hu
 
-## Railway környezeti változók (hozzáadandó)
-```
-CLOUDINARY_CLOUD_NAME=dgqq8hea1
-CLOUDINARY_API_KEY=488457997917796
-CLOUDINARY_API_SECRET=n1w30K_IpbIpnnVPTxagB5Lq5MM
-```
-
 ## P0 - Következő teendők
-- [ ] Railway deploy az új kóddal
-- [ ] Időblokkolás logika (dolgozó foglaltság alapján)
-- [ ] Új ügyfél felvitel dashboard-ról
+- [ ] Railway deploy az új kóddal (időblokkolás, új ügyfél)
+- [ ] Vercel deploy frissítés (frontend-admin, frontend-booking)
 
 ## P1 - Közepes prioritás  
 - [ ] Google Naptár integráció
@@ -71,11 +58,12 @@ CLOUDINARY_API_SECRET=n1w30K_IpbIpnnVPTxagB5Lq5MM
 - [ ] SMS értesítés (Twilio)
 
 ## P2 - Későbbi fejlesztés
-- [ ] Kedvezmények rendszer (pl. Lion Office Center -10%)
+- [ ] Kedvezmények rendszer
 - [ ] Jelenléti rendszer
 - [ ] Naptár mobil nézet javítás
 
 ## Changelog
-- 2025-03-25: Akciók admin kezelése a Szolgáltatások oldalon
-- 2025-03-25: V3.1 - Dashboard dolgozónkénti nézet, új státuszok, Cloudinary
-- 2025-03-25: V3.0 - Teljesen új BookingPage az árlista alapján
+- 2025-03-25: V3.2 - Időblokkolás logika, Új ügyfél felvitel Dashboard-ról
+- 2025-03-25: Akciók admin kezelése
+- 2025-03-25: V3.1 - Dashboard dolgozónkénti nézet, Cloudinary
+- 2025-03-25: V3.0 - Teljesen új BookingPage

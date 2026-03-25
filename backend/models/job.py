@@ -82,6 +82,10 @@ class JobCreate(BaseModel):
     price: float
     location: str
     date: datetime
+    time_slot: Optional[str] = None
+    car_type: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     notes: Optional[str] = None
 
 class JobUpdate(BaseModel):
