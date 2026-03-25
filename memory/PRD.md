@@ -3,54 +3,41 @@
 ## Eredeti probléma leírás
 X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal.
 
+## V3.4 - P0 Fejlesztések (2025-03-25)
+
+### ✅ Munkások modul - Műszakkezelés javítások
+- **Napra kattintás:** Bármelyik napra kattintva új műszak dialógus nyílik az előre kitöltött dátummal
+- **Műszak szerkesztés:** Meglévő műszakra kattintva szerkesztés dialógus (dolgozó, időpontok, ebédszünet)
+- **Mobil nézet:** Kártya alapú napi lista műszakokkal
+- Backend: `/api/shifts/{shift_id}` PUT végpont bővítve teljes szerkesztéshez
+
+### ✅ Statisztika modul - Korábbi napok megtekintése
+- **Dátumválasztó:** Balra/jobbra nyilak + dátum input a navigációhoz
+- **Történelmi nézet:** Narancssárga kerettel jelölt kártyák (dátum, autók, készpénz, kártya, összesen)
+- **"Ma" gomb:** Megjelenik történelmi nézetben, visszaugrik a mai napra
+- Fallback: Ha nincs history API, jobs-ból számolja ki az adatokat
+
 ## V3.3 - Naptár modul átdolgozás (2025-03-25)
 
 ### ✅ Naptár munkásonkénti oszlopnézet
 - **Napi nézetben** új "Standard" és "Munkások" nézet váltó
 - **Munkások nézet:** Minden dolgozónak külön oszlop
-- "Nincs hozzárendelve" oszlop is megjelenik narancssárgán
-- Színes oszlopfejlécek (kék, lila, zöld, narancs, stb.)
-- Vízszintesen görgethető ha sok dolgozó van
+- "Nincs hozzárendelve" oszlop narancssárga háttérrel
 
 ### ✅ Naptár mobil nézet javítás
 - **Heti nézet:** Kártya alapú elrendezés minden napra
-- Napok neve és dátuma jól látható
-- Foglalások száma badge-ben megjelenik
-- "Nincs foglalás" üzenet ha üres a nap
 - **Havi nézet:** Kompakt rács zöld pontokkal
-- Kattintásra napi nézetre vált
 
 ### ✅ Dashboard "Hozzárendelésre vár" javítás
 - Képfeltöltés gomb minden job card-nál
 - Teljes státusz kezelés (Indít, Nem jött, Lemondta, Készpénz, Kártya)
-- Autó típus és telefon megjelenítés
 
-## V3.2 - Időblokkolás és Új Ügyfél (2025-03-25)
-
-### ✅ Időblokkolás logika
-- **Dolgozó foglaltság alapú slot blokkolás**
-- Ha egy dolgozó 2 órás munkát végez 08:00-kor, akkor 08:00-10:00 között nem foglalható más munkára
-- A booking oldal automatikusan elküldi a szolgáltatás időtartamát
-- API: `/api/bookings/available-slots?location=X&date=Y&duration=Z`
-
-### ✅ Új ügyfél felvitel a Dashboard-ról
-- **Új munka dialógban:** "Ügyfél" mező melletti **"+ Új ügyfél"** gomb
-- Kattintásra megjelenik az új ügyfél form
-- Az új ügyfél automatikusan létrejön a munka mentésekor
-
-### ✅ Akciók kezelése admin felületen
-- Szolgáltatások oldalon "Akciók" fül
-- Új akció létrehozása, szerkesztése, törlése
-- Akciók megjelennek a foglalási oldalon
-
-### ✅ Dashboard dolgozónkénti nézet
-- 2 dolgozó oszlop
-- Új státuszok: "Nem jött el", "Lemondta"
-- Fizetési mód megjelenítés
-
-### ✅ Cloudinary integráció
-- Képek felhő tárolása
-- Cloudinary signed upload
+## V3.2 - Korábbi fejlesztések (2025-03-25)
+- Időblokkolás logika (dolgozó foglaltság alapú slot blokkolás)
+- Új ügyfél felvitel a Dashboard-ról
+- Akciók kezelése admin felületen
+- Dashboard dolgozónkénti nézet
+- Cloudinary képfeltöltés integráció
 
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI
@@ -63,16 +50,15 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Booking**: https://booking.xcleandetailapp.hu
 - **API**: https://api.xcleandetailapp.hu
 
-## P0 - Következő teendők (Mai napi feladatok)
-- [ ] Munkások modul - Műszak kezelés
-- [ ] Munkások modul - Jelenléti rendszer
-- [ ] Statisztikák mobil UI javítás
+## P0 - Következő teendők
 - [ ] Pénztár - Készpénz kivétel funkció
+- [ ] Pénztár - Nap nyitás/zárás fejlesztés
+- [ ] Jelenléti rendszer - Be/kilépés funkció
 
 ## P1 - Közepes prioritás  
 - [ ] Munkások - Havi jelenléti PDF riport
-- [ ] Statisztikák - Korábbi napok megtekintése
-- [ ] Nap nyitás/zárás fejlesztés
+- [ ] Betegszabadság/szabadság napok kezelése
+- [ ] Statisztikák - További mobil UI javítások
 
 ## P2 - Későbbi fejlesztés
 - [ ] Google Naptár integráció
@@ -81,9 +67,8 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [ ] Kedvezmények rendszer
 
 ## Changelog
+- 2025-03-25: V3.4 - Munkások műszakszerkesztés, Statisztika history nézet
 - 2025-03-25: V3.3 - Naptár munkásonkénti oszlopnézet, mobil nézet javítás
-- 2025-03-25: Dashboard "Hozzárendelésre vár" javítás (képek, státuszok)
-- 2025-03-25: V3.2 - Időblokkolás logika, Új ügyfél felvitel Dashboard-ról
-- 2025-03-25: Akciók admin kezelése
-- 2025-03-25: V3.1 - Dashboard dolgozónkénti nézet, Cloudinary
+- 2025-03-25: V3.2 - Időblokkolás, Új ügyfél, Dashboard javítások
+- 2025-03-25: V3.1 - Cloudinary integráció
 - 2025-03-25: V3.0 - Teljesen új BookingPage
