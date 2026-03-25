@@ -75,7 +75,7 @@ def upload_image(file_bytes: bytes, folder: str = "uploads", filename: str = Non
             name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
             public_id = f"{folder}/{name_without_ext}"
         
-        # Upload with aggressive compression and optimization
+        # Upload with smart compression and optimization
         result = cloudinary.uploader.upload(
             file_bytes,
             folder=folder if not public_id else None,
@@ -85,17 +85,9 @@ def upload_image(file_bytes: bytes, folder: str = "uploads", filename: str = Non
             invalidate=True,
             # Compression & optimization settings
             transformation=[
-                {
-                    "quality": "auto:low",      # Aggressive compression, still looks good
-                    "fetch_format": "auto",     # Auto-select best format (webp, avif, etc.)
-                    "width": 1200,              # Max width 1200px
-                    "height": 1200,             # Max height 1200px
-                    "crop": "limit",            # Only resize if larger, keep aspect ratio
-                    "flags": "lossy"            # Allow lossy compression
-                }
+                {"quality": "auto"},           # Smart quality - adapts to image content
+                {"width": 800, "crop": "scale"} # Max 800px wide, maintain aspect ratio
             ],
-            # Additional optimization flags
-            eager_async=True,
             unique_filename=True
         )
         
@@ -132,12 +124,11 @@ def delete_image(public_id: str) -> dict:
             "error": str(e)
         }
 
-def get_optimized_url(public_id: str, width: int = None, height: int = None, crop: str = "fill") -> str:
+def get_optimized_url(public_id: str, width: int = None, height: int = None, crop: str = "scale") -> str:
     """
     Generate optimized Cloudinary URL with transformations.
-    Uses aggressive compression for minimal file size.
     """
-    transformations = ["q_auto:low", "f_auto"]  # Low quality auto + auto format
+    transformations = ["q_auto", "f_auto"]  # Smart quality + auto format (webp/avif)
     
     if width:
         transformations.append(f"w_{width}")
@@ -154,6 +145,5 @@ def get_optimized_url(public_id: str, width: int = None, height: int = None, cro
 def get_thumbnail_url(public_id: str, size: int = 150) -> str:
     """
     Generate small thumbnail URL for previews.
-    Size reduced to 150px for faster loading.
     """
-    return get_optimized_url(public_id, width=size, height=size, crop="thumb")
+    return get_optimized_url(public_id, width=size, height=size, crop="scale")
