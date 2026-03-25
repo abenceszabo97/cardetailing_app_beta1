@@ -247,10 +247,15 @@ export const Dashboard = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const uploadRes = await axios.post(`${API}/upload`, formData, {
-        withCredentials: true,
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // Use the new Cloudinary-based upload endpoint with entity context
+      const uploadRes = await axios.post(
+        `${API}/files/upload?entity_type=job&entity_id=${selectedJob.job_id}`, 
+        formData, 
+        {
+          withCredentials: true,
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }
+      );
       
       const imageUrl = uploadRes.data.url;
       const currentImages = type === 'before' 
@@ -265,10 +270,17 @@ export const Dashboard = () => {
         [type === 'before' ? 'images_before' : 'images_after']: imagesObj
       }, { withCredentials: true });
       
+      // Update selectedJob with new image
+      setSelectedJob(prev => ({
+        ...prev,
+        [type === 'before' ? 'images_before' : 'images_after']: imagesObj
+      }));
+      
       toast.success("Kép feltöltve!");
       fetchData();
     } catch (error) {
-      toast.error("Hiba a kép feltöltésekor");
+      console.error("Upload error:", error);
+      toast.error(error.response?.data?.detail || "Hiba a kép feltöltésekor");
     } finally {
       setUploading(null);
       setCurrentUploadSlot(null);
@@ -780,12 +792,70 @@ export const Dashboard = () => {
                                 <p className="text-slate-400 text-xs mt-1">{job.customer_name}</p>
                                 <p className="text-slate-500 text-xs">{job.service_name}</p>
                                 {job.time_slot && (
-                                  <Badge variant="outline" className="mt-1 text-xs border-slate-600 text-slate-400">
-                                    <Clock className="w-3 h-3 mr-1" />{job.time_slot}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                                    <Clock className="w-3 h-3" />
+                                    {job.time_slot}
+                                  </div>
+                                )}
+                                {job.car_type && (
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                                    <Car className="w-3 h-3" />
+                                    {job.car_type}
+                                  </div>
+                                )}
+                                {job.phone && (
+                                  <div className="text-xs text-slate-500 mt-1">📞 {job.phone}</div>
                                 )}
                               </div>
-                              <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
+                              <div className="text-right flex flex-col items-end gap-1">
+                                <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
+                                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
+                                  <Image className="w-3 h-3 mr-1" />
+                                  {getImageCount(job)}
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Status actions */}
+                            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-800">
+                              {job.status === "foglalt" && (
+                                <>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "folyamatban")}>
+                                    <Clock className="w-3 h-3 mr-1" />Indít
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "nem_jott_el")}>
+                                    ❌ Nem jött
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10" onClick={() => handleUpdateJobStatus(job.job_id, "lemondta")}>
+                                    🚫 Lemondta
+                                  </Button>
+                                </>
+                              )}
+                              {job.status === "folyamatban" && (
+                                <>
+                                  <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "keszpenz")}>
+                                    <Wallet className="w-3 h-3 mr-1" />Készpénz
+                                  </Button>
+                                  <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-500" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "kartya")}>
+                                    <CreditCard className="w-3 h-3 mr-1" />Kártya
+                                  </Button>
+                                </>
+                              )}
+                              {job.status === "kesz" && job.payment_method && (
+                                <Badge className={job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}>
+                                  {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
+                                </Badge>
+                              )}
+                              {job.status === "nem_jott_el" && (
+                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+                                  ❌ Nem jelent meg
+                                </Badge>
+                              )}
+                              {job.status === "lemondta" && (
+                                <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                  🚫 Lemondva
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -879,6 +949,8 @@ export const Dashboard = () => {
                                     alt={slot.label} 
                                     className="w-full h-full object-cover cursor-pointer"
                                     onClick={() => setFullscreenImage(imageUrl)}
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
+                                    loading="lazy"
                                   />
                                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                     <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
@@ -935,6 +1007,8 @@ export const Dashboard = () => {
                                     alt={slot.label} 
                                     className="w-full h-full object-cover cursor-pointer"
                                     onClick={() => setFullscreenImage(imageUrl)}
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
+                                    loading="lazy"
                                   />
                                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                     <button onClick={() => setFullscreenImage(imageUrl)} className="p-2 bg-white/20 rounded-full hover:bg-white/30">
@@ -1050,13 +1124,33 @@ export const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen Image Viewer */}
+      {/* Fullscreen Image Viewer - Improved */}
       {fullscreenImage && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullscreenImage(null)}>
-          <button className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30" onClick={() => setFullscreenImage(null)}>
-            <X className="w-6 h-6 text-white" />
+        <div 
+          className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center" 
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10" 
+            onClick={() => setFullscreenImage(null)}
+          >
+            <X className="w-8 h-8 text-white" />
           </button>
-          <img src={fullscreenImage} alt="Teljes méret" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
+          <div className="w-full h-full p-4 flex items-center justify-center">
+            <img 
+              src={fullscreenImage} 
+              alt="Teljes méret" 
+              className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl" 
+              onClick={(e) => e.stopPropagation()} 
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23374151" width="200" height="200"/><text x="50%" y="50%" fill="%239CA3AF" font-size="14" text-anchor="middle" dy=".3em">Kép nem elérhető</text></svg>';
+              }}
+            />
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm">
+            Kattints bárhová a bezáráshoz
+          </div>
         </div>
       )}
     </div>
