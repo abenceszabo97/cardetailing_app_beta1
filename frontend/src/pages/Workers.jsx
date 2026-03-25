@@ -53,7 +53,11 @@ import {
   Car,
   Clock,
   Calendar,
-  Download
+  Download,
+  LogIn,
+  LogOut,
+  UserCheck,
+  Timer
 } from "lucide-react";
 import { 
   format, 
@@ -93,6 +97,10 @@ export const Workers = () => {
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
   const [editingShift, setEditingShift] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+  // Attendance state
+  const [attendance, setAttendance] = useState([]);
+  const [checkingIn, setCheckingIn] = useState(null);
+  const [checkingOut, setCheckingOut] = useState(null);
 
   const generateWorkerPDF = () => {
     const doc = new jsPDF();
@@ -241,19 +249,57 @@ export const Workers = () => {
   const fetchData = async () => {
     try {
       const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
-      const [shiftsRes, workersRes, jobsRes] = await Promise.all([
+      const [shiftsRes, workersRes, jobsRes, attendanceRes] = await Promise.all([
         axios.get(`${API}/shifts${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
-        axios.get(`${API}/jobs${locationParam}`, { withCredentials: true })
+        axios.get(`${API}/jobs${locationParam}`, { withCredentials: true }),
+        axios.get(`${API}/attendance/today${locationParam}`, { withCredentials: true })
       ]);
       setShifts(shiftsRes.data);
       setWorkers(workersRes.data);
       setJobs(jobsRes.data);
+      setAttendance(attendanceRes.data);
     } catch (error) {
       toast.error("Hiba az adatok betöltésekor");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCheckIn = async (workerId) => {
+    setCheckingIn(workerId);
+    try {
+      await axios.post(`${API}/attendance/check-in`, {
+        worker_id: workerId,
+        location: selectedLocation !== "all" ? selectedLocation : "Debrecen"
+      }, { withCredentials: true });
+      toast.success("Sikeres bejelentkezés!");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Bejelentkezés sikertelen");
+    } finally {
+      setCheckingIn(null);
+    }
+  };
+
+  const handleCheckOut = async (workerId) => {
+    setCheckingOut(workerId);
+    try {
+      const result = await axios.post(`${API}/attendance/check-out`, {
+        worker_id: workerId,
+        location: selectedLocation !== "all" ? selectedLocation : "Debrecen"
+      }, { withCredentials: true });
+      toast.success(`Sikeres kijelentkezés! Ledolgozott órák: ${result.data.hours_worked}`);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Kijelentkezés sikertelen");
+    } finally {
+      setCheckingOut(null);
+    }
+  };
+
+  const getWorkerAttendance = (workerId) => {
+    return attendance.find(a => a.worker_id === workerId);
   };
 
   useEffect(() => {
@@ -467,6 +513,11 @@ export const Workers = () => {
             <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Statisztika</span>
             <span className="sm:hidden">Stat</span>
+          </TabsTrigger>
+          <TabsTrigger value="attendance" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-xs sm:text-sm px-2 sm:px-3">
+            <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Jelenlét</span>
+            <span className="sm:hidden">Jel.</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1261,6 +1312,148 @@ export const Workers = () => {
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Attendance Tab */}
+        <TabsContent value="attendance" className="mt-6 space-y-4">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-green-400" />
+                Mai jelenlét
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-slate-400 mb-4">
+                {format(new Date(), "yyyy. MMMM d. (EEEE)", { locale: hu })}
+              </div>
+              
+              {workers.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Nincsenek dolgozók a rendszerben</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {workers.map((worker, index) => {
+                    const colors = getWorkerColor(index);
+                    const workerAttendance = getWorkerAttendance(worker.worker_id);
+                    const isCheckedIn = workerAttendance?.status === "checked_in";
+                    const isCheckedOut = workerAttendance?.status === "checked_out";
+                    
+                    return (
+                      <div 
+                        key={worker.worker_id} 
+                        className={`p-4 rounded-lg border ${isCheckedIn ? 'border-green-500/50 bg-green-500/5' : isCheckedOut ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-700 bg-slate-900/50'}`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full ${colors.bg} flex items-center justify-center text-white font-bold`}>
+                              {worker.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-white font-medium">{worker.name}</p>
+                              <p className="text-xs text-slate-400">{worker.position || "Dolgozó"}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {isCheckedOut ? (
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                  <Timer className="w-3 h-3 mr-1" />
+                                  {workerAttendance.hours_worked} óra
+                                </Badge>
+                                <Badge className="bg-slate-500/20 text-slate-400 border border-slate-500/30">
+                                  Kijelentkezett
+                                </Badge>
+                              </div>
+                            ) : isCheckedIn ? (
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-green-500/20 text-green-400 border border-green-500/30">
+                                  <LogIn className="w-3 h-3 mr-1" />
+                                  {format(new Date(workerAttendance.check_in), "HH:mm")} óta
+                                </Badge>
+                                <Button 
+                                  size="sm"
+                                  onClick={() => handleCheckOut(worker.worker_id)}
+                                  disabled={checkingOut === worker.worker_id}
+                                  className="bg-red-600 hover:bg-red-500"
+                                  data-testid={`checkout-btn-${worker.worker_id}`}
+                                >
+                                  {checkingOut === worker.worker_id ? (
+                                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                                  ) : (
+                                    <>
+                                      <LogOut className="w-4 h-4 mr-1" />
+                                      Kilépés
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button 
+                                size="sm"
+                                onClick={() => handleCheckIn(worker.worker_id)}
+                                disabled={checkingIn === worker.worker_id}
+                                className="bg-green-600 hover:bg-green-500"
+                                data-testid={`checkin-btn-${worker.worker_id}`}
+                              >
+                                {checkingIn === worker.worker_id ? (
+                                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                                ) : (
+                                  <>
+                                    <LogIn className="w-4 h-4 mr-1" />
+                                    Belépés
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Show check-in/out times */}
+                        {workerAttendance && (
+                          <div className="mt-2 pt-2 border-t border-slate-700/50 text-xs text-slate-400 flex gap-4">
+                            {workerAttendance.check_in && (
+                              <span>Bejelentkezés: {format(new Date(workerAttendance.check_in), "HH:mm")}</span>
+                            )}
+                            {workerAttendance.check_out && (
+                              <span>Kijelentkezés: {format(new Date(workerAttendance.check_out), "HH:mm")}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Today's Summary */}
+          <Card className="glass-card">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-slate-400">Dolgozók</p>
+                  <p className="text-2xl font-bold text-white">{workers.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Bejelentkezve</p>
+                  <p className="text-2xl font-bold text-green-400">{attendance.filter(a => a.status === "checked_in").length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Kijelentkezett</p>
+                  <p className="text-2xl font-bold text-blue-400">{attendance.filter(a => a.status === "checked_out").length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Nem jelentkezett</p>
+                  <p className="text-2xl font-bold text-slate-400">{workers.length - attendance.length}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
