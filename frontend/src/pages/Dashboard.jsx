@@ -39,11 +39,20 @@ import {
   Camera,
   Check,
   ArrowLeftRight,
-  Pencil
+  Pencil,
+  Bell
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
+import { 
+  requestNotificationPermission, 
+  isNotificationEnabled,
+  notifyJobStatusChange, 
+  notifyPayment, 
+  notifyImageUpload,
+  notifyJobEdit
+} from "../services/notificationService";
 
 // Image slot definitions
 const IMAGE_SLOTS_BEFORE = [
@@ -134,7 +143,12 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
+    // Request notification permission on load
+    requestNotificationPermission();
   }, [selectedLocation]);
+
+  // Notification permission state
+  const [notificationsEnabled, setNotificationsEnabled] = useState(isNotificationEnabled());
 
   useEffect(() => {
     if (selectedJob) {
@@ -223,10 +237,21 @@ export const Dashboard = () => {
 
   const handleUpdateJobStatus = async (jobId, status, paymentMethod = null) => {
     try {
+      const job = todayJobs.find(j => j.job_id === jobId);
       const updateData = { status };
       if (paymentMethod) updateData.payment_method = paymentMethod;
       await axios.put(`${API}/jobs/${jobId}`, updateData, { withCredentials: true });
       toast.success("Státusz frissítve!");
+      
+      // Send notification
+      if (job) {
+        if (paymentMethod) {
+          notifyPayment(job, paymentMethod);
+        } else {
+          notifyJobStatusChange(job, status);
+        }
+      }
+      
       fetchData();
     } catch (error) {
       toast.error("Hiba a státusz frissítésekor");
@@ -273,6 +298,10 @@ export const Dashboard = () => {
       }, { withCredentials: true });
       
       toast.success("Munka frissítve!");
+      
+      // Send notification for edit
+      notifyJobEdit(editJob);
+      
       setEditJobOpen(false);
       setEditJob(null);
       fetchData();
@@ -345,7 +374,15 @@ export const Dashboard = () => {
         [type === 'before' ? 'images_before' : 'images_after']: imagesObj
       }));
       
+      // Get slot label for notification
+      const allSlots = [...IMAGE_SLOTS_BEFORE, ...IMAGE_SLOTS_AFTER];
+      const slot = allSlots.find(s => s.id === slotId);
+      
       toast.success("Kép feltöltve!");
+      
+      // Send notification
+      notifyImageUpload(selectedJob, slot?.label || slotId);
+      
       fetchData();
     } catch (error) {
       console.error("Upload error:", error);

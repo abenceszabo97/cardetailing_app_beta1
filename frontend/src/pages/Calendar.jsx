@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { hu } from "date-fns/locale";
+import { 
+  requestNotificationPermission,
+  notifyNewBooking 
+} from "../services/notificationService";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -62,10 +66,42 @@ const Calendar = () => {
   const [blacklistImages, setBlacklistImages] = useState([]);
   const [uploadingBlacklistImage, setUploadingBlacklistImage] = useState(false);
   const blacklistFileRef = useRef(null);
+  const previousBookingIds = useRef(new Set());
 
   useEffect(() => {
     fetchData();
+    // Request notification permission
+    requestNotificationPermission();
   }, [currentDate, location, view]);
+
+  // Polling for new bookings every 30 seconds
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const dateFrom = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+        const dateTo = format(addDays(new Date(), 30), "yyyy-MM-dd");
+        const res = await axios.get(`${API}/bookings?date_from=${dateFrom}&date_to=${dateTo}`, { withCredentials: true });
+        
+        const newBookings = res.data || [];
+        const currentIds = new Set(newBookings.map(b => b.booking_id));
+        
+        // Check for new bookings
+        newBookings.forEach(booking => {
+          if (!previousBookingIds.current.has(booking.booking_id) && previousBookingIds.current.size > 0) {
+            // New booking detected!
+            notifyNewBooking(booking);
+            toast.success(`Új foglalás: ${booking.customer_name} - ${booking.plate_number}`);
+          }
+        });
+        
+        previousBookingIds.current = currentIds;
+      } catch (e) {
+        // Silent fail for polling
+      }
+    }, 30000); // Poll every 30 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, []);
 
   useEffect(() => {
     axios.get(`${API}/services`, { withCredentials: true }).then(r => setServices(r.data)).catch(() => {});
@@ -99,6 +135,11 @@ const Calendar = () => {
       
       setBookings(bookingsRes.data);
       setWorkers(workersRes.data);
+      
+      // Initialize previousBookingIds for polling
+      if (previousBookingIds.current.size === 0) {
+        previousBookingIds.current = new Set(bookingsRes.data.map(b => b.booking_id));
+      }
     } catch (error) {
       toast.error("Hiba az adatok betöltésekor");
     }
