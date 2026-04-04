@@ -3,51 +3,6 @@
 ## Eredeti probléma leírás
 X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számára. Magyar nyelvű felület, sötét téma zöld akcentussal.
 
-## V3.8 - Legacy kép megjelenítési javítás (2025-03-25)
-
-### ✅ Legacy képek bug javítása
-- **Probléma**: A régi képek (MongoDB-ben base64 formátumban tárolva) nem jelenítettek meg előnézetet és nem nyíltak meg teljes képernyőn
-- **Gyökér ok**: A backend `'data'` mezőt keresett, de az adatbázisban `'data_url'` mező volt (data URL formátum: `data:image/png;base64,...`)
-- **Javítás**: A `misc.py` `get_image` endpoint most mindkét formátumot kezeli
-- **Tesztelve**: Backend és frontend tesztek 100% sikeresek
-
-### Képkezelés összefoglaló
-- **Régi képek**: `/api/images/img_xxx` URL → MongoDB `images` collection-ből base64 → image response
-- **Új képek**: Cloudinary-ba töltődnek → `https://res.cloudinary.com/...` URL-t kapnak
-
-## V3.7 - Mai fejlesztések (2025-03-25)
-
-### ✅ Jelenléti PDF generálás
-- **Jelenléti ív** gomb a Statisztika tab-on (zöld gomb)
-- Részletes riport dolgozónként: dátum, nap, kezdés-befejezés, órák, típus
-- Összesítés: munkanapok, szabadság, betegszabadság
-- Backend: `GET /api/shifts/attendance-report?month=YYYY-MM`
-
-### ✅ Szabadság/Betegszabadság kezelés
-- Műszak típus választó: Munkanap / Szabadság / Betegszabadság
-- Mind az új műszak, mind a szerkesztés dialógusban elérhető
-- Szabadságnál nincs ebédszünet mező
-- Backend: `GET /api/shifts/leave-stats` - éves statisztikák
-
-### ✅ Naptár átláthatóbbá tétele
-- **Havi nézet:** Tiszta cellák, foglalások száma badge-ben
-- Foglalások bal oldali színes csíkkal (státusz szerint)
-- Napra kattintva napi nézetre vált
-- **Heti nézet:** Egyszerűsített megjelenés, max 2 foglalás/slot
-- **Mobil nézet:** Napi kártyák foglalás részletekkel
-
-### ✅ Nap zárás riport bővítése
-- Pénzforgalom összesítő: Nyitó + Bevétel - Kivételek = Várható záró
-- Készpénz kivételek részletezése: időpont, indoklás, személy, összeg
-- Elkészült munkák táblázat: rendszám, szolgáltatás, dolgozó, fizetés
-- Lemondott/Nem jelent meg munkák listája
-
-## Korábbi verziók
-- V3.6: Pénztár funkciók (készpénz kivétel, előző nap egyenlege)
-- V3.5: Munkások műszakszerkesztés, Statisztika history
-- V3.4: Naptár munkásonkénti oszlopnézet
-- V3.3-V3.0: Booking page, Dashboard, Cloudinary
-
 ## Technológia stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI
 - **Backend**: FastAPI, Motor (MongoDB async)
@@ -59,15 +14,66 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - **Booking**: https://booking.xcleandetailapp.hu
 - **API**: https://api.xcleandetailapp.hu
 
+## Implementált funkciók
+
+### V3.9 - Mobil és pénztár javítások (2026-04-04)
+- Calendar mobil heti nézet: görgethető napi kártyák (7 nap mind látható)
+- DayManagement záró egyenleg logika: `expected_closing` használata az átvételhez
+- DayManagement mobil layout javítás
+
+### V3.8 - Legacy kép megjelenítési javítás
+- Régi képek (MongoDB base64) megjelenítése javítva
+- `/api/images/img_xxx` endpoint mindkét formátumot kezeli (data/data_url)
+
+### V3.7 - Mai fejlesztések
+- Jelenléti PDF generálás
+- Szabadság/Betegszabadság kezelés
+- Naptár átláthatóbbá tétele
+- Nap zárás riport bővítése
+
+### Korábbi verziók
+- V3.6: Pénztár funkciók (készpénz kivétel, előző nap egyenlege)
+- V3.5: Munkások műszakszerkesztés, Statisztika history
+- V3.4: Naptár munkásonkénti oszlopnézet
+- V3.3-V3.0: Booking page, Dashboard, Cloudinary
+
+### Session 2 fejlesztések (előző fork)
+- Cloudinary optimalizáció (auto quality, max 800px, job-specifikus mappák)
+- Mobil kép feltöltés javítás (galéria picker)
+- Dashboard mobil UI refaktor
+- Dashboard munka szerkesztés (ár, szolgáltatás, idő, telefon)
+- Booking és Job kétirányú szinkron
+- Data Cleanup admin eszköz (Beállítások)
+- Statisztika dátum parsing javítás (regex)
+- Push értesítések hanggal (notificationService.js)
+- Workers heti nézet mobil javítás
+
+## P0 - Sürgős (Tech Debt)
+- [ ] Frontend könyvtárstruktúra refaktorálás (frontend vs frontend-admin egyesítése)
+- [ ] Backend pytest tesztek
+
 ## P1 - Közepes prioritás (Következő feladatok)
 - [ ] Google Naptár integráció
 - [ ] Billingo számlázás integráció
 - [ ] SMS értesítések (Twilio)
-- [ ] Kedvezmények rendszer
 
-## Changelog
-- 2025-03-25: V3.8 - Legacy képek megjelenítési bug javítása (misc.py data/data_url kezelés)
-- 2025-03-25: V3.7 - Jelenléti PDF, Szabadság kezelés, Naptár javítás, Nap zárás riport
-- 2025-03-25: V3.6 - Pénztár funkciók
-- 2025-03-25: V3.5 - Műszakszerkesztés, Statisztika history
-- 2025-03-25: V3.4 - Naptár oszlopnézet
+## P2 - Alacsony prioritás
+- [ ] Kedvezmények rendszer (pl. "Lion Office Center -10%")
+
+## Kulcs API végpontok
+- `PUT /api/jobs/{job_id}` - Job szerkesztés + booking szinkron
+- `GET /api/stats/orphaned-data` - Árva adatok lekérdezése
+- `DELETE /api/stats/cleanup-all-orphaned` - Árva statisztikák törlése
+- `POST /api/files/upload` - Cloudinary feltöltés
+- `POST /api/day-records/open` - Nap megnyitása
+- `POST /api/day-records/close` - Nap lezárása (expected_closing számítással)
+
+## Adatbázis séma
+- `jobs`: job_id, booking_id, status, price, date, time_slot, phone, car_type
+- `bookings`: Mirror a jobs mezőkkel, Calendar nézethez
+- `day_records`: date, location, status, opening_balance, closing_balance, expected_closing, discrepancy
+
+## Megjegyzések
+- SMS értesítések: MOCKED
+- Frontend duplikáció: frontend és frontend-admin között manuális szinkron szükséges (cp parancs)
+- Dátum kezelés MongoDB-ben: `$regex` használata isoformat problémák miatt
