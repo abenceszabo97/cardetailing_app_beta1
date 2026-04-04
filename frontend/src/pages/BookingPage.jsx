@@ -17,13 +17,84 @@ import { AIChatbot, AIUpsellSuggestions } from "../components/AIComponents";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-// Car size icons - generated green line art images
-const CAR_ICON_URLS = {
-  S: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/0bc4db911711e7a2b1f79a1e7f2457fac8a525b9b22bc3b1ff8d681297168b7a.png",
-  M: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/5ba3691da1088faed07116bcdfb987c4daf0f247023b7ac4751e273137cdfbcb.png",
-  L: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/7164e4108b8b3323d58a0567b4d8d03d7694f216285bb15a5781c02b9ac1edf8.png",
-  XL: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/e0a707207b23dd84c96ab56d35ea61c4f4e5065096cb438e8e959237e93ffaf1.png",
-  XXL: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/c61f5798c7bfc572840489edfb178d1cf2b960c693d9333ac333cb6d516f2897.png"
+// Car size icons - inline SVG components matching reference image style
+const CarIcons = {
+  S: () => (
+    <svg viewBox="0 0 100 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15 36 L15 30 C15 28 16 26 18 25 L30 21 C34 19 38 18 44 17 L56 17 C62 17 66 18 70 20 L80 24 C83 25 85 27 85 30 L85 36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M32 21 L34 26 L56 26 L58 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="46" y1="18" x2="46" y2="26" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="28" cy="38" r="6" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="28" cy="38" r="2.5" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="74" cy="38" r="6" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="74" cy="38" r="2.5" stroke="currentColor" strokeWidth="1"/>
+      <line x1="34" y1="38" x2="68" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="8" y1="38" x2="22" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="80" y1="38" x2="92" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+  M: () => (
+    <svg viewBox="0 0 110 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 36 L12 29 C12 27 13 25 16 23 L28 19 C33 17 38 15 46 14 L64 14 C70 14 76 15 80 17 L90 21 C94 23 96 25 96 28 L97 36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M30 19 L33 25 L60 25 L78 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="48" y1="15" x2="47" y2="25" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M78 17 L85 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="26" cy="38" r="6" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="26" cy="38" r="2.5" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="82" cy="38" r="6" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="82" cy="38" r="2.5" stroke="currentColor" strokeWidth="1"/>
+      <line x1="32" y1="38" x2="76" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="5" y1="38" x2="20" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="88" y1="38" x2="105" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+  L: () => (
+    <svg viewBox="0 0 120 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 36 L10 28 C10 26 12 24 15 22 L28 18 C34 15 40 13 50 12 L72 12 C80 12 86 13 90 15 L102 19 C106 21 108 23 108 26 L109 36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M30 18 L33 24 L65 24 L68 22 L88 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="50" y1="13" x2="49" y2="24" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="68" y1="22" x2="68" y2="24" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="25" cy="38" r="6" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="25" cy="38" r="2.5" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="94" cy="38" r="6" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="94" cy="38" r="2.5" stroke="currentColor" strokeWidth="1"/>
+      <line x1="31" y1="38" x2="88" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="3" y1="38" x2="19" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="100" y1="38" x2="117" y2="38" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+  XL: () => (
+    <svg viewBox="0 0 120 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 40 L10 24 C10 22 12 19 15 17 L30 13 C36 10 42 8 52 8 L74 8 C82 8 88 9 92 11 L104 15 C108 17 110 20 110 24 L111 40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M32 13 L34 20 L62 20 L64 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="67" y="11" width="20" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="48" y1="9" x2="47" y2="20" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="26" cy="42" r="7" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="26" cy="42" r="3" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="96" cy="42" r="7" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="96" cy="42" r="3" stroke="currentColor" strokeWidth="1"/>
+      <line x1="33" y1="42" x2="89" y2="42" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="3" y1="42" x2="19" y2="42" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="103" y1="42" x2="117" y2="42" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+  XXL: () => (
+    <svg viewBox="0 0 130 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 40 L10 12 C10 9 12 8 15 8 L90 8 C96 8 100 9 104 11 L114 15 C118 17 120 20 120 24 L121 40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="14" y="12" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="32" y="12" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="50" y="12" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="68" y="12" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M90 8 L100 10 L110 14 C112 15 113 17 113 19 L113 22 L90 22 L90 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="26" cy="42" r="7" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="26" cy="42" r="3" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="104" cy="42" r="7" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="104" cy="42" r="3" stroke="currentColor" strokeWidth="1"/>
+      <line x1="33" y1="42" x2="97" y2="42" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="3" y1="42" x2="19" y2="42" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="111" y1="42" x2="127" y2="42" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  )
 };
 
 const CAR_SIZE_INFO = {
@@ -453,14 +524,8 @@ const BookingPage = () => {
                         }`}
                         data-testid={`size-${size}`}
                       >
-                        <div className="w-16 h-12 mb-2 flex items-center justify-center">
-                          <img 
-                            src={CAR_ICON_URLS[size]} 
-                            alt={size} 
-                            className={`max-w-full max-h-full object-contain transition-all ${
-                              selectedSize === size ? 'brightness-150 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'brightness-100 opacity-80'
-                            }`}
-                          />
+                        <div className={`w-16 h-12 mb-2 ${selectedSize === size ? 'text-green-400' : 'text-slate-500'}`}>
+                          {CarIcons[size]()}
                         </div>
                         <span className={`text-sm font-bold ${selectedSize === size ? 'text-white' : 'text-slate-300'}`}>{size}</span>
                         <span className="text-[10px] text-slate-500 text-center mt-1 leading-tight">{info.description}</span>
