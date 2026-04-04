@@ -16,43 +16,39 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 
 ## Implementált funkciók
 
-### V3.9 - Mobil és pénztár javítások (2026-04-04)
-- Calendar mobil heti nézet: görgethető napi kártyák (7 nap mind látható)
-- DayManagement záró egyenleg logika: `expected_closing` használata az átvételhez
+### V4.0 - Adatszinkron és UI javítások (2026-04-04)
+- **Ügyfél előzmények javítás**: Ügyfél részletező oldal most `customer_id` ÉS `plate_number` alapján keres munkákat + foglalásokat is mutat
+- **Dashboard→Naptár szinkron**: Munka létrehozásakor automatikusan booking is létrejön, így megjelenik a naptárban
+- **Statisztika javítás**: A jobs és bookings közötti kétirányú szinkron biztosítja a pontos statisztikát
+- **Teljes kétirányú szinkron**: Státusz, ár, dolgozó, szolgáltatás módosítások a job-ból vissza szinkronizálódnak a booking-ba
+- **Autóméret ikonok**: Foglalási oldal SVG ikonok cseréje outline/vonalrajz stílusra (S, M, L, XL, XXL)
+- **"Made with Emergent" badge**: BookingPage pb-20 padding hozzáadva, nem takarja el a Tovább gombot
+
+### V3.9 - Mobil és pénztár javítások
+- Calendar mobil heti nézet: görgethető napi kártyák
+- DayManagement záró egyenleg logika: `expected_closing` használata
 - DayManagement mobil layout javítás
 
 ### V3.8 - Legacy kép megjelenítési javítás
 - Régi képek (MongoDB base64) megjelenítése javítva
-- `/api/images/img_xxx` endpoint mindkét formátumot kezeli (data/data_url)
+- `/api/images/img_xxx` endpoint mindkét formátumot kezeli
 
-### V3.7 - Mai fejlesztések
-- Jelenléti PDF generálás
-- Szabadság/Betegszabadság kezelés
-- Naptár átláthatóbbá tétele
-- Nap zárás riport bővítése
+### V3.7 - Korábbi fejlesztések
+- Jelenléti PDF generálás, Szabadság kezelés
+- Naptár átláthatóbbá tétele, Nap zárás riport bővítése
 
-### Korábbi verziók
-- V3.6: Pénztár funkciók (készpénz kivétel, előző nap egyenlege)
-- V3.5: Munkások műszakszerkesztés, Statisztika history
-- V3.4: Naptár munkásonkénti oszlopnézet
-- V3.3-V3.0: Booking page, Dashboard, Cloudinary
-
-### Session 2 fejlesztések (előző fork)
-- Cloudinary optimalizáció (auto quality, max 800px, job-specifikus mappák)
-- Mobil kép feltöltés javítás (galéria picker)
-- Dashboard mobil UI refaktor
-- Dashboard munka szerkesztés (ár, szolgáltatás, idő, telefon)
-- Booking és Job kétirányú szinkron
-- Data Cleanup admin eszköz (Beállítások)
-- Statisztika dátum parsing javítás (regex)
-- Push értesítések hanggal (notificationService.js)
+### Session 2 fejlesztések
+- Cloudinary optimalizáció, Mobil kép feltöltés javítás
+- Dashboard mobil UI refaktor, Dashboard munka szerkesztés
+- Booking és Job kétirányú szinkron, Data Cleanup admin eszköz
+- Statisztika dátum parsing javítás, Push értesítések hanggal
 - Workers heti nézet mobil javítás
 
 ## P0 - Sürgős (Tech Debt)
 - [ ] Frontend könyvtárstruktúra refaktorálás (frontend vs frontend-admin egyesítése)
-- [ ] Backend pytest tesztek
+- [ ] Backend pytest tesztek (alapjai megvannak: /app/backend/tests/)
 
-## P1 - Közepes prioritás (Következő feladatok)
+## P1 - Közepes prioritás
 - [ ] Google Naptár integráció
 - [ ] Billingo számlázás integráció
 - [ ] SMS értesítések (Twilio)
@@ -61,19 +57,19 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 - [ ] Kedvezmények rendszer (pl. "Lion Office Center -10%")
 
 ## Kulcs API végpontok
-- `PUT /api/jobs/{job_id}` - Job szerkesztés + booking szinkron
-- `GET /api/stats/orphaned-data` - Árva adatok lekérdezése
-- `DELETE /api/stats/cleanup-all-orphaned` - Árva statisztikák törlése
-- `POST /api/files/upload` - Cloudinary feltöltés
-- `POST /api/day-records/open` - Nap megnyitása
-- `POST /api/day-records/close` - Nap lezárása (expected_closing számítással)
+- `POST /api/jobs` - Munka létrehozás + automatikus booking létrehozás
+- `PUT /api/jobs/{job_id}` - Munka szerkesztés + booking szinkron
+- `GET /api/customers/{customer_id}` - Ügyfél + munkák (customer_id ÉS plate_number alapján)
+- `GET /api/stats/dashboard` - Statisztikák (regex date matching, status=kesz)
+- `GET /api/bookings` - Foglalások (Calendar olvas innen)
 
 ## Adatbázis séma
-- `jobs`: job_id, booking_id, status, price, date, time_slot, phone, car_type
-- `bookings`: Mirror a jobs mezőkkel, Calendar nézethez
+- `jobs`: job_id, booking_id, customer_id, status, price, date, time_slot, phone, car_type
+- `bookings`: booking_id, customer_name, plate_number, status, price, date, time_slot
 - `day_records`: date, location, status, opening_balance, closing_balance, expected_closing, discrepancy
 
 ## Megjegyzések
 - SMS értesítések: MOCKED
-- Frontend duplikáció: frontend és frontend-admin között manuális szinkron szükséges (cp parancs)
+- Frontend duplikáció: frontend és frontend-admin között manuális szinkron szükséges
 - Dátum kezelés MongoDB-ben: `$regex` használata isoformat problémák miatt
+- Munka létrehozáskor (POST /api/jobs) automatikusan booking is létrejön
