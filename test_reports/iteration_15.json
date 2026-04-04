@@ -23,7 +23,7 @@
     "Frontend - Dashboard loads correctly after login",
     "Frontend - Job with legacy image shows '1' in image count",
     "Frontend - Image dialog displays legacy image in correct slot (Kültér Előlről jobboldal)",
-    "Frontend - Legacy image URL correctly built: https://fleet-ops-64.preview.emergentagent.com/api/images/img_xxx",
+    "Frontend - Legacy image URL correctly built: https://carwash-mobile-fix.preview.emergentagent.com/api/images/img_xxx",
     "Frontend - Fullscreen view opens when clicking zoom button",
     "Frontend - Fullscreen displays full legacy image correctly"
   ],

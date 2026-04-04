@@ -431,10 +431,16 @@ export const DayManagement = () => {
             {previousDayRecord && (
               <div className="p-4 bg-slate-950/50 rounded-lg border border-slate-700">
                 <p className="text-sm text-slate-400 mb-2">Előző nap ({format(new Date(previousDayRecord.date), "MMM d.", { locale: hu })}) záró egyenlege:</p>
-                <p className="text-2xl font-bold text-green-400">{(previousDayRecord.closing_balance || 0).toLocaleString()} Ft</p>
+                {/* Show expected_closing as the carryover value (what should have been in the register) */}
+                <p className="text-2xl font-bold text-green-400">
+                  {(previousDayRecord.expected_closing || previousDayRecord.closing_balance || 0).toLocaleString()} Ft
+                </p>
                 {previousDayRecord.discrepancy !== 0 && (
                   <p className={`text-xs mt-1 ${previousDayRecord.discrepancy > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    Eltérés: {previousDayRecord.discrepancy > 0 ? '+' : ''}{previousDayRecord.discrepancy?.toLocaleString()} Ft
+                    Beírt záró egyenleg: {(previousDayRecord.closing_balance || 0).toLocaleString()} Ft
+                    <span className="ml-2">
+                      (Eltérés: {previousDayRecord.discrepancy > 0 ? '+' : ''}{previousDayRecord.discrepancy?.toLocaleString()} Ft)
+                    </span>
                   </p>
                 )}
               </div>
@@ -446,7 +452,7 @@ export const DayManagement = () => {
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
                 className="bg-slate-950 border-slate-700 text-white"
-                placeholder={previousDayRecord ? (previousDayRecord.closing_balance || 0).toString() : "0"}
+                placeholder={previousDayRecord ? (previousDayRecord.expected_closing || previousDayRecord.closing_balance || 0).toString() : "0"}
                 data-testid="opening-balance-input"
               />
               <p className="text-xs text-slate-500 mt-1">A kasszában lévő készpénz összege</p>
@@ -454,10 +460,10 @@ export const DayManagement = () => {
             {previousDayRecord && !openingBalance && (
               <Button 
                 variant="outline"
-                onClick={() => setOpeningBalance((previousDayRecord.closing_balance || 0).toString())}
+                onClick={() => setOpeningBalance((previousDayRecord.expected_closing || previousDayRecord.closing_balance || 0).toString())}
                 className="w-full border-slate-700 text-slate-300 hover:bg-slate-800"
               >
-                Előző nap záró egyenlegének átvétele ({(previousDayRecord.closing_balance || 0).toLocaleString()} Ft)
+                Előző nap záró egyenlegének átvétele ({(previousDayRecord.expected_closing || previousDayRecord.closing_balance || 0).toLocaleString()} Ft)
               </Button>
             )}
             <Button 
@@ -475,58 +481,58 @@ export const DayManagement = () => {
       {/* Day Stats */}
       {todayRecord && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
             <Card className="glass-card">
-              <CardContent className="p-6">
+              <CardContent className="p-3 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-400">Mai autók</p>
-                    <p className="text-3xl font-bold text-white mt-1">{stats.today_cars}</p>
+                    <p className="text-xs sm:text-sm text-slate-400">Mai autók</p>
+                    <p className="text-xl sm:text-3xl font-bold text-white mt-1">{stats.today_cars}</p>
                   </div>
-                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                    <Car className="w-6 h-6 text-green-400" />
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                    <Car className="w-4 h-4 sm:w-6 sm:h-6 text-green-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="glass-card">
-              <CardContent className="p-6">
+              <CardContent className="p-3 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-400">Mai bevétel</p>
-                    <p className="text-3xl font-bold text-white mt-1">{stats.today_revenue.toLocaleString()} Ft</p>
+                    <p className="text-xs sm:text-sm text-slate-400">Mai bevétel</p>
+                    <p className="text-lg sm:text-3xl font-bold text-white mt-1">{stats.today_revenue.toLocaleString()}<span className="text-xs sm:text-base"> Ft</span></p>
                   </div>
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <Banknote className="w-6 h-6 text-blue-400" />
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <Banknote className="w-4 h-4 sm:w-6 sm:h-6 text-blue-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="glass-card">
-              <CardContent className="p-6">
+              <CardContent className="p-3 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-400">Készpénz</p>
-                    <p className="text-3xl font-bold text-green-400 mt-1">{stats.cash.toLocaleString()} Ft</p>
+                    <p className="text-xs sm:text-sm text-slate-400">Készpénz</p>
+                    <p className="text-lg sm:text-3xl font-bold text-green-400 mt-1">{stats.cash.toLocaleString()}<span className="text-xs sm:text-base"> Ft</span></p>
                   </div>
-                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                    <Wallet className="w-6 h-6 text-green-400" />
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                    <Wallet className="w-4 h-4 sm:w-6 sm:h-6 text-green-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="glass-card">
-              <CardContent className="p-6">
+              <CardContent className="p-3 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-400">Kártya</p>
-                    <p className="text-3xl font-bold text-blue-400 mt-1">{stats.card.toLocaleString()} Ft</p>
+                    <p className="text-xs sm:text-sm text-slate-400">Kártya</p>
+                    <p className="text-lg sm:text-3xl font-bold text-blue-400 mt-1">{stats.card.toLocaleString()}<span className="text-xs sm:text-base"> Ft</span></p>
                   </div>
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-blue-400" />
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-4 h-4 sm:w-6 sm:h-6 text-blue-400" />
                   </div>
                 </div>
               </CardContent>
@@ -534,7 +540,7 @@ export const DayManagement = () => {
           </div>
 
           {/* PDF Export Buttons */}
-          <div className="flex gap-3" data-testid="day-export-buttons">
+          <div className="flex flex-wrap gap-2 sm:gap-3" data-testid="day-export-buttons">
             <Button 
               onClick={handleDownloadPDF}
               className="bg-slate-800 hover:bg-slate-700 text-white"

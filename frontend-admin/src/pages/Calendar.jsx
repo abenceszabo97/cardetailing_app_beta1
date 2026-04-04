@@ -471,8 +471,8 @@ const Calendar = () => {
                   </Badge>
                 </div>
                 {dayBookings.length > 0 ? (
-                  <div className="p-2 space-y-1">
-                    {dayBookings.slice(0, 5).map(booking => (
+                  <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
+                    {dayBookings.map(booking => (
                       <div
                         key={booking.booking_id}
                         className={`p-2 rounded-lg text-xs cursor-pointer ${STATUS_COLORS[booking.status]}`}
@@ -490,11 +490,6 @@ const Calendar = () => {
                         </div>
                       </div>
                     ))}
-                    {dayBookings.length > 5 && (
-                      <div className="text-center text-slate-500 text-xs py-1">
-                        +{dayBookings.length - 5} további foglalás
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="p-3 text-center text-slate-500 text-sm">
