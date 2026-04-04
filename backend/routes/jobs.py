@@ -173,7 +173,37 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
     doc["created_at"] = doc["created_at"].isoformat()
     await db.jobs.insert_one(doc)
     
-    return job.model_dump()
+    # Also create a corresponding booking so it shows on the Calendar
+    booking_doc = {
+        "booking_id": f"bkg_{job.job_id}",
+        "customer_name": job.customer_name,
+        "car_type": job.car_type or "",
+        "plate_number": job.plate_number,
+        "email": job.email or "",
+        "phone": job.phone or "",
+        "service_id": job.service_id,
+        "service_name": job.service_name,
+        "worker_id": job.worker_id or "",
+        "worker_name": job.worker_name or "",
+        "location": job.location,
+        "date": doc["date"][:10],
+        "time_slot": job.time_slot or (doc["date"][11:16] if len(doc["date"]) > 15 else "09:00"),
+        "price": job.price,
+        "status": job.status,
+        "notes": job.notes or "",
+        "created_at": doc["created_at"]
+    }
+    await db.bookings.insert_one(booking_doc)
+    
+    # Link the job to this booking
+    await db.jobs.update_one(
+        {"job_id": job.job_id},
+        {"$set": {"booking_id": booking_doc["booking_id"]}}
+    )
+    
+    result = job.model_dump()
+    result["booking_id"] = booking_doc["booking_id"]
+    return result
 
 @router.put("/jobs/{job_id}")
 async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_current_user)):
@@ -334,12 +364,28 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
         {"$set": update_data}
     )
     
-    # Sync status back to booking if this job came from a booking
-    if job.get("booking_id") and "status" in update_data:
-        await db.bookings.update_one(
-            {"booking_id": job["booking_id"]},
-            {"$set": {"status": update_data["status"]}}
-        )
+    # Sync back to booking if this job came from a booking
+    if job.get("booking_id"):
+        booking_sync = {}
+        if "status" in update_data:
+            booking_sync["status"] = update_data["status"]
+        if "price" in update_data:
+            booking_sync["price"] = update_data["price"]
+        if "service_name" in update_data:
+            booking_sync["service_name"] = update_data["service_name"]
+        if "service_id" in update_data:
+            booking_sync["service_id"] = update_data["service_id"]
+        if "worker_id" in update_data:
+            booking_sync["worker_id"] = update_data["worker_id"]
+        if "worker_name" in update_data:
+            booking_sync["worker_name"] = update_data["worker_name"]
+        if "payment_method" in update_data:
+            booking_sync["payment_method"] = update_data["payment_method"]
+        if booking_sync:
+            await db.bookings.update_one(
+                {"booking_id": job["booking_id"]},
+                {"$set": booking_sync}
+            )
     
     return {"message": "Munka frissítve"}
 

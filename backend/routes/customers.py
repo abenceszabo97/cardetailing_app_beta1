@@ -22,9 +22,49 @@ async def get_customer(customer_id: str, user: User = Depends(get_current_user))
     if not customer:
         raise HTTPException(status_code=404, detail="Ügyfél nem található")
     
-    jobs = await db.jobs.find({"customer_id": customer_id}, {"_id": 0}).sort("date", -1).to_list(100)
+    # Search jobs by both customer_id AND plate_number for complete history
+    plate = customer.get("plate_number", "")
+    jobs_query = {"$or": [{"customer_id": customer_id}]}
+    if plate:
+        jobs_query["$or"].append({"plate_number": plate})
+    jobs = await db.jobs.find(jobs_query, {"_id": 0}).sort("date", -1).to_list(100)
     
-    return {"customer": customer, "jobs": jobs}
+    # Deduplicate by job_id
+    seen = set()
+    unique_jobs = []
+    for j in jobs:
+        jid = j.get("job_id")
+        if jid and jid not in seen:
+            seen.add(jid)
+            unique_jobs.append(j)
+    
+    # Also include completed bookings that were never converted to jobs
+    if plate:
+        bookings = await db.bookings.find(
+            {"plate_number": plate, "status": {"$in": ["kesz", "folyamatban", "foglalt"]}},
+            {"_id": 0}
+        ).sort("date", -1).to_list(100)
+        
+        existing_booking_ids = {j.get("booking_id") for j in unique_jobs if j.get("booking_id")}
+        for b in bookings:
+            if b.get("booking_id") not in existing_booking_ids:
+                unique_jobs.append({
+                    "job_id": f"bkg_{b['booking_id']}",
+                    "booking_id": b["booking_id"],
+                    "customer_name": b.get("customer_name", ""),
+                    "plate_number": b.get("plate_number", ""),
+                    "service_name": b.get("service_name", ""),
+                    "worker_name": b.get("worker_name", ""),
+                    "price": b.get("price", 0),
+                    "status": b.get("status", "foglalt"),
+                    "date": f"{b['date']}T{b.get('time_slot', '00:00')}:00",
+                    "location": b.get("location", ""),
+                    "is_booking": True
+                })
+    
+    unique_jobs.sort(key=lambda x: x.get("date", ""), reverse=True)
+    
+    return {"customer": customer, "jobs": unique_jobs}
 
 @router.post("/customers")
 async def create_customer(data: CustomerCreate, user: User = Depends(get_current_user)):
