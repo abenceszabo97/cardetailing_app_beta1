@@ -13,112 +13,17 @@ import {
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
-import { AIChatbot } from "../components/AIComponents";
+import { AIChatbot, AIUpsellSuggestions } from "../components/AIComponents";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-// Car size icons as SVG components - green outline line-art style
-const CarIcons = {
-  S: () => (
-    <svg viewBox="0 0 120 50" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* Small hatchback */}
-      <path d="M20 35 L20 28 Q20 22 26 20 L42 16 Q50 14 58 14 L72 16 Q80 17 84 20 L94 24 Q100 26 100 30 L100 35" />
-      {/* Roof line */}
-      <path d="M42 16 L42 22 Q42 24 44 24 L72 24 Q74 24 74 22 L74 16" />
-      {/* Windows */}
-      <line x1="58" y1="16" x2="58" y2="24" />
-      {/* Wheels */}
-      <circle cx="34" cy="37" r="7" strokeWidth="2.5" />
-      <circle cx="34" cy="37" r="3" strokeWidth="1.5" />
-      <circle cx="86" cy="37" r="7" strokeWidth="2.5" />
-      <circle cx="86" cy="37" r="3" strokeWidth="1.5" />
-      {/* Underline */}
-      <line x1="41" y1="37" x2="79" y2="37" strokeWidth="1.5" />
-      <line x1="12" y1="37" x2="27" y2="37" strokeWidth="1.5" />
-      <line x1="93" y1="37" x2="108" y2="37" strokeWidth="1.5" />
-    </svg>
-  ),
-  M: () => (
-    <svg viewBox="0 0 130 50" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* Sedan */}
-      <path d="M16 35 L16 28 Q16 24 22 22 L38 18 Q46 15 56 13 L74 13 Q82 13 88 16 L100 20 Q106 22 108 26 L110 30 Q112 33 112 35" />
-      {/* Roof / Windows */}
-      <path d="M38 18 L40 22 Q40 24 42 24 L68 24 Q70 24 72 24 L88 16" />
-      <line x1="56" y1="14" x2="55" y2="24" />
-      {/* Trunk */}
-      <path d="M88 16 L94 20" />
-      {/* Wheels */}
-      <circle cx="32" cy="37" r="7" strokeWidth="2.5" />
-      <circle cx="32" cy="37" r="3" strokeWidth="1.5" />
-      <circle cx="94" cy="37" r="7" strokeWidth="2.5" />
-      <circle cx="94" cy="37" r="3" strokeWidth="1.5" />
-      {/* Underline */}
-      <line x1="39" y1="37" x2="87" y2="37" strokeWidth="1.5" />
-      <line x1="8" y1="37" x2="25" y2="37" strokeWidth="1.5" />
-      <line x1="101" y1="37" x2="118" y2="37" strokeWidth="1.5" />
-    </svg>
-  ),
-  L: () => (
-    <svg viewBox="0 0 140 50" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* Large sedan / kombi */}
-      <path d="M14 35 L14 28 Q14 24 20 22 L36 17 Q44 14 54 12 L80 12 Q90 12 96 14 L108 18 Q114 20 116 24 L118 30 Q120 33 120 35" />
-      {/* Roof / Windows */}
-      <path d="M36 17 L38 22 Q38 24 40 24 L76 24 Q78 24 78 22 L96 14" />
-      <line x1="58" y1="13" x2="57" y2="24" />
-      <line x1="78" y1="22" x2="88 " y2="16" />
-      {/* Wheels */}
-      <circle cx="30" cy="37" r="7" strokeWidth="2.5" />
-      <circle cx="30" cy="37" r="3" strokeWidth="1.5" />
-      <circle cx="104" cy="37" r="7" strokeWidth="2.5" />
-      <circle cx="104" cy="37" r="3" strokeWidth="1.5" />
-      {/* Underline */}
-      <line x1="37" y1="37" x2="97" y2="37" strokeWidth="1.5" />
-      <line x1="6" y1="37" x2="23" y2="37" strokeWidth="1.5" />
-      <line x1="111" y1="37" x2="128" y2="37" strokeWidth="1.5" />
-    </svg>
-  ),
-  XL: () => (
-    <svg viewBox="0 0 140 55" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* SUV - taller, boxier */}
-      <path d="M14 38 L14 26 Q14 22 18 20 L34 16 Q40 13 50 10 L80 10 Q92 10 98 12 L112 17 Q118 19 118 24 L120 30 Q122 36 122 38" />
-      {/* Roof / Windows */}
-      <path d="M34 16 L36 20 Q36 22 38 22 L68 22 Q70 22 70 20 L72 18" />
-      <path d="M72 18 L80 14 Q84 12 88 14 L98 12" />
-      <rect x="74" y="14" width="18" height="8" rx="1" strokeWidth="1.5" />
-      <line x1="55" y1="11" x2="54" y2="22" />
-      {/* Wheels - larger */}
-      <circle cx="30" cy="40" r="8" strokeWidth="2.5" />
-      <circle cx="30" cy="40" r="3.5" strokeWidth="1.5" />
-      <circle cx="106" cy="40" r="8" strokeWidth="2.5" />
-      <circle cx="106" cy="40" r="3.5" strokeWidth="1.5" />
-      {/* Underline */}
-      <line x1="38" y1="40" x2="98" y2="40" strokeWidth="1.5" />
-      <line x1="6" y1="40" x2="22" y2="40" strokeWidth="1.5" />
-      <line x1="114" y1="40" x2="130" y2="40" strokeWidth="1.5" />
-    </svg>
-  ),
-  XXL: () => (
-    <svg viewBox="0 0 150 55" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* Van / Minibus - tallest, longest, boxiest */}
-      <path d="M14 38 L14 14 Q14 10 18 10 L100 10 Q108 10 112 12 L122 16 Q128 18 128 24 L130 32 Q132 36 132 38" />
-      {/* Windows */}
-      <rect x="18" y="14" width="16" height="10" rx="1.5" strokeWidth="1.5" />
-      <rect x="38" y="14" width="16" height="10" rx="1.5" strokeWidth="1.5" />
-      <rect x="58" y="14" width="16" height="10" rx="1.5" strokeWidth="1.5" />
-      <rect x="78" y="14" width="16" height="10" rx="1.5" strokeWidth="1.5" />
-      {/* Front windshield */}
-      <path d="M100 10 L108 12 L118 16 Q120 18 120 20 L120 24 L100 24 L100 10" strokeWidth="1.5" />
-      {/* Wheels - larger */}
-      <circle cx="32" cy="40" r="8" strokeWidth="2.5" />
-      <circle cx="32" cy="40" r="3.5" strokeWidth="1.5" />
-      <circle cx="114" cy="40" r="8" strokeWidth="2.5" />
-      <circle cx="114" cy="40" r="3.5" strokeWidth="1.5" />
-      {/* Underline */}
-      <line x1="40" y1="40" x2="106" y2="40" strokeWidth="1.5" />
-      <line x1="6" y1="40" x2="24" y2="40" strokeWidth="1.5" />
-      <line x1="122" y1="40" x2="140" y2="40" strokeWidth="1.5" />
-    </svg>
-  )
+// Car size icons - generated green line art images
+const CAR_ICON_URLS = {
+  S: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/0bc4db911711e7a2b1f79a1e7f2457fac8a525b9b22bc3b1ff8d681297168b7a.png",
+  M: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/5ba3691da1088faed07116bcdfb987c4daf0f247023b7ac4751e273137cdfbcb.png",
+  L: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/7164e4108b8b3323d58a0567b4d8d03d7694f216285bb15a5781c02b9ac1edf8.png",
+  XL: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/e0a707207b23dd84c96ab56d35ea61c4f4e5065096cb438e8e959237e93ffaf1.png",
+  XXL: "https://static.prod-images.emergentagent.com/jobs/08c5a14b-3077-4f5d-8fd2-7acf75b02018/images/c61f5798c7bfc572840489edfb178d1cf2b960c693d9333ac333cb6d516f2897.png"
 };
 
 const CAR_SIZE_INFO = {
@@ -537,7 +442,6 @@ const BookingPage = () => {
                 <label className="text-sm text-slate-400 mb-3 block font-medium">1. Autó mérete</label>
                 <div className="grid grid-cols-5 gap-2">
                   {Object.entries(CAR_SIZE_INFO).map(([size, info]) => {
-                    const IconComponent = CarIcons[size];
                     return (
                       <button
                         key={size}
@@ -549,8 +453,14 @@ const BookingPage = () => {
                         }`}
                         data-testid={`size-${size}`}
                       >
-                        <div className={`w-12 h-8 mb-2 ${selectedSize === size ? 'text-green-400' : 'text-slate-500'}`}>
-                          <IconComponent />
+                        <div className="w-16 h-12 mb-2 flex items-center justify-center">
+                          <img 
+                            src={CAR_ICON_URLS[size]} 
+                            alt={size} 
+                            className={`max-w-full max-h-full object-contain transition-all ${
+                              selectedSize === size ? 'brightness-150 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'brightness-100 opacity-80'
+                            }`}
+                          />
                         </div>
                         <span className={`text-sm font-bold ${selectedSize === size ? 'text-white' : 'text-slate-300'}`}>{size}</span>
                         <span className="text-[10px] text-slate-500 text-center mt-1 leading-tight">{info.description}</span>
@@ -717,6 +627,27 @@ const BookingPage = () => {
 
               {/* Price Summary - show for both promotion and manual selection */}
               {(selectedPromotion || selectedPackage) && (
+                <>
+                  {/* AI Upsell Suggestions */}
+                  {!selectedPromotion && selectedSize && selectedPackage && (
+                    <AIUpsellSuggestions 
+                      carType={selectedSize}
+                      currentService={`${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} ${selectedPackage}`}
+                      onSelectService={(service) => {
+                        if (service.package) setSelectedPackage(service.package);
+                        if (service.extras) {
+                          service.extras.forEach(e => {
+                            if (!selectedExtras.includes(e)) toggleExtra(e);
+                          });
+                        }
+                      }}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Price Summary - show for both promotion and manual selection */}
+              {(selectedPromotion || selectedPackage) && (
                 <div className={`rounded-xl p-4 border ${
                   selectedPromotion 
                     ? 'bg-gradient-to-r from-pink-500/10 to-orange-500/10 border-pink-500/30'
@@ -864,6 +795,51 @@ const BookingPage = () => {
                   )}
                 </div>
               )}
+
+              {/* Worker Selection */}
+              {form.time_slot && (
+                <div className="mt-4">
+                  <label className="text-sm text-slate-400 mb-3 block">
+                    Munkatárs választása
+                  </label>
+                  {(() => {
+                    const selectedSlot = slots.find(s => s.time_slot === form.time_slot);
+                    const workers = selectedSlot?.available_workers || [];
+                    if (workers.length === 0) return <p className="text-sm text-slate-500">Nincs elérhető munkatárs</p>;
+                    return (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <button
+                          onClick={() => set("worker_id", "")}
+                          className={`p-3 rounded-xl border-2 transition-all text-center ${
+                            !form.worker_id 
+                              ? 'border-green-400 bg-green-500/10 text-white' 
+                              : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:border-slate-600'
+                          }`}
+                          data-testid="worker-any"
+                        >
+                          <Users className="w-5 h-5 mx-auto mb-1 text-green-400" />
+                          <div className="text-sm font-medium">Mindegy</div>
+                        </button>
+                        {workers.map(w => (
+                          <button
+                            key={w.worker_id}
+                            onClick={() => set("worker_id", w.worker_id)}
+                            className={`p-3 rounded-xl border-2 transition-all text-center ${
+                              form.worker_id === w.worker_id
+                                ? 'border-green-400 bg-green-500/10 text-white'
+                                : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:border-slate-600'
+                            }`}
+                            data-testid={`worker-${w.worker_id}`}
+                          >
+                            <User className="w-5 h-5 mx-auto mb-1 text-green-400" />
+                            <div className="text-sm font-medium">{w.name}</div>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -985,6 +961,16 @@ const BookingPage = () => {
                 <div className="grid grid-cols-2 gap-y-3 text-sm">
                   <div className="text-slate-400 flex items-center gap-2"><Calendar className="w-4 h-4" /> Időpont</div>
                   <div className="text-white text-right">{form.date} <span className="text-green-400 font-bold">{form.time_slot}</span></div>
+                  {form.worker_id && (() => {
+                    const selectedSlot = slots.find(s => s.time_slot === form.time_slot);
+                    const worker = selectedSlot?.available_workers?.find(w => w.worker_id === form.worker_id);
+                    return worker ? (
+                      <>
+                        <div className="text-slate-400 flex items-center gap-2"><Users className="w-4 h-4" /> Munkatárs</div>
+                        <div className="text-white text-right">{worker.name}</div>
+                      </>
+                    ) : null;
+                  })()}
                   <div className="text-slate-400 flex items-center gap-2"><User className="w-4 h-4" /> Név</div>
                   <div className="text-white text-right">{form.customer_name}</div>
                   <div className="text-slate-400 flex items-center gap-2"><Car className="w-4 h-4" /> Rendszám</div>
