@@ -584,7 +584,7 @@ export const Statistics = () => {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <Card className="glass-card" data-testid="employee-revenue-card">
               <CardHeader>
                 <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
@@ -641,7 +641,7 @@ export const Statistics = () => {
             </Card>
 
             {/* Strongest Days - All 7 days sorted */}
-            <Card className="glass-card col-span-2" data-testid="strongest-days-card">
+            <Card className="glass-card md:col-span-2 lg:col-span-2" data-testid="strongest-days-card">
               <CardHeader>
                 <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-400" />
@@ -804,7 +804,7 @@ export const Statistics = () => {
                     dataKey="worker_name" 
                     stroke="#94a3b8" 
                     tick={{ fill: '#94a3b8', fontSize: 10 }}
-                    width={100}
+                    width={70}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" fill="#a855f7" radius={[0, 4, 4, 0]} name="Autók" />
@@ -835,7 +835,7 @@ export const Statistics = () => {
                     dataKey="service_name" 
                     stroke="#94a3b8" 
                     tick={{ fill: '#94a3b8', fontSize: 9 }}
-                    width={120}
+                    width={80}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} name="Darab" />

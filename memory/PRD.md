@@ -10,23 +10,24 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 
 ## Implementált funkciók
 
-### V4.1 - Foglalási oldal fejlesztések (2026-04-04)
-- **Autóméret ikonok**: Inline SVG vonalrajz ikonok (S=hatchback, M=sedan, L=kombi, XL=SUV, XXL=kisbusz) átlátszó háttérrel, `currentColor` stroke-al
-- **AI Upsell javaslatok**: AIUpsellSuggestions komponens visszahozva a csomag választás után
-- **Munkatárs választás**: Step 2-ben időpont után kiválasztható a kívánt dolgozó ("Mindegy" + egyéni dolgozók)
-- **"Made with Emergent" badge**: Elrejtve CSS `display: none`-al
+### V4.2 - Napzárás, Statisztika mobil, AI Extra ajánló (2026-04-05)
+- **Napzárás záró egyenleg**: Tényleges kassza tartalom beviteli mező + eltérés kijelzés (zöld/piros)
+- **Nap lezárása** gomb letiltva amíg nincs beírva a záró egyenleg
+- **Statistics mobilnézet javítás**: Grid responsive (md:col-span-2, lg:col-span-2), kisebb YAxis szélességek (70/80px)
+- **"Made with Emergent" badge**: Elrejtve mindkét index.html-ben (frontend + frontend-admin)
+- **AI Extra ajánló**: Automatikus inline javaslatok az extrák listájából, kattintás nélkül megjelenik (nem collapsible)
 
-### V4.0 - Adatszinkron és UI javítások (2026-04-04)
-- Ügyfél előzmények: customer_id ÉS plate_number alapú keresés
-- Dashboard→Naptár szinkron: job létrehozás → automatikus booking
-- Teljes kétirányú szinkron: státusz/ár/dolgozó/szolgáltatás
-- BookingPage pb-20 padding
+### V4.1 - Foglalási oldal fejlesztések (2026-04-04)
+- Autóméret SVG ikonok (S/M/L/XL/XXL), munkatárs választás step 2-ben
+
+### V4.0 - Adatszinkron (2026-04-04)
+- Ügyfél előzmények (customer_id + plate_number), Dashboard→Naptár szinkron, Kétirányú job↔booking szinkron
 
 ### Korábbi verziók
-- V3.9: Calendar mobil heti nézet, DayManagement záró egyenleg
-- V3.8: Legacy kép megjelenítés, Cloudinary optimalizáció
-- V3.7: Jelenléti PDF, Szabadság kezelés
-- Session 2: Dashboard mobil UI, Push értesítések, Data Cleanup
+- V3.9: Calendar mobil heti nézet, DayManagement expected_closing
+- V3.8: Legacy képek, Cloudinary
+- V3.7: PDF, Szabadság
+- Session 2: Dashboard mobil, Push értesítések, Data Cleanup
 
 ## P0 - Sürgős (Tech Debt)
 - [ ] Frontend könyvtárstruktúra refaktorálás (frontend vs frontend-admin)
@@ -41,10 +42,10 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen telephely számár
 
 ## Kulcs API végpontok
 - `POST /api/jobs` - Munka + booking létrehozás
-- `PUT /api/jobs/{job_id}` - Munka szerkesztés + booking szinkron
+- `PUT /api/jobs/{job_id}` - Szerkesztés + booking szinkron
+- `POST /api/day-records/close` - Napzárás (closing_balance + expected_closing + discrepancy)
 - `GET /api/customers/{customer_id}` - Ügyfél + munkák (customer_id ÉS plate_number)
 - `GET /api/bookings/available-slots` - Szabad időpontok és dolgozók
 
 ## Megjegyzések
-- SMS értesítések: MOCKED
-- Frontend duplikáció: frontend/frontend-admin/frontend-booking szinkron szükséges
+- SMS: MOCKED | Frontend duplikáció: manuális szinkron | Dátum: $regex MongoDB

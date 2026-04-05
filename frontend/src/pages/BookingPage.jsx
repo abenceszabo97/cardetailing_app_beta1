@@ -693,20 +693,43 @@ const BookingPage = () => {
               {/* Price Summary - show for both promotion and manual selection */}
               {(selectedPromotion || selectedPackage) && (
                 <>
-                  {/* AI Upsell Suggestions */}
-                  {!selectedPromotion && selectedSize && selectedPackage && (
-                    <AIUpsellSuggestions 
-                      carType={selectedSize}
-                      currentService={`${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} ${selectedPackage}`}
-                      onSelectService={(service) => {
-                        if (service.package) setSelectedPackage(service.package);
-                        if (service.extras) {
-                          service.extras.forEach(e => {
-                            if (!selectedExtras.includes(e)) toggleExtra(e);
-                          });
-                        }
-                      }}
-                    />
+                  {/* Smart Extra Suggestions - inline, automatic */}
+                  {!selectedPromotion && selectedSize && selectedPackage && extras.length > 0 && (
+                    (() => {
+                      const unselectedExtras = extras.filter(e => !selectedExtras.includes(e.service_id || e.name));
+                      if (unselectedExtras.length === 0) return null;
+                      const suggested = unselectedExtras.slice(0, 3);
+                      return (
+                        <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Sparkles className="w-4 h-4 text-green-400" />
+                            <span className="text-green-400 text-sm font-medium">Ajánlott extrák a választott szolgáltatáshoz</span>
+                          </div>
+                          <div className="space-y-2">
+                            {suggested.map(extra => (
+                              <button
+                                key={extra.service_id || extra.name}
+                                onClick={() => toggleExtra(extra.service_id || extra.name)}
+                                className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-green-500/50 hover:bg-green-500/5 transition-all text-left"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded border border-slate-600 flex items-center justify-center">
+                                    <Plus className="w-3 h-3 text-green-400" />
+                                  </div>
+                                  <div>
+                                    <span className="text-white text-sm">{extra.name}</span>
+                                    {extra.description && <p className="text-xs text-slate-500">{extra.description}</p>}
+                                  </div>
+                                </div>
+                                <span className="text-green-400 font-medium text-sm whitespace-nowrap ml-2">
+                                  +{extra.min_price ? `${extra.min_price.toLocaleString()} Ft` : `${(extra.price || 0).toLocaleString()} Ft`}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()
                   )}
                 </>
               )}

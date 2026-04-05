@@ -675,10 +675,64 @@ export const DayManagement = () => {
                     data-testid="closing-notes-input"
                   />
                 </div>
+
+                {/* Closing Balance Input */}
+                <div className="border-t border-slate-700 pt-4 space-y-3">
+                  <Label className="text-white font-semibold text-base flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-blue-400" />
+                    Kassza záró egyenleg
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-950/50 rounded-lg">
+                      <p className="text-xs text-slate-400 mb-1">Várható egyenleg</p>
+                      <p className="text-lg font-bold text-green-400">
+                        {(todayRecord.opening_balance + stats.cash - (todayRecord.withdrawals || []).reduce((sum, w) => sum + w.amount, 0)).toLocaleString()} Ft
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-1">Tényleges kassza tartalom</p>
+                      <Input
+                        type="number"
+                        value={closingBalance}
+                        onChange={(e) => setClosingBalance(e.target.value)}
+                        className="bg-slate-950 border-slate-700 text-white text-lg font-semibold"
+                        placeholder="Írd be a tényleges összeget..."
+                        data-testid="closing-balance-input"
+                      />
+                    </div>
+                  </div>
+                  {closingBalance && (() => {
+                    const expected = todayRecord.opening_balance + stats.cash - (todayRecord.withdrawals || []).reduce((sum, w) => sum + w.amount, 0);
+                    const actual = parseFloat(closingBalance) || 0;
+                    const diff = actual - expected;
+                    return (
+                      <div className={`p-3 rounded-lg border ${
+                        Math.abs(diff) === 0 ? 'bg-green-500/10 border-green-500/30' :
+                        'bg-red-500/10 border-red-500/30'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-300">Eltérés:</span>
+                          <span className={`text-lg font-bold ${
+                            Math.abs(diff) === 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {diff > 0 ? '+' : ''}{diff.toLocaleString()} Ft
+                          </span>
+                        </div>
+                        {Math.abs(diff) === 0 && (
+                          <p className="text-green-400 text-xs mt-1 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Kassza egyezik!
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 <Button 
                   onClick={() => setShowCloseDayConfirm(true)}
                   className="w-full bg-blue-600 hover:bg-blue-500"
                   data-testid="close-day-btn"
+                  disabled={!closingBalance}
                 >
                   <Moon className="w-4 h-4 mr-2" />
                   Nap lezárása
