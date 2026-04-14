@@ -41,7 +41,8 @@ import {
   Tag,
   Percent,
   Calendar,
-  Check
+  Check,
+  Pencil
 } from "lucide-react";
 
 export const Services = () => {
