@@ -10,14 +10,19 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen és Budapest telep
 
 ## Implementált funkciók
 
+### V6.0 - PDF Riportok + Készlet Riasztás (2026-04-14)
+- **Statisztika PDF riportok**: Napi/Heti/Havi bontás, dolgozónkénti autószám, szolgáltatásszám, bevétel, készpénz/kártya
+- **Backend /api/stats/report**: Új endpoint, period (daily/weekly/monthly), date, location paraméterekkel
+- **Riport generálás UI**: Statistics oldalon Napi/Heti/Havi választó, dátumválasztó, PDF Letöltés gomb
+- **Készlet minimum riasztás**: Dashboard-on alacsony készlet kártya, severity szintek (critical/warning)
+- **Budapest hozzáadva a Készlet telephelyekhez**: Szűrő, létrehozás, szerkesztés dialógusokban
+- **Notifikáció severity**: /notifications/low-stock most severity mezőt is ad vissza
+
 ### V5.0 - Budapest telephely + Extrák CRUD (2026-04-14)
 - **Budapest telephely**: Új telephely hozzáadva a rendszerhez
-- **LocationContext**: Központi telephely kontextus (App.js), admin válthat Összes/Debrecen/Budapest, dolgozó saját telephelyéhez kötött
-- **Header telephely választó**: Admin dropdown az összes admin oldalon
-- **BookingPage telephely választó**: Debrecen/Budapest gombok a foglalás elején
-- **Extrák CRUD**: Szolgáltatások oldalon "Extrák" fül - létrehozás, szerkesztés, törlés, telephely hozzárendelés
-- **Location-alapú szűrés**: Extrák, pricing-data, bookings mind telephely szerint szűrhetők
-- **Services model bővítés**: `location` mező (Debrecen/Budapest/null=mindenhol)
+- **LocationContext**: Központi telephely kontextus (App.js), admin válthat Összes/Debrecen/Budapest
+- **Extrák CRUD**: Szolgáltatások oldalon "Extrák" fül
+- **Location-alapú szűrés**: Extrák, pricing-data, bookings mind telephely szerint
 
 ### V4.2 - Napzárás, Statisztika mobil, AI Extra ajánló (2026-04-05)
 - Napzárás záró egyenleg mező + eltérés kijelzés
@@ -30,30 +35,32 @@ X-CLEAN autómosó menedzsment rendszer fejlesztése Debrecen és Budapest telep
 ### V4.0 - Adatszinkron (2026-04-04)
 - Ügyfél előzmények, Dashboard→Naptár szinkron, Kétirányú job↔booking szinkron
 
-## Fázis 2 - Számlázás (KÖVETKEZŐ)
-- [ ] Számlázz.hu integráció (2 céghez: Debrecen + Budapest)
+## Következő feladatok
+
+### Fázis 3 - Foglalás fejlesztések (KÖVETKEZŐ)
+- [ ] Több szolgáltatás kiválasztása (akciós kizárás extráknál) - részben kész
+- [ ] Visszaigazoló email + 24 órás emlékeztető - részben kész (backend kód megvan)
+
+### Fázis 4 - Számlázás
+- [ ] Számlázz.hu integráció (2 céghez: Debrecen + Budapest) - API kulcs később
 - [ ] Számla menüpont (nyilvántartás, megnyitás)
 - [ ] Számlázási adatok foglaláskor (Salonic stílus)
 
-## Fázis 3 - Foglalás fejlesztések
-- [ ] Több szolgáltatás kiválasztása (akciós kizárás)
-- [ ] Visszaigazoló email + 24 órás emlékeztető
+## Jövőbeli feladatok
+- [ ] Google Naptár integráció
+- [ ] Twilio SMS integráció (jelenleg MOCKED)
+- [ ] Kedvezmény rendszer (-10% akciók)
 
-## Fázis 4 - Riportok & Készlet
-- [ ] PDF riportok (napi/heti/havi, dolgozónkénti bontás)
-- [ ] Készlet minimum figyelmeztetés
-
-## P0 - Tech Debt
-- [ ] Frontend könyvtárstruktúra refaktorálás
+## Tech Debt
+- [ ] Frontend könyvtárstruktúra refaktorálás (frontend/frontend-admin/frontend-booking szinkron)
 
 ## Kulcs API végpontok
+- `GET /api/stats/report?period=daily|weekly|monthly&date=YYYY-MM-DD&location=X` - Riport adatok
 - `GET /api/services/locations` - Telephelyek listája
 - `GET /api/services/extras?location=X` - Extrák szűrve telephelyre
-- `POST/PUT/DELETE /api/services/extras` - Extrák CRUD (admin)
-- `GET /api/services/pricing-data?location=X` - Árazás telephely szerint
+- `GET /api/notifications/low-stock` - Alacsony készlet (severity: critical/warning)
 - `POST /api/jobs` - Munka + booking létrehozás
 
 ## Megjegyzések
 - SMS: MOCKED | Frontend triplikáció: frontend/frontend-admin/frontend-booking szinkron
-- Budapest szolgáltatások: A felhasználó később adja meg
 - Számlázz.hu API kulcs: A felhasználónak még nincs
