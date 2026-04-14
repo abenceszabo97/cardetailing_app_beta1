@@ -60,6 +60,7 @@ class BookingCreate(BaseModel):
     category: Optional[str] = None
     duration: Optional[int] = None
     extras: Optional[List[str]] = None
+    promotion_id: Optional[str] = None
     # Second car (optional)
     second_car: Optional[dict] = None  # {car_type, plate_number, service_id}
 
