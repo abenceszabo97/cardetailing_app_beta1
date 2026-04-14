@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -51,6 +51,7 @@ import autoTable from 'jspdf-autotable';
 
 export const Statistics = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [dailyStats, setDailyStats] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [workerStats, setWorkerStats] = useState([]);
@@ -59,7 +60,6 @@ export const Statistics = () => {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [advancedStats, setAdvancedStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState("all");
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [historyStats, setHistoryStats] = useState(null);
 
@@ -67,7 +67,7 @@ export const Statistics = () => {
 
   const fetchStats = async () => {
     try {
-      const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
+      const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       const [dailyRes, monthlyRes, workerRes, serviceRes, locationRes, dashRes, advancedRes] = await Promise.all([
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/monthly${locationParam}`, { withCredentials: true }),
@@ -94,13 +94,13 @@ export const Statistics = () => {
 
   const fetchHistoryStats = async (date) => {
     try {
-      const locationParam = selectedLocation !== "all" ? `&location=${selectedLocation}` : "";
+      const locationParam = locationForApi ? `&location=${locationForApi}` : "";
       const res = await axios.get(`${API}/stats/daily-history?date=${date}${locationParam}`, { withCredentials: true });
       setHistoryStats(res.data);
     } catch (error) {
       // If endpoint doesn't exist, calculate from jobs
       try {
-        const locationParam = selectedLocation !== "all" ? `&location=${selectedLocation}` : "";
+        const locationParam = locationForApi ? `&location=${locationForApi}` : "";
         const jobsRes = await axios.get(`${API}/jobs?date=${date}${locationParam}&status=kesz`, { withCredentials: true });
         const jobs = jobsRes.data || [];
         
@@ -365,16 +365,10 @@ export const Statistics = () => {
           <p className="text-slate-400 mt-1 text-sm sm:text-base">Részletes kimutatások</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-full sm:w-[180px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="stats-location-select">
-              <MapPin className="w-4 h-4 mr-2 text-green-400" />
-              <SelectValue placeholder="Telephely" />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              <SelectItem value="all" className="text-white">Összes telephely</SelectItem>
-              <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+            <MapPin className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
+          </div>
           
           <Button 
             onClick={generatePDF}

@@ -136,15 +136,22 @@ const BookingPage = () => {
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   // Load pricing data and extras
+  // Load pricing data when location changes
   useEffect(() => {
-    axios.get(`${API}/services/pricing-data`)
-      .then(r => setPricingData(r.data))
+    const locParam = form.location ? `?location=${form.location}` : "";
+    axios.get(`${API}/services/pricing-data${locParam}`)
+      .then(r => {
+        setPricingData(r.data);
+        if (r.data.extras) setExtras(r.data.extras);
+      })
       .catch(err => console.error("Pricing data error:", err));
     
-    axios.get(`${API}/services/extras`)
-      .then(r => setExtras(Array.isArray(r.data) ? r.data : []))
-      .catch(err => console.error("Extras error:", err));
-  }, []);
+    if (!form.location) {
+      axios.get(`${API}/services/extras`)
+        .then(r => setExtras(Array.isArray(r.data) ? r.data : []))
+        .catch(err => console.error("Extras error:", err));
+    }
+  }, [form.location]);
 
   // Load slots when date changes - include duration for time blocking
   useEffect(() => {
@@ -267,7 +274,7 @@ const BookingPage = () => {
   };
 
   const canGoNext = () => {
-    if (step === 1) return (selectedPromotion || (selectedSize && selectedCategory && selectedPackage));
+    if (step === 1) return form.location && (selectedPromotion || (selectedSize && selectedCategory && selectedPackage));
     if (step === 2) return form.date && form.time_slot;
     if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && !isBlacklisted;
     return true;
@@ -429,6 +436,30 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Location Selector */}
+              <div>
+                <label className="text-sm text-slate-400 mb-3 block font-medium flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-green-400" /> Telephely
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {["Debrecen", "Budapest"].map(loc => (
+                    <button
+                      key={loc}
+                      onClick={() => set("location", loc)}
+                      className={`p-3 rounded-xl border-2 transition-all text-center ${
+                        form.location === loc
+                          ? 'border-green-500 bg-green-500/10 text-white'
+                          : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
+                      }`}
+                      data-testid={`location-${loc}`}
+                    >
+                      <MapPin className={`w-5 h-5 mx-auto mb-1 ${form.location === loc ? 'text-green-400' : 'text-slate-500'}`} />
+                      <span className="text-sm font-medium">{loc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Active Promotions Banner */}
               {pricingData?.promotions?.length > 0 && !selectedPromotion && (
                 <div className="space-y-3">

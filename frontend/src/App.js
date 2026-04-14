@@ -25,8 +25,11 @@ export const API = `${BACKEND_URL}/api`;
 
 // Auth Context
 const AuthContext = createContext(null);
-
 export const useAuth = () => useContext(AuthContext);
+
+// Location Context  
+const LocationContext = createContext(null);
+export const useLocation2 = () => useContext(LocationContext);
 
 // Auth Provider
 export const AuthProvider = ({ children }) => {
@@ -89,35 +92,72 @@ const ProtectedRoute = ({ children }) => {
 // Main Layout
 const MainLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState("all");
+  const { user } = useAuth();
+  
+  // Admin sees all by default and can switch; workers are locked to their location
+  const isAdmin = user?.role === "admin";
+  const [selectedLocation, setSelectedLocation] = useState(() => {
+    if (!user) return "Debrecen";
+    return isAdmin ? "all" : (user.location || "Debrecen");
+  });
+
+  // Lock non-admin to their location
+  const effectiveLocation = isAdmin ? selectedLocation : (user?.location || "Debrecen");
+  const locationForApi = effectiveLocation === "all" ? null : effectiveLocation;
 
   return (
-    <div className="min-h-screen bg-slate-950 flex">
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)}
-        selectedLocation={selectedLocation}
-        setSelectedLocation={setSelectedLocation}
-      />
-      <div className="flex-1 lg:ml-64">
-        <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-white p-2 hover:bg-white/10 rounded-lg"
-            data-testid="mobile-menu-btn"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="hidden lg:block" />
-          <NotificationBell />
-        </header>
-        <main className="p-4 lg:p-8">
-          {children}
-        </main>
+    <LocationContext.Provider value={{ 
+      selectedLocation: effectiveLocation, 
+      setSelectedLocation: isAdmin ? setSelectedLocation : () => {},
+      locationForApi,
+      isAdmin,
+      locations: ["Debrecen", "Budapest"]
+    }}>
+      <div className="min-h-screen bg-slate-950 flex">
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)}
+          selectedLocation={effectiveLocation}
+          setSelectedLocation={isAdmin ? setSelectedLocation : () => {}}
+        />
+        <div className="flex-1 lg:ml-64">
+          <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-white p-2 hover:bg-white/10 rounded-lg"
+              data-testid="mobile-menu-btn"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-3">
+              {isAdmin && (
+                <select
+                  value={effectiveLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="bg-slate-800 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-green-500"
+                  data-testid="location-selector"
+                >
+                  <option value="all">Összes telephely</option>
+                  <option value="Debrecen">Debrecen</option>
+                  <option value="Budapest">Budapest</option>
+                </select>
+              )}
+              {!isAdmin && user?.location && (
+                <span className="text-sm text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                  {user.location}
+                </span>
+              )}
+            </div>
+            <NotificationBell />
+          </header>
+          <main className="p-4 lg:p-8">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </LocationContext.Provider>
   );
 };
 

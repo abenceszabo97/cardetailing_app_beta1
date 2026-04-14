@@ -55,14 +55,23 @@ async def get_services(user: User = Depends(get_current_user)):
     return services
 
 @router.get("/services/pricing-data")
-async def get_pricing_data():
+async def get_pricing_data(location: Optional[str] = None):
     """Get all pricing data for the booking page (public, no auth)"""
     # Get promotions from database
-    db_promotions = await db.promotions.find({"active": True}, {"_id": 0}).to_list(100)
+    promo_query = {"active": True}
+    if location:
+        promo_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    db_promotions = await db.promotions.find(promo_query, {"_id": 0}).to_list(100)
     
     # If no DB promotions, use default
     if not db_promotions:
         db_promotions = [p for p in PROMOTIONS if p.get("active", True)]
+    
+    # Get extras from database (filtered by location)
+    extras_query = {"service_type": "extra", "active": {"$ne": False}}
+    if location:
+        extras_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    db_extras = await db.services.find(extras_query, {"_id": 0}).to_list(100)
     
     return {
         "package_features": PACKAGE_FEATURES,
@@ -71,7 +80,8 @@ async def get_pricing_data():
         "car_sizes": CAR_SIZE_INFO,
         "packages": ["Eco", "Pro", "VIP"],
         "categories": ["kulso", "belso", "komplett"],
-        "promotions": db_promotions
+        "promotions": db_promotions,
+        "extras": db_extras
     }
 
 @router.get("/services/promotions")
@@ -156,18 +166,18 @@ async def delete_promotion(promo_id: str, user: User = Depends(get_current_user)
     return {"message": "Akció törölve"}
 
 @router.get("/services/extras")
-async def get_extra_services():
+async def get_extra_services(location: Optional[str] = None):
     """Get extra services list (public, no auth)"""
-    # Get extras from database or use default
-    db_extras = await db.services.find(
-        {"service_type": "extra"}, 
-        {"_id": 0}
-    ).to_list(100)
+    query = {"service_type": "extra", "active": {"$ne": False}}
+    if location:
+        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    
+    db_extras = await db.services.find(query, {"_id": 0}).to_list(100)
     
     if db_extras:
         return db_extras
     
-    # Return default extras
+    # Return default extras (Debrecen only)
     return EXTRA_SERVICES
 
 @router.get("/services/calculate-price")
@@ -343,3 +353,95 @@ async def delete_service(service_id: str, user: User = Depends(get_current_user)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Szolgáltatás nem található")
     return {"message": "Szolgáltatás törölve"}
+
+
+# ============== Extras CRUD ==============
+
+class ExtraCreate(BaseModel):
+    name: str
+    category: str = "extra_kulso"
+    price: Optional[float] = None
+    min_price: Optional[float] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+
+class ExtraUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[float] = None
+    min_price: Optional[float] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+    active: Optional[bool] = None
+
+@router.get("/services/extras/admin")
+async def get_extras_admin(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all extras for admin (including inactive)"""
+    query = {"service_type": "extra"}
+    if location:
+        query["location"] = location
+    extras = await db.services.find(query, {"_id": 0}).to_list(100)
+    return extras
+
+@router.post("/services/extras")
+async def create_extra(data: ExtraCreate, user: User = Depends(get_current_user)):
+    """Create a new extra service"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    
+    service = Service(
+        name=data.name,
+        category=data.category,
+        price=data.price or data.min_price or 0,
+        min_price=data.min_price,
+        duration=30,
+        description=data.description,
+        service_type="extra",
+        location=data.location,
+        active=True
+    )
+    doc = service.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.services.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+@router.put("/services/extras/{service_id}")
+async def update_extra(service_id: str, data: ExtraUpdate, user: User = Depends(get_current_user)):
+    """Update an extra service"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
+    
+    result = await db.services.update_one(
+        {"service_id": service_id, "service_type": "extra"},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Extra szolgáltatás nem található")
+    return {"message": "Extra szolgáltatás frissítve"}
+
+@router.delete("/services/extras/{service_id}")
+async def delete_extra(service_id: str, user: User = Depends(get_current_user)):
+    """Delete an extra service"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    
+    result = await db.services.delete_one({"service_id": service_id, "service_type": "extra"})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Extra szolgáltatás nem található")
+    return {"message": "Extra szolgáltatás törölve"}
+
+# ============== Locations ==============
+
+LOCATIONS = [
+    {"id": "Debrecen", "name": "Debrecen", "active": True},
+    {"id": "Budapest", "name": "Budapest", "active": True}
+]
+
+@router.get("/services/locations")
+async def get_locations():
+    """Get available locations (public)"""
+    return LOCATIONS

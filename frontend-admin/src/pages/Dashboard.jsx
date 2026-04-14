@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -79,6 +79,7 @@ const IMAGE_SLOTS_AFTER = [
 
 export const Dashboard = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [stats, setStats] = useState({ 
     today_cars: 0, today_revenue: 0, today_cash: 0, today_card: 0,
     month_cars: 0, month_revenue: 0, month_cash: 0, month_card: 0 
@@ -89,7 +90,6 @@ export const Dashboard = () => {
   const [services, setServices] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState("all");
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
@@ -116,7 +116,7 @@ export const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
+      const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       
       const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true }),
@@ -145,7 +145,7 @@ export const Dashboard = () => {
     fetchData();
     // Request notification permission on load
     requestNotificationPermission();
-  }, [selectedLocation]);
+  }, [selectedLocation, locationForApi]);
 
   // Notification permission state
   const [notificationsEnabled, setNotificationsEnabled] = useState(isNotificationEnabled());
@@ -525,16 +525,10 @@ export const Dashboard = () => {
           <p className="text-slate-400 mt-1 text-sm sm:text-base">Üdvözöljük, {user?.name}!</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-[140px] sm:w-[180px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="dashboard-location-select">
-              <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
-              <SelectValue placeholder="Telephely" />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              <SelectItem value="all" className="text-white">Összes</SelectItem>
-              <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+            <MapPin className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
+          </div>
           
           <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
             <DialogTrigger asChild>

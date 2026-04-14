@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -75,12 +75,12 @@ import autoTable from "jspdf-autotable";
 
 export const Workers = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [shifts, setShifts] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedLocation, setSelectedLocation] = useState("all");
   const [isNewShiftOpen, setIsNewShiftOpen] = useState(false);
   const [isNewWorkerOpen, setIsNewWorkerOpen] = useState(false);
   const [viewMode, setViewMode] = useState("workers");
@@ -311,7 +311,7 @@ export const Workers = () => {
 
   const fetchData = async () => {
     try {
-      const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
+      const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       const [shiftsRes, workersRes, jobsRes] = await Promise.all([
         axios.get(`${API}/shifts${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
@@ -333,7 +333,7 @@ export const Workers = () => {
 
   const fetchWorkerStats = async () => {
     try {
-      const locationParam = selectedLocation !== "all" ? `&location=${selectedLocation}` : "";
+      const locationParam = locationForApi ? `&location=${locationForApi}` : "";
       const res = await axios.get(`${API}/stats/worker-monthly?month=${statsMonth}${locationParam}`, { withCredentials: true });
       setWorkerStats(res.data);
     } catch (error) {
@@ -511,16 +511,10 @@ export const Workers = () => {
           <p className="text-slate-400 mt-1 text-sm sm:text-base">Dolgozók és műszakok kezelése</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-[130px] sm:w-[150px] bg-slate-900 border-slate-700 text-white text-sm">
-              <MapPin className="w-4 h-4 mr-1 sm:mr-2 text-green-400" />
-              <SelectValue placeholder="Telephely" />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              <SelectItem value="all" className="text-white">Összes</SelectItem>
-              <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+            <MapPin className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
+          </div>
         </div>
       </div>
 

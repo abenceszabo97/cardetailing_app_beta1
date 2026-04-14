@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -46,8 +46,10 @@ import {
 
 export const Services = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [services, setServices] = useState([]);
   const [promotions, setPromotions] = useState([]);
+  const [extras, setExtras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isNewServiceOpen, setIsNewServiceOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
@@ -57,6 +59,13 @@ export const Services = () => {
   const [isNewPromoOpen, setIsNewPromoOpen] = useState(false);
   const [editingPromo, setEditingPromo] = useState(null);
   const [deletePromoId, setDeletePromoId] = useState(null);
+
+  // Extra states
+  const [isNewExtraOpen, setIsNewExtraOpen] = useState(false);
+  const [editingExtra, setEditingExtra] = useState(null);
+  const [extraForm, setExtraForm] = useState({
+    name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null
+  });
   
   const [formData, setFormData] = useState({
     name: "",
@@ -115,7 +124,48 @@ export const Services = () => {
   useEffect(() => {
     fetchServices();
     fetchPromotions();
+    fetchExtras();
   }, []);
+
+  const fetchExtras = async () => {
+    try {
+      const locParam = locationForApi ? `?location=${locationForApi}` : "";
+      const response = await axios.get(`${API}/services/extras/admin${locParam}`, { withCredentials: true });
+      setExtras(response.data);
+    } catch (error) {
+      console.error("Extras error:", error);
+    }
+  };
+
+  const handleExtraSubmit = async () => {
+    try {
+      const payload = { ...extraForm };
+      if (payload.price === 0 && payload.min_price > 0) payload.price = payload.min_price;
+      if (editingExtra) {
+        await axios.put(`${API}/services/extras/${editingExtra.service_id}`, payload, { withCredentials: true });
+        toast.success("Extra frissítve");
+      } else {
+        await axios.post(`${API}/services/extras`, payload, { withCredentials: true });
+        toast.success("Extra létrehozva");
+      }
+      setIsNewExtraOpen(false);
+      setEditingExtra(null);
+      setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
+      fetchExtras();
+    } catch (error) {
+      toast.error("Hiba az extra mentésekor");
+    }
+  };
+
+  const handleDeleteExtra = async (serviceId) => {
+    try {
+      await axios.delete(`${API}/services/extras/${serviceId}`, { withCredentials: true });
+      toast.success("Extra törölve");
+      fetchExtras();
+    } catch (error) {
+      toast.error("Hiba az extra törlésekor");
+    }
+  };
 
   const handleSubmit = async () => {
     try {
@@ -421,6 +471,13 @@ export const Services = () => {
               {cat.label}
             </TabsTrigger>
           ))}
+          <TabsTrigger 
+            value="extras"
+            className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Extrák
+          </TabsTrigger>
         </TabsList>
 
         {/* Promotions Tab */}
@@ -763,7 +820,153 @@ export const Services = () => {
             )}
           </TabsContent>
         ))}
+
+        {/* Extras Tab */}
+        <TabsContent value="extras" className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg text-white font-semibold flex items-center gap-2">
+              <Plus className="w-5 h-5 text-blue-400" />
+              Extra szolgáltatások
+            </h2>
+            <Button
+              onClick={() => {
+                setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
+                setEditingExtra(null);
+                setIsNewExtraOpen(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-500"
+              data-testid="new-extra-btn"
+            >
+              <Plus className="w-4 h-4 mr-2" /> Új extra
+            </Button>
+          </div>
+
+          {/* Extras List */}
+          <div className="space-y-3">
+            {extras.map(extra => (
+              <Card key={extra.service_id} className="glass-card">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-white font-medium">{extra.name}</h3>
+                      {extra.location && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{extra.location}</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-400">{extra.description || extra.category}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-green-400 font-bold">
+                      {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                    </span>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => {
+                        setEditingExtra(extra);
+                        setExtraForm({
+                          name: extra.name,
+                          category: extra.category || "extra_kulso",
+                          price: extra.price || 0,
+                          min_price: extra.min_price || 0,
+                          description: extra.description || "",
+                          location: extra.location || null
+                        });
+                        setIsNewExtraOpen(true);
+                      }}
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => handleDeleteExtra(extra.service_id)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {extras.length === 0 && (
+              <div className="text-center text-slate-500 py-12">
+                <Plus className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>Nincs extra szolgáltatás</p>
+                <p className="text-sm mt-1">Adj hozzá extra szolgáltatásokat a Booking oldalhoz</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* New/Edit Extra Dialog */}
+      <Dialog open={isNewExtraOpen} onOpenChange={setIsNewExtraOpen}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-blue-400">
+              {editingExtra ? "Extra szerkesztése" : "Új extra szolgáltatás"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-slate-300">Név</Label>
+              <Input
+                value={extraForm.name}
+                onChange={(e) => setExtraForm({...extraForm, name: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="pl. Bőrápolás"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-slate-300">Ár (Ft)</Label>
+                <Input
+                  type="number"
+                  value={extraForm.price}
+                  onChange={(e) => setExtraForm({...extraForm, price: parseFloat(e.target.value) || 0})}
+                  className="bg-slate-950 border-slate-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-slate-300">Min. ár (Ft-tól)</Label>
+                <Input
+                  type="number"
+                  value={extraForm.min_price}
+                  onChange={(e) => setExtraForm({...extraForm, min_price: parseFloat(e.target.value) || 0})}
+                  className="bg-slate-950 border-slate-700 text-white"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-slate-300">Telephely</Label>
+              <select
+                value={extraForm.location || ""}
+                onChange={(e) => setExtraForm({...extraForm, location: e.target.value || null})}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2"
+              >
+                <option value="">Mindenhol</option>
+                <option value="Debrecen">Debrecen</option>
+                <option value="Budapest">Budapest</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-slate-300">Leírás</Label>
+              <Input
+                value={extraForm.description}
+                onChange={(e) => setExtraForm({...extraForm, description: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="Opcionális leírás"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewExtraOpen(false)} className="border-slate-700">Mégse</Button>
+            <Button onClick={handleExtraSubmit} className="bg-blue-600 hover:bg-blue-500">
+              {editingExtra ? "Mentés" : "Létrehozás"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>

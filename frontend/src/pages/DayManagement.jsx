@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -40,7 +40,8 @@ import autoTable from "jspdf-autotable";
 
 export const DayManagement = () => {
   const { user } = useAuth();
-  const [selectedLocation, setSelectedLocation] = useState("Debrecen");
+  const { selectedLocation, locationForApi } = useLocation2();
+  const effectiveLoc = locationForApi || "Debrecen";
   const [todayRecord, setTodayRecord] = useState(null);
   const [previousDayRecord, setPreviousDayRecord] = useState(null);
   const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
@@ -59,9 +60,9 @@ export const DayManagement = () => {
   const fetchData = async () => {
     try {
       const [recordRes, jobsRes, prevRecordRes] = await Promise.all([
-        axios.get(`${API}/day-records/today?location=${selectedLocation}`, { withCredentials: true }),
-        axios.get(`${API}/jobs/today?location=${selectedLocation}`, { withCredentials: true }),
-        axios.get(`${API}/day-records?location=${selectedLocation}`, { withCredentials: true })
+        axios.get(`${API}/day-records/today?location=${effectiveLoc}`, { withCredentials: true }),
+        axios.get(`${API}/jobs/today?location=${effectiveLoc}`, { withCredentials: true }),
+        axios.get(`${API}/day-records?location=${effectiveLoc}`, { withCredentials: true })
       ]);
       
       setTodayRecord(recordRes.data);
@@ -367,15 +368,10 @@ export const DayManagement = () => {
             {format(new Date(), 'yyyy. MMMM d. EEEE', { locale: hu })}
           </p>
         </div>
-        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-          <SelectTrigger className="w-full sm:w-[180px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="day-location-select">
-            <MapPin className="w-4 h-4 mr-2 text-green-400" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-slate-700">
-            <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+          <MapPin className="w-4 h-4 text-green-400" />
+          <span className="text-sm text-white">{effectiveLoc}</span>
+        </div>
       </div>
 
       {/* Day Status Card */}

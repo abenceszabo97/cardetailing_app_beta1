@@ -15,6 +15,7 @@ class Service(BaseModel):
     features: Optional[List[str]] = None  # List of included features
     service_type: Optional[str] = None  # base_service or extra
     min_price: Optional[float] = None  # For "from X Ft" pricing
+    location: Optional[str] = None  # Debrecen, Budapest, or None for all
     active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -29,6 +30,7 @@ class ServiceCreate(BaseModel):
     features: Optional[List[str]] = None
     service_type: Optional[str] = None
     min_price: Optional[float] = None
+    location: Optional[str] = None
 
 # Package feature definitions based on X-CLEAN price list
 PACKAGE_FEATURES = {
