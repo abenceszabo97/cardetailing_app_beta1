@@ -313,6 +313,143 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
 
 
 
+@router.get("/stats/report")
+async def get_report_data(
+    period: str = "daily",
+    date: str = None,
+    location: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get detailed report data for PDF generation.
+    period: daily, weekly, monthly
+    date: target date (YYYY-MM-DD)
+    """
+    if not date:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    try:
+        target = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        target = datetime.now(timezone.utc)
+    
+    if period == "daily":
+        start_date = date
+        end_date = date
+        date_regex = f"^{date}"
+    elif period == "weekly":
+        weekday = target.weekday()
+        monday = target - timedelta(days=weekday)
+        sunday = monday + timedelta(days=6)
+        start_date = monday.strftime("%Y-%m-%d")
+        end_date = sunday.strftime("%Y-%m-%d")
+        date_regex = None
+    elif period == "monthly":
+        start_date = target.strftime("%Y-%m-01")
+        if target.month == 12:
+            last_day = datetime(target.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            last_day = datetime(target.year, target.month + 1, 1) - timedelta(days=1)
+        end_date = last_day.strftime("%Y-%m-%d")
+        date_regex = f"^{target.strftime('%Y-%m')}"
+    else:
+        start_date = date
+        end_date = date
+        date_regex = f"^{date}"
+    
+    query = {"status": "kesz"}
+    if location:
+        query["location"] = location
+    
+    if date_regex:
+        query["date"] = {"$regex": date_regex}
+    else:
+        query["date"] = {"$gte": start_date, "$lte": end_date + "T23:59:59"}
+    
+    jobs = await db.jobs.find(query, {"_id": 0}).to_list(50000)
+    
+    total_cars = len(jobs)
+    total_revenue = sum(j.get("price", 0) for j in jobs)
+    cash_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") == "keszpenz")
+    card_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") == "kartya")
+    
+    worker_map = {}
+    for job in jobs:
+        wid = job.get("worker_id")
+        wname = job.get("worker_name", "Ismeretlen")
+        if not wid:
+            continue
+        if wid not in worker_map:
+            worker_map[wid] = {"worker_id": wid, "name": wname, "cars": 0, "revenue": 0, "cash": 0, "card": 0, "services": {}}
+        w = worker_map[wid]
+        w["cars"] += 1
+        w["revenue"] += job.get("price", 0)
+        if job.get("payment_method") == "keszpenz":
+            w["cash"] += job.get("price", 0)
+        else:
+            w["card"] += job.get("price", 0)
+        sname = job.get("service_name", "Ismeretlen")
+        w["services"][sname] = w["services"].get(sname, 0) + 1
+    
+    worker_breakdown = []
+    for w in worker_map.values():
+        services_list = [{"name": k, "count": v} for k, v in w["services"].items()]
+        services_list.sort(key=lambda x: x["count"], reverse=True)
+        worker_breakdown.append({
+            "worker_id": w["worker_id"],
+            "name": w["name"],
+            "cars": w["cars"],
+            "revenue": w["revenue"],
+            "cash": w["cash"],
+            "card": w["card"],
+            "services": services_list
+        })
+    worker_breakdown.sort(key=lambda x: x["revenue"], reverse=True)
+    
+    service_map = {}
+    for job in jobs:
+        sid = job.get("service_id")
+        sname = job.get("service_name", "Ismeretlen")
+        if not sid:
+            continue
+        if sid not in service_map:
+            service_map[sid] = {"service_id": sid, "name": sname, "count": 0, "revenue": 0}
+        service_map[sid]["count"] += 1
+        service_map[sid]["revenue"] += job.get("price", 0)
+    
+    service_breakdown = sorted(service_map.values(), key=lambda x: x["count"], reverse=True)
+    
+    daily_breakdown = {}
+    for job in jobs:
+        d = job.get("date", "")[:10]
+        if not d:
+            continue
+        if d not in daily_breakdown:
+            daily_breakdown[d] = {"date": d, "cars": 0, "revenue": 0, "cash": 0, "card": 0}
+        daily_breakdown[d]["cars"] += 1
+        daily_breakdown[d]["revenue"] += job.get("price", 0)
+        if job.get("payment_method") == "keszpenz":
+            daily_breakdown[d]["cash"] += job.get("price", 0)
+        else:
+            daily_breakdown[d]["card"] += job.get("price", 0)
+    
+    daily_list = sorted(daily_breakdown.values(), key=lambda x: x["date"])
+    
+    return {
+        "period": period,
+        "date_range": {"start": start_date, "end": end_date},
+        "location": location or "Összes",
+        "summary": {
+            "total_cars": total_cars,
+            "total_revenue": total_revenue,
+            "cash_revenue": cash_revenue,
+            "card_revenue": card_revenue
+        },
+        "worker_breakdown": worker_breakdown,
+        "service_breakdown": service_breakdown,
+        "daily_breakdown": daily_list
+    }
+
+
 @router.get("/stats/orphaned-data")
 async def get_orphaned_data(user: User = Depends(get_current_user)):
     """Get data that belongs to deleted workers/customers"""

@@ -408,7 +408,7 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
     if not original_booking:
         raise HTTPException(status_code=404, detail="Foglalás nem található")
     
-    result = await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
+    await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
     
     # Get updated booking
     booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
@@ -466,3 +466,43 @@ async def delete_booking(booking_id: str, user: User = Depends(get_current_user)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Foglalás nem található")
     return {"message": "Foglalás törölve"}
+
+
+# ============== REMINDER EMAILS ==============
+
+@router.post("/bookings/send-reminders")
+async def send_reminders():
+    """Send reminder emails for bookings in the next 24 hours. Called by frontend polling or cron."""
+    if not RESEND_API_KEY:
+        return {"status": "skipped", "message": "Email not configured", "sent": 0}
+    
+    now = datetime.now(timezone.utc)
+    tomorrow = now + timedelta(hours=24)
+    tomorrow_date = tomorrow.strftime("%Y-%m-%d")
+    
+    # Find bookings for tomorrow that haven't been reminded
+    bookings = await db.bookings.find({
+        "date": {"$regex": f"^{tomorrow_date}"},
+        "status": {"$in": ["foglalt", "visszaigazolva"]},
+        "reminder_sent": {"$ne": True}
+    }, {"_id": 0}).to_list(100)
+    
+    sent_count = 0
+    for booking in bookings:
+        email = booking.get("email")
+        if not email:
+            continue
+        
+        try:
+            from services.email_service import send_booking_reminder
+            result = await send_booking_reminder(booking)
+            if result.get("status") == "success":
+                await db.bookings.update_one(
+                    {"booking_id": booking["booking_id"]},
+                    {"$set": {"reminder_sent": True}}
+                )
+                sent_count += 1
+        except Exception as e:
+            logging.error(f"Reminder failed for {booking['booking_id']}: {e}")
+    
+    return {"status": "done", "sent": sent_count, "total_found": len(bookings)}

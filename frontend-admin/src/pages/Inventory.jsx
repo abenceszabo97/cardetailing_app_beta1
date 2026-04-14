@@ -151,6 +151,7 @@ export const Inventory = () => {
             <SelectContent className="bg-slate-900 border-slate-700">
               <SelectItem value="all" className="text-white">Összes</SelectItem>
               <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
             </SelectContent>
           </Select>
           
@@ -220,6 +221,7 @@ export const Inventory = () => {
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-700">
                           <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                          <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

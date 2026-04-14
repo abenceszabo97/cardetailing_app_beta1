@@ -62,6 +62,9 @@ export const Statistics = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [historyStats, setHistoryStats] = useState(null);
+  const [reportPeriod, setReportPeriod] = useState("daily");
+  const [reportDate, setReportDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const COLORS = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ec4899', '#14b8a6'];
 
@@ -147,189 +150,185 @@ export const Statistics = () => {
   const isToday = selectedDate === format(new Date(), "yyyy-MM-dd");
 
   const generatePDF = async () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Title
-    doc.setFontSize(20);
-    doc.setTextColor(34, 197, 94); // Green
-    doc.text('X-CLEAN Statisztika', pageWidth / 2, 20, { align: 'center' });
-    
-    // Date and location
-    doc.setFontSize(12);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generálva: ${format(new Date(), 'yyyy. MMMM d. HH:mm', { locale: hu })}`, pageWidth / 2, 30, { align: 'center' });
-    doc.text(`Telephely: ${selectedLocation === 'all' ? 'Összes' : selectedLocation}`, pageWidth / 2, 37, { align: 'center' });
-    
-    let yPos = 50;
-    
-    // Summary KPIs
-    if (dashboardStats) {
+    setGeneratingReport(true);
+    try {
+      const locationParam = locationForApi ? `&location=${locationForApi}` : "";
+      const res = await axios.get(
+        `${API}/stats/report?period=${reportPeriod}&date=${reportDate}${locationParam}`,
+        { withCredentials: true }
+      );
+      const report = res.data;
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const periodLabels = { daily: "Napi", weekly: "Heti", monthly: "Havi" };
+
+      // Title
+      doc.setFontSize(20);
+      doc.setTextColor(34, 197, 94);
+      doc.text(`X-CLEAN ${periodLabels[reportPeriod]} Riport`, pageWidth / 2, 20, { align: "center" });
+
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Idoszak: ${report.date_range.start} - ${report.date_range.end}`, pageWidth / 2, 28, { align: "center" });
+      doc.text(`Telephely: ${report.location}  |  Generalva: ${format(new Date(), "yyyy.MM.dd HH:mm", { locale: hu })}`, pageWidth / 2, 34, { align: "center" });
+
+      let yPos = 44;
+
+      // Summary table
       doc.setFontSize(14);
       doc.setTextColor(0, 0, 0);
-      doc.text('Összesítés', 14, yPos);
-      yPos += 10;
-      
+      doc.text("Osszesites", 14, yPos);
+      yPos += 6;
       autoTable(doc, {
         startY: yPos,
-        head: [['Mutató', 'Érték']],
+        head: [["Mutato", "Ertek"]],
         body: [
-          ['Mai elkészült autók', dashboardStats.today_cars?.toString() || '0'],
-          ['Mai készpénz bevétel', `${(dashboardStats.today_cash || 0).toLocaleString()} Ft`],
-          ['Mai kártya bevétel', `${(dashboardStats.today_card || 0).toLocaleString()} Ft`],
-          ['Havi elkészült autók', dashboardStats.month_cars?.toString() || '0'],
-          ['Havi készpénz bevétel', `${(dashboardStats.month_cash || 0).toLocaleString()} Ft`],
-          ['Havi kártya bevétel', `${(dashboardStats.month_card || 0).toLocaleString()} Ft`],
+          ["Elkeszult autok", report.summary.total_cars.toString()],
+          ["Osszes bevetel", `${report.summary.total_revenue.toLocaleString()} Ft`],
+          ["Keszpenz bevetel", `${report.summary.cash_revenue.toLocaleString()} Ft`],
+          ["Kartya bevetel", `${report.summary.card_revenue.toLocaleString()} Ft`],
+          ["Atlag bevetel / auto", report.summary.total_cars > 0 ? `${Math.round(report.summary.total_revenue / report.summary.total_cars).toLocaleString()} Ft` : "0 Ft"],
         ],
-        theme: 'striped',
+        theme: "striped",
         headStyles: { fillColor: [34, 197, 94] },
-        styles: { fontSize: 10 }
+        styles: { fontSize: 10 },
       });
-      
-      yPos = doc.lastAutoTable.finalY + 15;
-    }
-    
-    // Daily stats table
-    if (dailyStats.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Napi statisztika (aktuális hónap)', 14, yPos);
-      yPos += 10;
-      
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Dátum', 'Autók száma', 'Bevétel']],
-        body: dailyStats.map(d => [
-          format(new Date(d.date), 'yyyy.MM.dd'),
-          d.count.toString(),
-          `${d.revenue.toLocaleString()} Ft`
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [34, 197, 94] },
-        styles: { fontSize: 9 }
-      });
-      
-      yPos = doc.lastAutoTable.finalY + 15;
-    }
-    
-    // Check if we need a new page
-    if (yPos > 200) {
-      doc.addPage();
-      yPos = 20;
-    }
-    
-    // Worker stats
-    if (workerStats.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Dolgozói teljesítmény (havi)', 14, yPos);
-      yPos += 10;
-      
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Dolgozó', 'Autók száma', 'Bevétel']],
-        body: workerStats.map(w => [
-          w.worker_name,
-          w.count.toString(),
-          `${w.revenue.toLocaleString()} Ft`
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 10 }
-      });
-      
-      yPos = doc.lastAutoTable.finalY + 15;
-    }
-    
-    // Check if we need a new page
-    if (yPos > 200) {
-      doc.addPage();
-      yPos = 20;
-    }
-    
-    // Service stats
-    if (serviceStats.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Legnépszerűbb szolgáltatások', 14, yPos);
-      yPos += 10;
-      
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Szolgáltatás', 'Darab', 'Bevétel']],
-        body: serviceStats.map(s => [
-          s.service_name,
-          s.count.toString(),
-          `${s.revenue.toLocaleString()} Ft`
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [249, 115, 22] },
-        styles: { fontSize: 9 }
-      });
-      
-      yPos = doc.lastAutoTable.finalY + 15;
-    }
-    
-    // Check if we need a new page
-    if (yPos > 230) {
-      doc.addPage();
-      yPos = 20;
-    }
-    
-    // Location stats - only Debrecen
-    const filteredLocationStats = locationStats.filter(l => l.location === 'Debrecen');
-    if (filteredLocationStats.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Telephely bontás (havi)', 14, yPos);
-      yPos += 10;
-      
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Telephely', 'Autók száma', 'Bevétel']],
-        body: filteredLocationStats.map(l => [
-          l.location,
-          l.count.toString(),
-          `${l.revenue.toLocaleString()} Ft`
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [168, 85, 247] },
-        styles: { fontSize: 10 }
-      });
-    }
-    
-    // Footer
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`X-CLEAN Menedzsment - Oldal ${i}/${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-    }
-    
-    // Save
-    const fileName = `xclean_statisztika_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
-    const blob = doc.output("blob");
-    
-    if (window.showSaveFilePicker) {
-      try {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{
-            description: "PDF dokumentum",
-            accept: { "application/pdf": [".pdf"] }
-          }]
+      yPos = doc.lastAutoTable.finalY + 12;
+
+      // Worker breakdown
+      if (report.worker_breakdown.length > 0) {
+        if (yPos > 220) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Dolgozoi teljesitmeny", 14, yPos);
+        yPos += 6;
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Dolgozo", "Autok", "Bevetel", "Keszpenz", "Kartya"]],
+          body: report.worker_breakdown.map((w) => [
+            w.name,
+            w.cars.toString(),
+            `${w.revenue.toLocaleString()} Ft`,
+            `${w.cash.toLocaleString()} Ft`,
+            `${w.card.toLocaleString()} Ft`,
+          ]),
+          theme: "striped",
+          headStyles: { fillColor: [59, 130, 246] },
+          styles: { fontSize: 10 },
         });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        toast.success('PDF mentve!');
-        return;
-      } catch (err) {
-        if (err.name === "AbortError") return;
+        yPos = doc.lastAutoTable.finalY + 12;
       }
+
+      // Worker service breakdown
+      if (report.worker_breakdown.length > 0) {
+        if (yPos > 200) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.text("Szolgaltatas bontás dolgozoknent", 14, yPos);
+        yPos += 6;
+
+        const serviceRows = [];
+        for (const w of report.worker_breakdown) {
+          for (const s of w.services) {
+            serviceRows.push([w.name, s.name, s.count.toString()]);
+          }
+        }
+        if (serviceRows.length > 0) {
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Dolgozo", "Szolgaltatas", "Darab"]],
+            body: serviceRows,
+            theme: "striped",
+            headStyles: { fillColor: [168, 85, 247] },
+            styles: { fontSize: 9 },
+          });
+          yPos = doc.lastAutoTable.finalY + 12;
+        }
+      }
+
+      // Service breakdown
+      if (report.service_breakdown.length > 0) {
+        if (yPos > 200) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.text("Szolgaltatas statisztika", 14, yPos);
+        yPos += 6;
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Szolgaltatas", "Darab", "Bevetel"]],
+          body: report.service_breakdown.map((s) => [
+            s.name,
+            s.count.toString(),
+            `${s.revenue.toLocaleString()} Ft`,
+          ]),
+          theme: "striped",
+          headStyles: { fillColor: [249, 115, 22] },
+          styles: { fontSize: 10 },
+        });
+        yPos = doc.lastAutoTable.finalY + 12;
+      }
+
+      // Daily breakdown (for weekly/monthly)
+      if (reportPeriod !== "daily" && report.daily_breakdown.length > 0) {
+        if (yPos > 180) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.text("Napi bontas", 14, yPos);
+        yPos += 6;
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Datum", "Autok", "Bevetel", "Keszpenz", "Kartya"]],
+          body: report.daily_breakdown.map((d) => [
+            d.date,
+            d.cars.toString(),
+            `${d.revenue.toLocaleString()} Ft`,
+            `${d.cash.toLocaleString()} Ft`,
+            `${d.card.toLocaleString()} Ft`,
+          ]),
+          theme: "striped",
+          headStyles: { fillColor: [20, 184, 166] },
+          styles: { fontSize: 9 },
+        });
+      }
+
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`X-CLEAN Menedzsment - Oldal ${i}/${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+      }
+
+      // Save
+      const periodSlug = { daily: "napi", weekly: "heti", monthly: "havi" };
+      const fileName = `xclean_${periodSlug[reportPeriod]}_riport_${reportDate}.pdf`;
+      const blob = doc.output("blob");
+
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: "PDF dokumentum", accept: { "application/pdf": [".pdf"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast.success("PDF mentve!");
+          return;
+        } catch (err) {
+          if (err.name === "AbortError") return;
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      toast.success("PDF megnyitva - mentsd el Ctrl+S-sel!");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      console.error("Report generation error:", error);
+      toast.error("Hiba a riport generalasanal");
+    } finally {
+      setGeneratingReport(false);
     }
-    
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    toast.success('PDF megnyitva új ablakban - mentsd el Ctrl+S-sel!');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const CustomTooltip = ({ active, payload, label, formatter }) => {
@@ -369,17 +368,54 @@ export const Statistics = () => {
             <MapPin className="w-4 h-4 text-green-400" />
             <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
           </div>
-          
-          <Button 
-            onClick={generatePDF}
-            className="bg-green-600 hover:bg-green-500 w-full sm:w-auto"
-            data-testid="export-pdf-btn"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            PDF Export
-          </Button>
         </div>
       </div>
+
+      {/* PDF Report Generator */}
+      <Card className="glass-card border-green-500/20">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-green-400" />
+              <span className="text-white font-medium">Riport generálás</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select value={reportPeriod} onValueChange={setReportPeriod}>
+                <SelectTrigger className="w-[120px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="report-period-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  <SelectItem value="daily" className="text-white">Napi</SelectItem>
+                  <SelectItem value="weekly" className="text-white">Heti</SelectItem>
+                  <SelectItem value="monthly" className="text-white">Havi</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value)}
+                max={format(new Date(), "yyyy-MM-dd")}
+                className="bg-slate-900 border-slate-700 text-white w-40 h-9 text-sm"
+                data-testid="report-date-input"
+              />
+              <Button
+                onClick={generatePDF}
+                disabled={generatingReport}
+                className="bg-green-600 hover:bg-green-500 w-full sm:w-auto"
+                data-testid="generate-report-btn"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {generatingReport ? "Generálás..." : "PDF Letöltés"}
+              </Button>
+            </div>
+          </div>
+          <p className="text-slate-500 text-xs mt-2">
+            {reportPeriod === "daily" && "Kiválasztott nap részletes bontása: dolgozónkénti autószám, szolgáltatás, bevétel, készpénz/kártya."}
+            {reportPeriod === "weekly" && "Kiválasztott hét (H-V) összesítése: dolgozónkénti teljesítmény, szolgáltatások, napi bontás."}
+            {reportPeriod === "monthly" && "Kiválasztott hónap összesítése: dolgozónkénti teljesítmény, szolgáltatások, napi bontás."}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       {dashboardStats && (

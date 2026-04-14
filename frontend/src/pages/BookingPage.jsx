@@ -200,6 +200,7 @@ const BookingPage = () => {
   // Select a promotion
   const selectPromotion = (promo) => {
     setSelectedPromotion(promo);
+    setSelectedExtras([]); // Clear extras when promotion selected
     // Auto-select size and category based on promotion
     if (promo.car_sizes?.length > 0) {
       setSelectedSize(promo.car_sizes[promo.car_sizes.length - 1]); // Largest allowed
@@ -685,39 +686,49 @@ const BookingPage = () => {
               {(selectedPromotion || selectedPackage) && extras.length > 0 && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">
-                    {selectedPromotion ? 'Extra szolgáltatások (opcionális)' : '4. Extra szolgáltatások (opcionális)'}
+                    {selectedPromotion ? 'Extra szolgáltatások' : '4. Extra szolgáltatások (opcionális)'}
                   </label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {extras.map(extra => (
-                      <div
-                        key={extra.service_id || extra.name}
-                        onClick={() => toggleExtra(extra.service_id || extra.name)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                          selectedExtras.includes(extra.service_id || extra.name)
-                            ? 'border-green-500 bg-green-500/10'
-                            : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Checkbox 
-                              checked={selectedExtras.includes(extra.service_id || extra.name)}
-                              className="border-slate-600"
-                            />
-                            <div>
-                              <span className="text-white text-sm">{extra.name}</span>
-                              {extra.description && (
-                                <p className="text-xs text-slate-500">{extra.description}</p>
-                              )}
+                  {selectedPromotion ? (
+                    <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                      <p className="text-amber-400 text-sm flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Az akciós csomag már tartalmazza az összes szolgáltatást!
+                      </p>
+                      <p className="text-slate-500 text-xs mt-1">Az akciós árak fix csomagokat tartalmaznak, extra szolgáltatás nem adható hozzá.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {extras.map(extra => (
+                        <div
+                          key={extra.service_id || extra.name}
+                          onClick={() => toggleExtra(extra.service_id || extra.name)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                            selectedExtras.includes(extra.service_id || extra.name)
+                              ? 'border-green-500 bg-green-500/10'
+                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Checkbox 
+                                checked={selectedExtras.includes(extra.service_id || extra.name)}
+                                className="border-slate-600"
+                              />
+                              <div>
+                                <span className="text-white text-sm">{extra.name}</span>
+                                {extra.description && (
+                                  <p className="text-xs text-slate-500">{extra.description}</p>
+                                )}
+                              </div>
                             </div>
+                            <span className="text-green-400 font-medium">
+                              {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                            </span>
                           </div>
-                          <span className="text-green-400 font-medium">
-                            {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
-                          </span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

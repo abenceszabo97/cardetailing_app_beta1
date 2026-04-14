@@ -15,14 +15,18 @@ async def get_low_stock_notifications(user: User = Depends(get_current_user)):
     
     low_stock = []
     for item in inventory:
-        if item.get("current_quantity", 0) <= item.get("min_level", 0):
+        qty = item.get("current_quantity", 0)
+        min_lvl = item.get("min_level", 0)
+        if qty <= min_lvl:
+            severity = "critical" if qty <= 0 else "warning"
             low_stock.append({
                 "inventory_id": item["inventory_id"],
                 "product_name": item["product_name"],
-                "current_quantity": item["current_quantity"],
-                "min_level": item["min_level"],
+                "current_quantity": qty,
+                "min_level": min_lvl,
                 "unit": item.get("unit", "db"),
-                "location": item.get("location", "")
+                "location": item.get("location", ""),
+                "severity": severity
             })
     
     return low_stock

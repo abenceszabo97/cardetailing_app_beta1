@@ -39,10 +39,56 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Cloudinary config check failed: {e}")
     
+    # Start background reminder task
+    import asyncio
+    reminder_task = asyncio.create_task(reminder_loop())
+    
     yield
+    
     # Shutdown
     logger.info("X-CLEAN API shutting down...")
+    reminder_task.cancel()
     await close_db()
+
+
+async def reminder_loop():
+    """Background task: check for bookings that need reminders every hour"""
+    import asyncio
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Run every hour
+            from datetime import datetime, timezone, timedelta
+            now = datetime.now(timezone.utc)
+            tomorrow = now + timedelta(hours=24)
+            tomorrow_date = tomorrow.strftime("%Y-%m-%d")
+            
+            bookings = await db.bookings.find({
+                "date": {"$regex": f"^{tomorrow_date}"},
+                "status": {"$in": ["foglalt", "visszaigazolva"]},
+                "reminder_sent": {"$ne": True}
+            }, {"_id": 0}).to_list(100)
+            
+            if bookings:
+                logger.info(f"Sending {len(bookings)} reminder emails for {tomorrow_date}")
+                for booking in bookings:
+                    email = booking.get("email")
+                    if not email:
+                        continue
+                    try:
+                        from services.email_service import send_booking_reminder
+                        result = await send_booking_reminder(booking)
+                        if result.get("status") == "success":
+                            await db.bookings.update_one(
+                                {"booking_id": booking["booking_id"]},
+                                {"$set": {"reminder_sent": True}}
+                            )
+                    except Exception as e:
+                        logger.error(f"Reminder error: {e}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Reminder loop error: {e}")
+            await asyncio.sleep(60)
 
 app = FastAPI(
     title="X-CLEAN API",

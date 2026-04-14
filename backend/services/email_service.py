@@ -150,3 +150,95 @@ async def send_booking_confirmation(booking: dict) -> dict:
     except Exception as e:
         logger.error(f"Failed to send booking confirmation email: {str(e)}")
         return {"status": "error", "message": str(e)}
+
+
+def generate_booking_reminder_html(booking: dict) -> str:
+    """Generate HTML email for 24h booking reminder"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .highlight {{ background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }}
+            .detail-row {{ display: flex; padding: 10px 0; border-bottom: 1px solid #eee; }}
+            .detail-label {{ font-weight: bold; color: #666; width: 40%; }}
+            .detail-value {{ color: #333; width: 60%; }}
+            .footer {{ background: #f9fafb; padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>xClean Autókozmetika</h1>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Emlékeztető - Holnapi időpont</p>
+            </div>
+            <div class="content">
+                <p>Kedves <strong>{booking.get('customer_name', 'Ügyfelünk')}</strong>!</p>
+                <p>Szeretnénk emlékeztetni, hogy <strong>holnap</strong> van az időpontja nálunk!</p>
+                
+                <div class="highlight">
+                    <div class="detail-row">
+                        <span class="detail-label">Szolgáltatás:</span>
+                        <span class="detail-value">{booking.get('service_name', '-')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Dátum:</span>
+                        <span class="detail-value">{booking.get('date', '-')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Időpont:</span>
+                        <span class="detail-value">{booking.get('time_slot', '-')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Helyszín:</span>
+                        <span class="detail-value">{booking.get('location', '-')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Rendszám:</span>
+                        <span class="detail-value">{booking.get('plate_number', '-')}</span>
+                    </div>
+                </div>
+
+                <p style="color: #666; font-size: 14px; margin-top: 20px;">
+                    Ha bármilyen változás merül fel, kérjük jelezze nekünk időben!
+                </p>
+            </div>
+            <div class="footer">
+                <p style="font-weight: bold;">xClean Autókozmetika</p>
+                <p>Telefon: 06 (20) 473 9638 | Email: rendeles@xclean.hu</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+async def send_booking_reminder(booking: dict) -> dict:
+    """Send 24h reminder email"""
+    if not RESEND_API_KEY:
+        return {"status": "skipped", "message": "Email service not configured"}
+    
+    email = booking.get("email")
+    if not email:
+        return {"status": "skipped", "message": "No email address"}
+    
+    try:
+        html_content = generate_booking_reminder_html(booking)
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [email],
+            "subject": "Emlékeztető - Holnapi időpont - xClean Autókozmetika",
+            "html": html_content
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logger.info(f"Reminder email sent to {email}")
+        return {"status": "success", "email_id": result.get("id") if isinstance(result, dict) else str(result)}
+    except Exception as e:
+        logger.error(f"Reminder email failed: {e}")
+        return {"status": "error", "message": str(e)}

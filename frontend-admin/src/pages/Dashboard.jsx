@@ -40,7 +40,9 @@ import {
   Check,
   ArrowLeftRight,
   Pencil,
-  Bell
+  Bell,
+  AlertTriangle,
+  Package
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -89,6 +91,7 @@ export const Dashboard = () => {
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [workers, setWorkers] = useState([]);
+  const [lowStockItems, setLowStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -118,13 +121,14 @@ export const Dashboard = () => {
     try {
       const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       
-      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes] = await Promise.all([
+      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, lowStockRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/jobs/today${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/customers`, { withCredentials: true }),
         axios.get(`${API}/services`, { withCredentials: true }),
-        axios.get(`${API}/workers${locationParam}`, { withCredentials: true })
+        axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
+        axios.get(`${API}/notifications/low-stock`, { withCredentials: true })
       ]);
 
       setStats(statsRes.data);
@@ -133,6 +137,7 @@ export const Dashboard = () => {
       setCustomers(customersRes.data);
       setServices(servicesRes.data);
       setWorkers(workersRes.data);
+      setLowStockItems(lowStockRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Hiba az adatok betöltésekor");
@@ -786,6 +791,41 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Low Stock Alert */}
+      {lowStockItems.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5" data-testid="dashboard-low-stock-alert">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 bg-amber-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-amber-400 font-semibold text-sm">Alacsony készlet ({lowStockItems.length} termék)</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {lowStockItems.slice(0, 5).map((item) => (
+                    <span
+                      key={item.inventory_id}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border ${
+                        item.severity === "critical"
+                          ? "bg-red-500/10 border-red-500/30 text-red-400"
+                          : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                      }`}
+                      data-testid={`low-stock-item-${item.inventory_id}`}
+                    >
+                      <Package className="w-3 h-3" />
+                      {item.product_name}: {item.current_quantity}/{item.min_level} {item.unit}
+                    </span>
+                  ))}
+                  {lowStockItems.length > 5 && (
+                    <span className="text-xs text-slate-500">+{lowStockItems.length - 5} további</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
