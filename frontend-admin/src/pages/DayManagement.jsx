@@ -41,7 +41,8 @@ import autoTable from "jspdf-autotable";
 export const DayManagement = () => {
   const { user } = useAuth();
   const { selectedLocation, locationForApi } = useLocation2();
-  const effectiveLoc = locationForApi || "Debrecen";
+  const [dayLoc, setDayLoc] = useState(locationForApi || "Debrecen");
+  const effectiveLoc = dayLoc;
   const [todayRecord, setTodayRecord] = useState(null);
   const [previousDayRecord, setPreviousDayRecord] = useState(null);
   const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
@@ -93,8 +94,13 @@ export const DayManagement = () => {
   };
 
   useEffect(() => {
+    setTodayRecord(null);
+    setPreviousDayRecord(null);
+    setTodayJobs([]);
+    setStats({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
+    setLoading(true);
     fetchData();
-  }, [selectedLocation]);
+  }, [dayLoc]);
 
   const handleOpenDay = async () => {
     try {
@@ -368,9 +374,21 @@ export const DayManagement = () => {
             {format(new Date(), 'yyyy. MMMM d. EEEE', { locale: hu })}
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-          <MapPin className="w-4 h-4 text-green-400" />
-          <span className="text-sm text-white">{effectiveLoc}</span>
+        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-1">
+          {["Debrecen", "Budapest"].map(loc => (
+            <button
+              key={loc}
+              onClick={() => setDayLoc(loc)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                dayLoc === loc
+                  ? "bg-green-500/20 text-green-400"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              {loc}
+            </button>
+          ))}
         </div>
       </div>
 
