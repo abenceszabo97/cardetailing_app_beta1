@@ -112,7 +112,7 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
         month_end = month_start.replace(month=month_start.month + 1)
     
     VALID_LOCATIONS = ["Debrecen", "Budapest"]
-    worker_query = {"location": {"$in": VALID_LOCATIONS}}
+    worker_query = {"location": {"$in": VALID_LOCATIONS}, "active": True}
     if location and location != "all":
         worker_query["location"] = location
     all_workers = await db.workers.find(worker_query, {"_id": 0}).to_list(100)

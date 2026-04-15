@@ -91,6 +91,7 @@ export const Workers = () => {
   const [editWorkerForm, setEditWorkerForm] = useState(null);
   const [workerStats, setWorkerStats] = useState([]);
   const [statsMonth, setStatsMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [statsLocation, setStatsLocation] = useState("all");
   const [deleteShiftId, setDeleteShiftId] = useState(null);
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
   const [editingShift, setEditingShift] = useState(null);
@@ -334,9 +335,9 @@ export const Workers = () => {
     fetchData();
   }, [selectedLocation]);
 
-  const fetchWorkerStats = async () => {
+  const fetchWorkerStats = async (loc) => {
     try {
-      const locationParam = locationForApi ? `&location=${locationForApi}` : "";
+      const locationParam = (loc && loc !== "all") ? `&location=${loc}` : "";
       const res = await axios.get(`${API}/stats/worker-monthly?month=${statsMonth}${locationParam}`, { withCredentials: true });
       setWorkerStats(res.data);
     } catch (error) {
@@ -346,9 +347,9 @@ export const Workers = () => {
 
   useEffect(() => {
     if (viewMode === "stats") {
-      fetchWorkerStats();
+      fetchWorkerStats(statsLocation);
     }
-  }, [viewMode, statsMonth, selectedLocation]);
+  }, [viewMode, statsMonth, statsLocation]);
 
   const handleCreateShift = async () => {
     try {
@@ -1316,6 +1317,17 @@ export const Workers = () => {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            <Select value={statsLocation} onValueChange={setStatsLocation}>
+              <SelectTrigger className="w-40 bg-slate-950 border-slate-700 text-white">
+                <MapPin className="w-4 h-4 mr-2 text-green-400" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all" className="text-white">Összes telephely</SelectItem>
+                <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex gap-2 ml-auto flex-wrap">
               <Button 
                 onClick={handleDownloadWorkerPDF}
