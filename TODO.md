@@ -1,6 +1,7 @@
 Foglalási oldal:
 -Foglalasi oldalon eltűntek az extrák mint választható opciók.  Kerüljenek vissza csak az ezelőtt említett dolgot tartsd meg hogy ha az akció ki van választva akkor ne lehessen olyan dolgot választani amit az a csomag már tartalmaz. 
--A foglalási oldalon a személyes adatok részen legyen egy le nyitható menüpont a számla adatokhoz kulon, rubrika vagy hely a név, adószám cím stb számára ami ilyenkor kell. Ez kell a számlázási integráció miatt is. 
+-A foglalási oldalon a személyes adatok részen az áfá-s számlánál legyen egy le nyitható fül ikon hogy lássák hogy arra kell kattintani,Ez kell a számlázási integráció miatt is. 
+-Kelljen rendszámot is megadni a személyes adatoknál.
 
 Fő app oldal:
 -Szolgáltatások menüben, a sima extra menüpont tűnjön el mert az már nincs használatban. 
@@ -72,6 +73,11 @@ Mit tud az integráció:
 Egyéb javítások/módosítások a programban:
 -Frontend: a három külön frontend helyett egy Next.js app ahol route-alapon van szétválasztva az admin és a booking oldal – sokkal könnyebb karbantartani
  / Párhuzamos frontend mappák (frontend vs frontend-booking vs frontend-admin) – hosszú távon érdemes lenne egységesíteni egy monorepo struktúrába
+ -made with emergent feliratok tűnjenek el a mai appban is és a foglalási oldalon is.
+ -Fejlécben is legyen saját felirat, pl booking oldalon xClean időpont foglalás, saját logóval. FŐ appban pedig xClean menedzsment app saját logóval.
+ -Statisztika részen ha egy bizonyos telephely van kiválasztva akkor ne látszódjon a "bevétel telephelyenként" és "Telephely bontás" ablakok, az csak az összes telephely kiválasztásakor látszódjon. 
+ -Dolgozók statisztikáknál az "összes elkészített autó" maradjon, legyen mellette egy "összes elkészült szolgáltatás". az "összes ledolgozott óra" és "összes ledolgozott nap" nem kell oda.
+ -Az ügyfeleknél ha rákattintunk az előzményeire Legyen ott az email címe is látható.
 
 Ami felesleges vagy elhagyható:
 - A memory mappa – ez az Emergent AI belső működési fájlja, a saját projektedbe nem kellene
