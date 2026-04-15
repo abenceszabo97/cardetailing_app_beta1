@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where npm:*)",
+      "Bash(where node:*)",
+      "Bash(where yarn:*)",
+      "Bash(cmd /c mklink /J \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-admin\\\\node_modules\" \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\frontend-admin\\\\node_modules\")",
+      "Bash(cmd /c mklink /J \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-booking\\\\node_modules\" \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\frontend-booking\\\\node_modules\")",
+      "Bash(npm install:*)",
+      "Bash(where python:*)",
+      "Bash(where uvicorn:*)",
+      "Bash(python -m uvicorn --version)",
+      "Bash(pip install:*)"
+    ]
+  }
+}

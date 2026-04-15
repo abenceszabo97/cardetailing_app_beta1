@@ -95,8 +95,7 @@ export const Services = () => {
   const categories = [
     { value: "komplett", label: "Komplett" },
     { value: "kulso", label: "Külső" },
-    { value: "belso", label: "Belső" },
-    { value: "extra", label: "Extra" }
+    { value: "belso", label: "Belső" }
   ];
 
   const carSizes = ["S", "M", "L", "XL", "XXL"];

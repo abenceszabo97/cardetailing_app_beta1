@@ -111,7 +111,8 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
     else:
         month_end = month_start.replace(month=month_start.month + 1)
     
-    worker_query = {}
+    VALID_LOCATIONS = ["Debrecen", "Budapest"]
+    worker_query = {"location": {"$in": VALID_LOCATIONS}}
     if location and location != "all":
         worker_query["location"] = location
     all_workers = await db.workers.find(worker_query, {"_id": 0}).to_list(100)
@@ -150,8 +151,15 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
         
         worker_jobs = [j for j in all_jobs if j.get("worker_id") == wid]
         cars_count = len(worker_jobs)
+        # Count total services: each job = 1 main service + number of extras
+        services_count = sum(
+            1 + len(j.get("extras", []) if isinstance(j.get("extras"), list) else [])
+            for j in worker_jobs
+        )
         revenue = sum(j.get("price", 0) for j in worker_jobs)
-        
+        cash = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") == "keszpenz")
+        card = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") in ("kartya", "utalas"))
+
         result.append({
             "worker_id": wid,
             "name": worker.get("name", ""),
@@ -159,7 +167,10 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
             "days_worked": len(days_set),
             "hours_worked": round(total_hours, 1),
             "cars_completed": cars_count,
-            "revenue": revenue
+            "services_completed": services_count,
+            "revenue": revenue,
+            "cash": cash,
+            "card": card,
         })
     
     return result

@@ -6,9 +6,9 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
-import { 
-  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
-  ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
+import {
+  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2,
+  ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Star, Loader2, Sparkles,
   Calendar, Users, Timer, AlertTriangle, Plus, X, Check
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
@@ -686,49 +686,53 @@ const BookingPage = () => {
               {(selectedPromotion || selectedPackage) && extras.length > 0 && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">
-                    {selectedPromotion ? 'Extra szolgáltatások' : '4. Extra szolgáltatások (opcionális)'}
+                    {selectedPromotion ? 'Extra szolgáltatások (opcionális)' : '4. Extra szolgáltatások (opcionális)'}
                   </label>
-                  {selectedPromotion ? (
-                    <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                      <p className="text-amber-400 text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Az akciós csomag már tartalmazza az összes szolgáltatást!
-                      </p>
-                      <p className="text-slate-500 text-xs mt-1">Az akciós árak fix csomagokat tartalmaznak, extra szolgáltatás nem adható hozzá.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {extras.map(extra => (
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {extras.map(extra => {
+                      const includedInPackage = selectedPromotion
+                        ? (selectedPromotion.features || []).some(f => f.toLowerCase().includes(extra.name.toLowerCase()) || extra.name.toLowerCase().includes(f.toLowerCase()))
+                        : getFeatures().some(f => f.toLowerCase().includes(extra.name.toLowerCase()) || extra.name.toLowerCase().includes(f.toLowerCase()));
+                      const extraKey = extra.service_id || extra.name;
+                      const isSelected = selectedExtras.includes(extraKey);
+
+                      return (
                         <div
-                          key={extra.service_id || extra.name}
-                          onClick={() => toggleExtra(extra.service_id || extra.name)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            selectedExtras.includes(extra.service_id || extra.name)
-                              ? 'border-green-500 bg-green-500/10'
-                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
+                          key={extraKey}
+                          onClick={() => !includedInPackage && toggleExtra(extraKey)}
+                          className={`p-3 rounded-lg border transition-all ${
+                            includedInPackage
+                              ? 'border-slate-700/50 bg-slate-800/10 opacity-50 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-green-500 bg-green-500/10 cursor-pointer'
+                                : 'border-slate-700 hover:border-slate-600 bg-slate-800/30 cursor-pointer'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <Checkbox 
-                                checked={selectedExtras.includes(extra.service_id || extra.name)}
+                              <Checkbox
+                                checked={isSelected || includedInPackage}
+                                disabled={includedInPackage}
                                 className="border-slate-600"
                               />
                               <div>
-                                <span className="text-white text-sm">{extra.name}</span>
-                                {extra.description && (
+                                <span className={`text-sm ${includedInPackage ? 'text-slate-500' : 'text-white'}`}>{extra.name}</span>
+                                {includedInPackage && (
+                                  <p className="text-xs text-amber-600">Már tartalmazza a csomag</p>
+                                )}
+                                {!includedInPackage && extra.description && (
                                   <p className="text-xs text-slate-500">{extra.description}</p>
                                 )}
                               </div>
                             </div>
-                            <span className="text-green-400 font-medium">
-                              {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                            <span className={`font-medium text-sm ${includedInPackage ? 'text-slate-600' : 'text-green-400'}`}>
+                              {includedInPackage ? 'Benne van' : extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
                             </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -1039,8 +1043,12 @@ const BookingPage = () => {
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
                 className="bg-slate-800/50 border-slate-700 text-white" />
               
-              <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-2">
-                <FileText className="w-4 h-4" /> {showInvoice ? "Számla adatok elrejtése" : "Számlát kérek (ÁFÁ-s)"}
+              <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-2 w-full justify-between px-1">
+                <span className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  {showInvoice ? "Számla adatok elrejtése" : "Számlát kérek (ÁFÁ-s)"}
+                </span>
+                {showInvoice ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
               {showInvoice && (
                 <div className="space-y-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700">

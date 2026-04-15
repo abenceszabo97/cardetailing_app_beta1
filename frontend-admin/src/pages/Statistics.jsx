@@ -641,6 +641,7 @@ export const Statistics = () => {
               </CardContent>
             </Card>
 
+            {selectedLocation === "all" && (
             <Card className="glass-card" data-testid="location-revenue-card">
               <CardHeader>
                 <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
@@ -669,6 +670,7 @@ export const Statistics = () => {
                 )}
               </CardContent>
             </Card>
+            )}
 
             {/* Strongest Days - All 7 days sorted */}
             <Card className="glass-card md:col-span-2 lg:col-span-2" data-testid="strongest-days-card">
@@ -875,8 +877,8 @@ export const Statistics = () => {
           </CardContent>
         </Card>
 
-        {/* Location Distribution */}
-        <Card className="glass-card lg:col-span-2">
+        {/* Location Distribution - only show for all locations */}
+        {selectedLocation === "all" && <Card className="glass-card lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
               <MapPin className="w-5 h-5 text-green-400" />
@@ -924,7 +926,7 @@ export const Statistics = () => {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
       </div>
     </div>
   );

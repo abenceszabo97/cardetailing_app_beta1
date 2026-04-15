@@ -102,6 +102,9 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
               <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">
                 Debrecen
               </SelectItem>
+              <SelectItem value="Budapest" className="text-white hover:bg-slate-800">
+                Budapest
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

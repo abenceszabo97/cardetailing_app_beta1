@@ -72,7 +72,11 @@ async def get_pricing_data(location: Optional[str] = None):
     if location:
         extras_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     db_extras = await db.services.find(extras_query, {"_id": 0}).to_list(100)
-    
+
+    # Fallback to default extras if DB is empty
+    if not db_extras:
+        db_extras = EXTRA_SERVICES
+
     return {
         "package_features": PACKAGE_FEATURES,
         "price_matrix": PRICE_MATRIX,

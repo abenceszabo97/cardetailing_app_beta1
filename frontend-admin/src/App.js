@@ -131,25 +131,7 @@ const MainLayout = ({ children }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="flex items-center gap-3">
-              {isAdmin && (
-                <select
-                  value={effectiveLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="bg-slate-800 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-green-500"
-                  data-testid="location-selector"
-                >
-                  <option value="all">Összes telephely</option>
-                  <option value="Debrecen">Debrecen</option>
-                  <option value="Budapest">Budapest</option>
-                </select>
-              )}
-              {!isAdmin && user?.location && (
-                <span className="text-sm text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                  {user.location}
-                </span>
-              )}
-            </div>
+            <div />
             <NotificationBell />
           </header>
           <main className="p-4 lg:p-8">

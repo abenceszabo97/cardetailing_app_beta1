@@ -1304,37 +1304,7 @@ export const Workers = () => {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="glass-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Összes ledolgozott nap</p>
-                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-days-worked">
-                      {workerStats.reduce((sum, w) => sum + w.days_worked, 0)}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-blue-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="glass-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Összes ledolgozott óra</p>
-                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-hours-worked">
-                      {workerStats.reduce((sum, w) => sum + w.hours_worked, 0).toFixed(1)}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-purple-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card className="glass-card">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -1346,6 +1316,21 @@ export const Workers = () => {
                   </div>
                   <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
                     <Car className="w-5 h-5 text-green-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400">Összes elkészült szolgáltatás</p>
+                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-services-completed">
+                      {workerStats.reduce((sum, w) => sum + (w.services_completed || w.cars_completed), 0)}
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-blue-400" />
                   </div>
                 </div>
               </CardContent>
@@ -1372,9 +1357,8 @@ export const Workers = () => {
                       <TableRow className="border-slate-800 hover:bg-transparent">
                         <TableHead className="text-slate-400">Dolgozó</TableHead>
                         <TableHead className="text-slate-400">Telephely</TableHead>
-                        <TableHead className="text-slate-400 text-center">Napok</TableHead>
-                        <TableHead className="text-slate-400 text-center">Órák</TableHead>
                         <TableHead className="text-slate-400 text-center">Autók</TableHead>
+                        <TableHead className="text-slate-400 text-center">Szolgáltatások</TableHead>
                         <TableHead className="text-slate-400 text-right">Bevétel</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1396,16 +1380,12 @@ export const Workers = () => {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className="text-white font-semibold">{worker.days_worked}</span>
-                              <span className="text-slate-500 text-xs ml-1">nap</span>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <span className="text-white font-semibold">{worker.hours_worked}</span>
-                              <span className="text-slate-500 text-xs ml-1">óra</span>
-                            </TableCell>
-                            <TableCell className="text-center">
                               <span className="text-green-400 font-semibold">{worker.cars_completed}</span>
-                              <span className="text-slate-500 text-xs ml-1">autó</span>
+                              <span className="text-slate-500 text-xs ml-1">db</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-blue-400 font-semibold">{worker.services_completed ?? worker.cars_completed}</span>
+                              <span className="text-slate-500 text-xs ml-1">db</span>
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-green-400 font-semibold">{worker.revenue.toLocaleString()} Ft</span>
@@ -1419,6 +1399,72 @@ export const Workers = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Budapest Commission Section */}
+          {workerStats.filter(w => w.location === "Budapest").length > 0 && (
+            <Card className="glass-card border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-amber-400" />
+                  Budapest – Jutalék elszámolás (31,5%)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {workerStats.filter(w => w.location === "Budapest").map(worker => {
+                    const commission = Math.round(worker.revenue * 0.315);
+                    // Fuel reimbursement only for Sanyi (name contains "Sanyi" or "Sándor")
+                    const isSanyi = worker.name.toLowerCase().includes("sanyi") || worker.name.toLowerCase().includes("sándor") || worker.name.toLowerCase().includes("sandor");
+                    let fuel = 0;
+                    if (isSanyi) {
+                      if (worker.revenue <= 500000) fuel = 40000;
+                      else if (worker.revenue <= 700000) fuel = 60000;
+                      else fuel = 80000;
+                    }
+                    const total = commission + fuel;
+                    return (
+                      <div key={worker.worker_id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-700 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-semibold text-base">{worker.name}</span>
+                          <span className="text-xs text-slate-500">{worker.cars_completed} autó · {worker.services_completed ?? worker.cars_completed} szolgáltatás</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Bruttó bevétel</p>
+                            <p className="text-white font-semibold">{worker.revenue.toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Készpénz</p>
+                            <p className="text-green-400 font-semibold">{(worker.cash || 0).toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Kártya/Utalás</p>
+                            <p className="text-blue-400 font-semibold">{(worker.card || 0).toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-center">
+                            <p className="text-amber-400 text-xs mb-1">Jutalék (31,5%)</p>
+                            <p className="text-amber-400 font-bold">{commission.toLocaleString()} Ft</p>
+                          </div>
+                        </div>
+                        {isSanyi && (
+                          <div className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg border border-slate-700 text-sm">
+                            <span className="text-slate-400">⛽ Üzemanyag-térítés</span>
+                            <span className="text-white font-semibold">{fuel.toLocaleString()} Ft
+                              <span className="text-slate-500 text-xs ml-2">({worker.revenue <= 500000 ? "≤500k" : worker.revenue <= 700000 ? "501-700k" : ">700k"} sáv)</span>
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between p-3 bg-amber-500/10 rounded-xl border border-amber-500/30">
+                          <span className="text-amber-300 font-medium">Összesen fizetendő</span>
+                          <span className="text-amber-400 text-xl font-bold">{total.toLocaleString()} Ft</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
