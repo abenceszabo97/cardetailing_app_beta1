@@ -21,7 +21,7 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-const LOCATIONS = ["all", "Debrecen"];
+const LOCATIONS = ["all", "Debrecen", "Budapest"];
 const STATUS_COLORS = {
   foglalt: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   folyamatban: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",

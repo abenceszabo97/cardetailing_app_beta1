@@ -12,6 +12,7 @@ class Worker(BaseModel):
     position: Optional[str] = None
     location: str
     active: bool = True
+    fuel_eligible: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class WorkerCreate(BaseModel):
@@ -21,6 +22,7 @@ class WorkerCreate(BaseModel):
     position: Optional[str] = None
     location: str
     user_id: Optional[str] = None
+    fuel_eligible: Optional[bool] = False
 
 class WorkerUpdate(BaseModel):
     name: Optional[str] = None
@@ -29,3 +31,4 @@ class WorkerUpdate(BaseModel):
     position: Optional[str] = None
     location: Optional[str] = None
     active: Optional[bool] = None
+    fuel_eligible: Optional[bool] = None

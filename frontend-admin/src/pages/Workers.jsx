@@ -35,8 +35,8 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { 
-  CalendarDays, 
+import {
+  CalendarDays,
   Plus,
   MapPin,
   ChevronLeft,
@@ -53,7 +53,9 @@ import {
   Car,
   Clock,
   Calendar,
-  Download
+  Download,
+  Sparkles,
+  Fuel
 } from "lucide-react";
 import { 
   format, 
@@ -297,7 +299,8 @@ export const Workers = () => {
     phone: "",
     email: "",
     position: "",
-    location: "Debrecen"
+    location: "Debrecen",
+    fuel_eligible: false
   });
 
   const monthStart = startOfMonth(currentDate);
@@ -423,7 +426,7 @@ export const Workers = () => {
       await axios.post(`${API}/workers`, newWorker, { withCredentials: true });
       toast.success("Dolgozó sikeresen hozzáadva!");
       setIsNewWorkerOpen(false);
-      setNewWorker({ name: "", phone: "", email: "", position: "", location: "Debrecen" });
+      setNewWorker({ name: "", phone: "", email: "", position: "", location: "Debrecen", fuel_eligible: false });
       fetchData();
     } catch (error) {
       toast.error("Hiba a dolgozó hozzáadásakor");
@@ -437,7 +440,8 @@ export const Workers = () => {
       phone: worker.phone || "",
       email: worker.email || "",
       position: worker.position || "",
-      location: worker.location
+      location: worker.location,
+      fuel_eligible: worker.fuel_eligible || false
     });
   };
 
@@ -602,11 +606,26 @@ export const Workers = () => {
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-slate-700">
                               <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
-                      <Button 
+                      <div className="flex items-center gap-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+                        <Fuel className="w-4 h-4 text-amber-400" />
+                        <div className="flex-1">
+                          <Label className="text-slate-300 text-sm">Üzemanyag-térítésre jogosult</Label>
+                          <p className="text-xs text-slate-500">Budapest telephely esetén jutalékszámításban megjelenik</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewWorker({...newWorker, fuel_eligible: !newWorker.fuel_eligible})}
+                          className={`w-10 h-6 rounded-full transition-colors ${newWorker.fuel_eligible ? 'bg-amber-500' : 'bg-slate-700'}`}
+                        >
+                          <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${newWorker.fuel_eligible ? 'translate-x-2' : '-translate-x-2'}`} />
+                        </button>
+                      </div>
+                      <Button
                         onClick={handleCreateWorker}
                         className="w-full bg-green-600 hover:bg-green-500"
                         disabled={!newWorker.name}
@@ -719,10 +738,17 @@ export const Workers = () => {
                                     </SelectContent>
                                   </Select>
                                 ) : (
-                                  <Badge variant="outline" className="border-slate-600 text-slate-300">
-                                    <MapPin className="w-3 h-3 mr-1" />
-                                    {worker.location}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                      <MapPin className="w-3 h-3 mr-1" />
+                                      {worker.location}
+                                    </Badge>
+                                    {worker.fuel_eligible && (
+                                      <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-xs">
+                                        <Fuel className="w-3 h-3 mr-1" />⛽
+                                      </Badge>
+                                    )}
+                                  </div>
                                 )}
                               </TableCell>
                               <TableCell>
@@ -761,18 +787,26 @@ export const Workers = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 {isEditing ? (
-                                  <div className="flex justify-end gap-1">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
+                                  <div className="flex justify-end items-center gap-2">
+                                    <button
+                                      type="button"
+                                      title="Üzemanyag-térítés"
+                                      onClick={() => setEditWorkerForm({...editWorkerForm, fuel_eligible: !editWorkerForm.fuel_eligible})}
+                                      className={`w-8 h-5 rounded-full transition-colors flex-shrink-0 ${editWorkerForm.fuel_eligible ? 'bg-amber-500' : 'bg-slate-700'}`}
+                                    >
+                                      <span className={`block w-3 h-3 bg-white rounded-full mx-auto transition-transform ${editWorkerForm.fuel_eligible ? 'translate-x-1.5' : '-translate-x-1.5'}`} />
+                                    </button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-8 w-8 text-green-400 hover:text-green-300"
                                       onClick={() => handleSaveWorker(worker.worker_id)}
                                     >
                                       <Save className="w-4 h-4" />
                                     </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-8 w-8 text-slate-400 hover:text-white"
                                       onClick={() => { setEditingWorker(null); setEditWorkerForm(null); }}
                                     >
@@ -862,6 +896,7 @@ export const Workers = () => {
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-700">
                           <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                          <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1413,10 +1448,9 @@ export const Workers = () => {
                 <div className="space-y-4">
                   {workerStats.filter(w => w.location === "Budapest").map(worker => {
                     const commission = Math.round(worker.revenue * 0.315);
-                    // Fuel reimbursement only for Sanyi (name contains "Sanyi" or "Sándor")
-                    const isSanyi = worker.name.toLowerCase().includes("sanyi") || worker.name.toLowerCase().includes("sándor") || worker.name.toLowerCase().includes("sandor");
+                    const hasFuel = worker.fuel_eligible === true;
                     let fuel = 0;
-                    if (isSanyi) {
+                    if (hasFuel) {
                       if (worker.revenue <= 500000) fuel = 40000;
                       else if (worker.revenue <= 700000) fuel = 60000;
                       else fuel = 80000;
@@ -1446,9 +1480,9 @@ export const Workers = () => {
                             <p className="text-amber-400 font-bold">{commission.toLocaleString()} Ft</p>
                           </div>
                         </div>
-                        {isSanyi && (
+                        {hasFuel && (
                           <div className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg border border-slate-700 text-sm">
-                            <span className="text-slate-400">⛽ Üzemanyag-térítés</span>
+                            <span className="text-slate-400 flex items-center gap-1"><Fuel className="w-3.5 h-3.5 text-amber-400" /> Üzemanyag-térítés</span>
                             <span className="text-white font-semibold">{fuel.toLocaleString()} Ft
                               <span className="text-slate-500 text-xs ml-2">({worker.revenue <= 500000 ? "≤500k" : worker.revenue <= 700000 ? "501-700k" : ">700k"} sáv)</span>
                             </span>
