@@ -177,6 +177,29 @@ EXTRA_SERVICES = [
     {"name": "Eladásra felkészítés", "category": "extra_special", "min_price": 50000, "description": "Teljes körű felkészítés"}
 ]
 
+# Polishing price matrix (Debrecen only)
+POLISHING_PRICES = {
+    "1lepes": {
+        "name": "1-lépéses polírozás",
+        "duration_label": "1–3 óra",
+        "prices": {
+            "S": 37990, "M": 43990, "L": 50990, "XL": 56990, "XXL": 63990
+        }
+    },
+    "tobbLepes": {
+        "name": "Többlépéses polírozás",
+        "duration_label": "2–5 óra",
+        "prices": {
+            "S": 50990, "M": 56990, "L": 63990, "XL": 69990, "XXL": 75990
+        }
+    }
+}
+
+POLISHING_ADDONS = [
+    {"name": "Lámpapolír (pár)", "price": 21990, "note": "S, M, L méretekig"},
+    {"name": "Lámpapolír terepjáróhoz (pár)", "price": 23990, "note": "XL, XXL méretektől"},
+]
+
 # Car size descriptions for UI
 CAR_SIZE_INFO = {
     "S": {"name": "S - Kis autó", "description": "Ferdehátú, kisautó", "examples": "Suzuki Swift, VW Polo, Opel Corsa"},
@@ -188,6 +211,38 @@ CAR_SIZE_INFO = {
 
 # Promotional/Special offers
 PROMOTIONS = [
+    {
+        "id": "budapest_mobil_komplett",
+        "name": "Teljes külső-belső mobil autókozmetika",
+        "description": "Kiszállással! Kiszállási díj: 0 Ft. Belső takarítás + porszívózás, belső üvegtisztítás, belső műanyagápolás, műszerfalápolás, bogároldás, külső tisztítás, külső üvegtisztítás, külső műanyagápolás, felnitisztítás, gumiápolás + AJÁNDÉK illatosító + AJÁNDÉK likvidkerámia bevonat",
+        "price": 19990,
+        "original_price": 29990,
+        "discount_percent": 33,
+        "category": "komplett",
+        "car_sizes": ["S", "M", "L", "XL", "XXL"],
+        "package": "Pro",
+        "features": [
+            "Belső takarítás + porszívózás",
+            "Belső üvegtisztítás",
+            "Belső műanyagápolás",
+            "Műszerfalápolás",
+            "Bogároldás",
+            "Külső tisztítás",
+            "Külső üvegtisztítás",
+            "Külső műanyagápolás",
+            "Felnitisztítás",
+            "Gumiápolás",
+            "🎁 AJÁNDÉK illatosító",
+            "🎁 AJÁNDÉK likvidkerámia bevonat"
+        ],
+        "duration": 120,
+        "badge": "🚗 MOBIL",
+        "valid_until": None,
+        "active": True,
+        "location": "Budapest",
+        "mobile": True,
+        "travel_fee": 0
+    },
     {
         "id": "tavaszi_akcio",
         "name": "Tavaszi akció",

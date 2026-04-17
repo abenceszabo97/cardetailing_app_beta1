@@ -519,12 +519,18 @@ export const Services = () => {
               {cat.label}
             </TabsTrigger>
           ))}
-          <TabsTrigger 
+          <TabsTrigger
             value="extras"
             className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
           >
             <Plus className="w-4 h-4 mr-1" />
             Extrák
+          </TabsTrigger>
+          <TabsTrigger
+            value="poliroz"
+            className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400"
+          >
+            ✨ Polírozás
           </TabsTrigger>
         </TabsList>
 
@@ -894,22 +900,39 @@ export const Services = () => {
 
         {/* Extras Tab */}
         <TabsContent value="extras" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h2 className="text-lg text-white font-semibold flex items-center gap-2">
               <Plus className="w-5 h-5 text-blue-400" />
               Extra szolgáltatások
             </h2>
-            <Button
-              onClick={() => {
-                setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
-                setEditingExtra(null);
-                setIsNewExtraOpen(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-500"
-              data-testid="new-extra-btn"
-            >
-              <Plus className="w-4 h-4 mr-2" /> Új extra
-            </Button>
+            <div className="flex gap-2">
+              {extras.length === 0 && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const res = await axios.post(`${API}/services/extras/seed`, {}, { withCredentials: true });
+                      toast.success(res.data.message || "Alapértelmezett extrák betöltve!");
+                      fetchExtras();
+                    } catch { toast.error("Hiba az extrák betöltésekor"); }
+                  }}
+                  className="border-slate-600 text-slate-300 hover:text-white text-xs"
+                >
+                  Alapértelmezések betöltése
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
+                  setEditingExtra(null);
+                  setIsNewExtraOpen(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-500"
+                data-testid="new-extra-btn"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Új extra
+              </Button>
+            </div>
           </div>
 
           {/* Extras List */}
@@ -966,6 +989,121 @@ export const Services = () => {
                 <Plus className="w-12 h-12 mx-auto mb-4 opacity-30" />
                 <p>Nincs extra szolgáltatás</p>
                 <p className="text-sm mt-1">Adj hozzá extra szolgáltatásokat a Booking oldalhoz</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Polírozás Tab */}
+        <TabsContent value="poliroz" className="mt-6">
+          <div className="space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg text-white font-semibold flex items-center gap-2">
+                  ✨ Polírozási szolgáltatások
+                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full font-normal">Debrecen</span>
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">
+                  A polírozási árak automatikusan szinkronizálva vannak a Debreceni booking oldallal.
+                  Egyéni polírozási szolgáltatásokat az alábbi gombbal hozhatsz létre.
+                </p>
+              </div>
+              <Button
+                className="bg-amber-600 hover:bg-amber-500 shrink-0"
+                onClick={async () => {
+                  // Seed default polishing services
+                  const POLISHING_DEFAULTS = [
+                    { name: "1-lépéses polírozás (S)", price: 37990, duration: 90, description: "1–3 óra | Kis autó" },
+                    { name: "1-lépéses polírozás (M)", price: 43990, duration: 100, description: "1–3 óra | Közepes autó" },
+                    { name: "1-lépéses polírozás (L)", price: 50990, duration: 120, description: "1–3 óra | Nagy autó" },
+                    { name: "1-lépéses polírozás (XL)", price: 56990, duration: 140, description: "1–3 óra | SUV" },
+                    { name: "1-lépéses polírozás (XXL)", price: 63990, duration: 160, description: "1–3 óra | Nagy SUV" },
+                    { name: "Többlépéses polírozás (S)", price: 50990, duration: 150, description: "2–5 óra | Kis autó" },
+                    { name: "Többlépéses polírozás (M)", price: 56990, duration: 180, description: "2–5 óra | Közepes autó" },
+                    { name: "Többlépéses polírozás (L)", price: 63990, duration: 210, description: "2–5 óra | Nagy autó" },
+                    { name: "Többlépéses polírozás (XL)", price: 69990, duration: 240, description: "2–5 óra | SUV" },
+                    { name: "Többlépéses polírozás (XXL)", price: 75990, duration: 270, description: "2–5 óra | Nagy SUV" },
+                  ];
+                  let created = 0;
+                  for (const p of POLISHING_DEFAULTS) {
+                    try {
+                      await axios.post(`${API}/services`, { ...p, category: "poliroz", location: "Debrecen" }, { withCredentials: true });
+                      created++;
+                    } catch { /* skip existing */ }
+                  }
+                  toast.success(`${created} polírozási szolgáltatás létrehozva!`);
+                  fetchServices(servicesLoc);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Alapértelmezések betöltése
+              </Button>
+            </div>
+
+            {/* Standard polishing price table */}
+            <Card className="glass-card">
+              <CardHeader className="p-4">
+                <CardTitle className="text-base text-white font-medium">Polírozás árak (rögzített táblázat)</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700">
+                      <th className="text-left text-slate-400 py-2 pr-4">Típus</th>
+                      <th className="text-center text-slate-400 py-2 px-2">S</th>
+                      <th className="text-center text-slate-400 py-2 px-2">M</th>
+                      <th className="text-center text-slate-400 py-2 px-2">L</th>
+                      <th className="text-center text-slate-400 py-2 px-2">XL</th>
+                      <th className="text-center text-slate-400 py-2 px-2">XXL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: "1-lépéses (1–3 óra)", prices: [37990, 43990, 50990, 56990, 63990] },
+                      { label: "Többlépéses (2–5 óra)", prices: [50990, 56990, 63990, 69990, 75990] },
+                    ].map((row) => (
+                      <tr key={row.label} className="border-b border-slate-800">
+                        <td className="text-white py-3 pr-4 font-medium">{row.label}</td>
+                        {row.prices.map((p, i) => (
+                          <td key={i} className="text-green-400 text-center py-3 px-2 font-semibold">{p.toLocaleString()} Ft</td>
+                        ))}
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="text-slate-400 py-3 pr-4">Lámpapolír (S/M/L – pár)</td>
+                      <td className="text-amber-400 text-center py-3 px-2 font-semibold" colSpan={3}>21.990 Ft</td>
+                      <td className="text-amber-400 text-center py-3 px-2 font-semibold" colSpan={2}>23.990 Ft</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            {/* Custom polishing services from DB */}
+            {services.filter(s => s.category === "poliroz").length > 0 && (
+              <div>
+                <h3 className="text-white font-medium mb-3">Egyéni polírozási tételek az adatbázisban</h3>
+                <div className="space-y-2">
+                  {services.filter(s => s.category === "poliroz").map(service => (
+                    <Card key={service.service_id} className="glass-card">
+                      <CardContent className="p-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-white font-medium">{service.name}</p>
+                          <p className="text-slate-500 text-xs">{service.description} · {service.duration} perc</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-green-400 font-bold">{service.price?.toLocaleString()} Ft</span>
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(service)} className="text-slate-400 hover:text-white h-7 w-7 p-0">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteServiceId(service.service_id)} className="text-red-400 hover:text-red-300 h-7 w-7 p-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
           </div>

@@ -124,7 +124,7 @@ export const Inventory = () => {
     }
   };
 
-  const lowStockItems = inventory.filter(item => item.current_quantity < item.min_level);
+  const lowStockItems = inventory.filter(item => Number(item.min_level) > 0 && Number(item.current_quantity) <= Number(item.min_level));
 
   if (loading) {
     return (
@@ -270,7 +270,7 @@ export const Inventory = () => {
               {/* Mobile Card View */}
               <div className="sm:hidden space-y-3 p-4">
                 {inventory.map((item) => {
-                  const isLow = item.current_quantity < item.min_level;
+                  const isLow = Number(item.current_quantity) <= Number(item.min_level) && Number(item.min_level) > 0;
                   return (
                     <div 
                       key={item.inventory_id}
@@ -333,7 +333,7 @@ export const Inventory = () => {
                 </TableHeader>
                 <TableBody>
                   {inventory.map((item) => {
-                    const isLow = item.current_quantity < item.min_level;
+                    const isLow = Number(item.current_quantity) <= Number(item.min_level) && Number(item.min_level) > 0;
                     const isEditing = editingItem === item.inventory_id;
                     
                     return (

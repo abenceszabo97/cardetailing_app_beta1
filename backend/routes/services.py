@@ -10,9 +10,10 @@ from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.service import (
-    Service, ServiceCreate, 
-    PACKAGE_FEATURES, PRICE_MATRIX, DURATION_MATRIX, 
-    EXTRA_SERVICES, CAR_SIZE_INFO, PROMOTIONS
+    Service, ServiceCreate,
+    PACKAGE_FEATURES, PRICE_MATRIX, DURATION_MATRIX,
+    EXTRA_SERVICES, CAR_SIZE_INFO, PROMOTIONS,
+    POLISHING_PRICES, POLISHING_ADDONS
 )
 
 router = APIRouter()
@@ -68,9 +69,16 @@ async def get_pricing_data(location: Optional[str] = None):
         promo_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     db_promotions = await db.promotions.find(promo_query, {"_id": 0}).to_list(100)
     
-    # If no DB promotions, use default
+    # If no DB promotions for this location, also include matching defaults
     if not db_promotions:
-        db_promotions = [p for p in PROMOTIONS if p.get("active", True)]
+        db_promotions = [
+            p for p in PROMOTIONS
+            if p.get("active", True) and (
+                not location or
+                not p.get("location") or
+                p.get("location") == location
+            )
+        ]
     
     # Get extras from database (filtered by location)
     extras_query = {"service_type": "extra", "active": {"$ne": False}}
@@ -82,6 +90,12 @@ async def get_pricing_data(location: Optional[str] = None):
     if not db_extras:
         db_extras = EXTRA_SERVICES
 
+    # Get polishing services from DB (for Debrecen)
+    polishing_query = {"category": "poliroz", "active": {"$ne": False}}
+    if location and location.lower() == "debrecen":
+        polishing_query["$or"] = [{"location": "Debrecen"}, {"location": None}, {"location": {"$exists": False}}]
+    db_polishing = await db.services.find(polishing_query, {"_id": 0}).to_list(50)
+
     return {
         "package_features": PACKAGE_FEATURES,
         "price_matrix": PRICE_MATRIX,
@@ -90,7 +104,12 @@ async def get_pricing_data(location: Optional[str] = None):
         "packages": ["Eco", "Pro", "VIP"],
         "categories": ["kulso", "belso", "komplett"],
         "promotions": db_promotions,
-        "extras": db_extras
+        "extras": db_extras,
+        "polishing": {
+            "types": POLISHING_PRICES,
+            "addons": POLISHING_ADDONS,
+            "custom": db_polishing
+        }
     }
 
 @router.get("/services/promotions")
@@ -347,6 +366,32 @@ async def sync_pricing_to_db(user: User = Depends(get_current_user)):
             created += 1
     
     return {"created": created, "updated": updated, "message": "Árak szinkronizálva"}
+
+@router.post("/services/extras/seed")
+async def seed_extras(user: User = Depends(get_current_user)):
+    """Seed default extras into DB if not present (admin only)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    created = 0
+    for extra in EXTRA_SERVICES:
+        existing = await db.services.find_one({"name": extra["name"], "service_type": "extra"})
+        if not existing:
+            service = Service(
+                name=extra["name"],
+                category=extra.get("category", "extra_kulso"),
+                price=extra.get("price", extra.get("min_price", 0)),
+                min_price=extra.get("min_price"),
+                duration=30,
+                description=extra.get("description", ""),
+                service_type="extra",
+                active=True
+            )
+            doc = service.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.services.insert_one(doc)
+            created += 1
+    return {"created": created, "message": f"{created} alapértelmezett extra hozzáadva az adatbázishoz"}
+
 
 @router.put("/services/{service_id}")
 async def update_service(service_id: str, data: ServiceCreate, user: User = Depends(get_current_user)):

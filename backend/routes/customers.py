@@ -2,6 +2,7 @@
 Customers Routes
 """
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
 from dependencies import get_current_user
 from database import db
 from models.user import User
@@ -10,9 +11,12 @@ from models.customer import Customer, CustomerCreate
 router = APIRouter()
 
 @router.get("/customers")
-async def get_customers(user: User = Depends(get_current_user)):
-    """Get all customers"""
-    customers = await db.customers.find({}, {"_id": 0}).to_list(1000)
+async def get_customers(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all customers, optionally filtered by location"""
+    query = {}
+    if location and location != "all":
+        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    customers = await db.customers.find(query, {"_id": 0}).to_list(1000)
     return customers
 
 @router.get("/customers/{customer_id}")

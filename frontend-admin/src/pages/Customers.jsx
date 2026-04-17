@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -24,11 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Phone, 
+import {
+  Users,
+  Plus,
+  Search,
+  Phone,
   Car,
   ChevronRight,
   Banknote,
@@ -40,11 +40,20 @@ import {
   Upload,
   X,
   ZoomIn,
-  Camera
+  Camera,
+  MapPin,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 export const Customers = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [activeTab, setActiveTab] = useState("customers");
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -60,13 +69,16 @@ export const Customers = () => {
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     phone: "",
+    email: "",
     car_type: "",
-    plate_number: ""
+    plate_number: "",
+    location: locationForApi || "Debrecen"
   });
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get(`${API}/customers`, { withCredentials: true });
+      const locParam = locationForApi ? `?location=${locationForApi}` : "";
+      const response = await axios.get(`${API}/customers${locParam}`, { withCredentials: true });
       setCustomers(response.data);
       setFilteredCustomers(response.data);
     } catch (error) {
@@ -88,7 +100,7 @@ export const Customers = () => {
   useEffect(() => {
     fetchCustomers();
     fetchBlacklist();
-  }, []);
+  }, [selectedLocation, locationForApi]);
 
   useEffect(() => {
     const filtered = customers.filter(c => 
@@ -104,7 +116,7 @@ export const Customers = () => {
       await axios.post(`${API}/customers`, newCustomer, { withCredentials: true });
       toast.success("Ügyfél sikeresen létrehozva!");
       setIsNewCustomerOpen(false);
-      setNewCustomer({ name: "", phone: "", car_type: "", plate_number: "" });
+      setNewCustomer({ name: "", phone: "", email: "", car_type: "", plate_number: "", location: locationForApi || "Debrecen" });
       fetchCustomers();
     } catch (error) {
       toast.error("Hiba az ügyfél létrehozásakor");
@@ -147,7 +159,10 @@ export const Customers = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Ügyfelek</h1>
-          <p className="text-slate-400 mt-1 text-sm sm:text-base">{customers.length} ügyfél összesen</p>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">
+            {customers.length} ügyfél
+            {selectedLocation && selectedLocation !== "all" ? ` — ${selectedLocation}` : " — Összes telephely"}
+          </p>
         </div>
         {activeTab === "customers" && (
           <Dialog open={isNewCustomerOpen} onOpenChange={setIsNewCustomerOpen}>
@@ -183,6 +198,16 @@ export const Customers = () => {
                   />
                 </div>
                 <div>
+                  <Label className="text-slate-300">Email <span className="text-slate-500 font-normal">(opcionális)</span></Label>
+                  <Input
+                    type="email"
+                    value={newCustomer.email}
+                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
                   <Label className="text-slate-300">Autó típusa</Label>
                   <Input
                     value={newCustomer.car_type}
@@ -202,7 +227,19 @@ export const Customers = () => {
                     data-testid="new-customer-plate"
                   />
                 </div>
-                <Button 
+                <div>
+                  <Label className="text-slate-300">Telephely</Label>
+                  <Select value={newCustomer.location} onValueChange={(v) => setNewCustomer({...newCustomer, location: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                      <SelectValue placeholder="Telephely" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">Debrecen</SelectItem>
+                      <SelectItem value="Budapest" className="text-white hover:bg-slate-800">Budapest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
                   onClick={handleCreateCustomer}
                   className="w-full bg-green-600 hover:bg-green-500"
                   disabled={!newCustomer.name || !newCustomer.phone || !newCustomer.plate_number}
@@ -303,6 +340,11 @@ export const Customers = () => {
                             <Car className="w-3 h-3" /> {customer.car_type || "-"}
                           </span>
                           <span className="font-mono text-white text-xs">{customer.plate_number}</span>
+                          {customer.location && (
+                            <span className="flex items-center gap-1 text-xs text-blue-400">
+                              <MapPin className="w-3 h-3" /> {customer.location}
+                            </span>
+                          )}
                         </div>
                       </Link>
                     ))}
