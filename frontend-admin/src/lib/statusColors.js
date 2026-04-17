@@ -9,6 +9,7 @@ export const STATUS_CONFIG = {
   folyamatban:     { label: "Folyamatban",      bg: "bg-amber-500/20",  text: "text-amber-400",  border: "border-amber-500/30",  dot: "bg-amber-400" },
   kesz:            { label: "Kész",             bg: "bg-green-500/20",  text: "text-green-400",  border: "border-green-500/30",  dot: "bg-green-400" },
   lemondva:        { label: "Lemondva",         bg: "bg-red-500/20",    text: "text-red-400",    border: "border-red-500/30",    dot: "bg-red-400" },
+  lemondta:        { label: "Lemondva",         bg: "bg-red-500/20",    text: "text-red-400",    border: "border-red-500/30",    dot: "bg-red-400" },
   nem_jott_el:     { label: "Nem jött el",      bg: "bg-slate-500/20",  text: "text-slate-400",  border: "border-slate-700",     dot: "bg-slate-500" },
   torolt:          { label: "Törölve",          bg: "bg-red-900/20",    text: "text-red-600",    border: "border-red-900/30",    dot: "bg-red-700" },
 };
