@@ -31,8 +31,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "../components/ui/tabs";
-import { 
-  Sparkles, 
+import {
+  Sparkles,
   Plus,
   Edit,
   Trash2,
@@ -42,7 +42,8 @@ import {
   Percent,
   Calendar,
   Check,
-  Pencil
+  Pencil,
+  MapPin
 } from "lucide-react";
 
 export const Services = () => {
@@ -68,6 +69,8 @@ export const Services = () => {
     name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null
   });
   
+  const [servicesLoc, setServicesLoc] = useState("all");
+
   const [formData, setFormData] = useState({
     name: "",
     category: "komplett",
@@ -75,7 +78,8 @@ export const Services = () => {
     duration: 60,
     description: "",
     car_size: "",
-    package: ""
+    package: "",
+    location: null
   });
 
   const [promoForm, setPromoForm] = useState({
@@ -89,7 +93,8 @@ export const Services = () => {
     duration: 70,
     badge: "🎉 AKCIÓ",
     valid_until: "",
-    active: true
+    active: true,
+    location: null
   });
 
   const categories = [
@@ -101,9 +106,10 @@ export const Services = () => {
   const carSizes = ["S", "M", "L", "XL", "XXL"];
   const packages = ["Eco", "Pro", "VIP"];
 
-  const fetchServices = async () => {
+  const fetchServices = async (loc) => {
     try {
-      const response = await axios.get(`${API}/services`, { withCredentials: true });
+      const locParam = (loc && loc !== "all") ? `?location=${loc}` : "";
+      const response = await axios.get(`${API}/services${locParam}`, { withCredentials: true });
       setServices(response.data);
     } catch (error) {
       toast.error("Hiba a szolgáltatások betöltésekor");
@@ -112,9 +118,10 @@ export const Services = () => {
     }
   };
 
-  const fetchPromotions = async () => {
+  const fetchPromotions = async (loc) => {
     try {
-      const response = await axios.get(`${API}/services/promotions/admin`, { withCredentials: true });
+      const locParam = (loc && loc !== "all") ? `?location=${loc}` : "";
+      const response = await axios.get(`${API}/services/promotions/admin${locParam}`, { withCredentials: true });
       setPromotions(response.data);
     } catch (error) {
       console.error("Promotions error:", error);
@@ -122,10 +129,10 @@ export const Services = () => {
   };
 
   useEffect(() => {
-    fetchServices();
-    fetchPromotions();
+    fetchServices(servicesLoc);
+    fetchPromotions(servicesLoc);
     fetchExtras();
-  }, []);
+  }, [servicesLoc]);
 
   const fetchExtras = async () => {
     try {
@@ -213,7 +220,8 @@ export const Services = () => {
       duration: 60,
       description: "",
       car_size: "",
-      package: ""
+      package: "",
+      location: servicesLoc !== "all" ? servicesLoc : null
     });
   };
 
@@ -230,7 +238,8 @@ export const Services = () => {
       duration: 70,
       badge: "🎉 AKCIÓ",
       valid_until: "",
-      active: true
+      active: true,
+      location: servicesLoc !== "all" ? servicesLoc : null
     });
   };
 
@@ -276,7 +285,8 @@ export const Services = () => {
       duration: promo.duration,
       badge: promo.badge || "🎉 AKCIÓ",
       valid_until: promo.valid_until || "",
-      active: promo.active !== false
+      active: promo.active !== false,
+      location: promo.location || null
     });
     setIsNewPromoOpen(true);
   };
@@ -299,7 +309,8 @@ export const Services = () => {
       duration: service.duration,
       description: service.description || "",
       car_size: service.car_size || "",
-      package: service.package || ""
+      package: service.package || "",
+      location: service.location || null
     });
     setIsNewServiceOpen(true);
   };
@@ -337,6 +348,29 @@ export const Services = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Szolgáltatások</h1>
           <p className="text-slate-400 mt-1 text-sm sm:text-base">{services.length} szolgáltatás</p>
         </div>
+      </div>
+
+      {/* Location Filter */}
+      <div className="flex items-center gap-2">
+        <MapPin className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-1">
+          {[{ val: "all", label: "Összes telephely" }, { val: "Debrecen", label: "Debrecen" }, { val: "Budapest", label: "Budapest" }].map(({ val, label }) => (
+            <button
+              key={val}
+              onClick={() => setServicesLoc(val)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                servicesLoc === val ? "bg-green-500/20 text-green-400" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* New Service Button row */}
+      <div className="flex justify-end">
+        <div className="flex gap-2">
         <Dialog open={isNewServiceOpen} onOpenChange={(open) => {
             setIsNewServiceOpen(open);
             if (!open) {
@@ -432,6 +466,19 @@ export const Services = () => {
                   </div>
                 </div>
                 <div>
+                  <Label className="text-slate-300">Telephely</Label>
+                  <Select value={formData.location || "all"} onValueChange={(v) => setFormData({...formData, location: v === "all" ? null : v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700">
+                      <SelectValue placeholder="Mindkét telephely" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="all" className="text-white">Mindkét telephely</SelectItem>
+                      <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                      <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label className="text-slate-300">Leírás</Label>
                   <Textarea
                     value={formData.description}
@@ -440,7 +487,7 @@ export const Services = () => {
                     placeholder="Opcionális leírás..."
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleSubmit}
                   className="w-full bg-green-600 hover:bg-green-500"
                   disabled={!formData.name || !formData.price}
@@ -450,11 +497,12 @@ export const Services = () => {
               </div>
             </DialogContent>
           </Dialog>
+        </div>
       </div>
 
       {/* Services by Category */}
       <Tabs defaultValue="promotions" className="w-full">
-        <TabsList className="bg-slate-900 border border-slate-800 p-1">
+        <TabsList className="bg-slate-900 border border-slate-800 p-1 flex overflow-x-auto gap-1 w-full sm:w-auto h-auto flex-nowrap">
           <TabsTrigger 
             value="promotions"
             className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400"
@@ -621,6 +669,19 @@ export const Services = () => {
                       placeholder="pl. 🌸 AKCIÓ vagy 🔥 KIÁRUSÍTÁS"
                     />
                   </div>
+                  <div>
+                    <Label className="text-slate-300">Telephely</Label>
+                    <Select value={promoForm.location || "all"} onValueChange={(v) => setPromoForm({...promoForm, location: v === "all" ? null : v})}>
+                      <SelectTrigger className="bg-slate-950 border-slate-700">
+                        <SelectValue placeholder="Mindkét telephely" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="all" className="text-white">Mindkét telephely</SelectItem>
+                        <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                        <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center gap-3 pt-2">
                     <Switch
                       checked={promoForm.active}
@@ -684,6 +745,11 @@ export const Services = () => {
                   </div>
                   
                   <div className="flex flex-wrap gap-2 mb-3">
+                    {promo.location && (
+                      <Badge variant="outline" className="border-green-500/40 text-green-400">
+                        <MapPin className="w-3 h-3 mr-1" />{promo.location}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="border-slate-600 text-slate-400">
                       <Car className="w-3 h-3 mr-1" />
                       {promo.car_sizes?.join(', ')} méret
@@ -749,7 +815,12 @@ export const Services = () => {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
                         <h3 className="text-white font-semibold">{service.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {service.location && (
+                            <Badge variant="outline" className="text-xs border-green-500/40 text-green-400">
+                              <MapPin className="w-3 h-3 mr-1" />{service.location}
+                            </Badge>
+                          )}
                           {service.car_size && (
                             <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
                               <Car className="w-3 h-3 mr-1" />

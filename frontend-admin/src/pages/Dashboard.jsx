@@ -77,6 +77,7 @@ const IMAGE_SLOTS_AFTER = [
   { id: "belter_elol_jobb", label: "Beltér elől jobboldal", category: "belter", matchBefore: "belter_elol_jobb" },
   { id: "belter_hatul_bal", label: "Beltér hátul baloldal", category: "belter", matchBefore: "belter_hatul_bal" },
   { id: "belter_hatul_jobb", label: "Beltér hátul jobboldal", category: "belter", matchBefore: "belter_hatul_jobb" },
+  { id: "atadas_atvatel", label: "Átadás-átvétel dokumentáció", category: "handover", matchBefore: null },
 ];
 
 export const Dashboard = () => {
@@ -681,6 +682,7 @@ export const Dashboard = () => {
                       <SelectTrigger className="bg-slate-950 border-slate-700"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                        <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1251,16 +1253,16 @@ export const Dashboard = () => {
                       Utána képek
                     </Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {IMAGE_SLOTS_AFTER.map((slot) => {
+                      {IMAGE_SLOTS_AFTER.filter(s => s.category !== "handover").map((slot) => {
                         const imageUrl = getSlotImage(selectedJob, 'after', slot.id);
                         return (
                           <div key={slot.id} className="relative">
                             <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
                               {imageUrl ? (
                                 <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
-                                  <img 
-                                    src={imageUrl} 
-                                    alt={slot.label} 
+                                  <img
+                                    src={imageUrl}
+                                    alt={slot.label}
                                     className="w-full h-full object-contain bg-slate-900"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
                                     loading="lazy"
@@ -1279,7 +1281,7 @@ export const Dashboard = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <button 
+                                <button
                                   onClick={() => handleSlotUploadClick(slot.id, 'after')}
                                   disabled={uploading === slot.id}
                                   className="w-full h-full flex flex-col items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
@@ -1300,6 +1302,66 @@ export const Dashboard = () => {
                       })}
                     </div>
                   </div>
+
+                  {/* Handover / Átadás-átvétel section */}
+                  {(() => {
+                    const handoverSlot = IMAGE_SLOTS_AFTER.find(s => s.category === "handover");
+                    if (!handoverSlot) return null;
+                    const imageUrl = getSlotImage(selectedJob, 'after', handoverSlot.id);
+                    return (
+                      <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl p-4">
+                        <Label className="text-amber-400 text-lg font-semibold flex items-center gap-2 mb-4">
+                          <ArrowLeftRight className="w-5 h-5" />
+                          Átadás-átvétel dokumentáció
+                        </Label>
+                        <p className="text-slate-400 text-xs mb-3">
+                          Készíts képet az autó átadásakor — a kép a munka lezárásakor az ügyfélnek is megmutatható.
+                        </p>
+                        <div className="max-w-xs">
+                          <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-amber-500/50 bg-amber-500/5' : 'border-amber-500/30 bg-slate-800/50'} overflow-hidden`}>
+                            {imageUrl ? (
+                              <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
+                                <img
+                                  src={imageUrl}
+                                  alt={handoverSlot.label}
+                                  className="w-full h-full object-contain bg-slate-900"
+                                  onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                                  <button onClick={(e) => { e.stopPropagation(); setFullscreenImage(imageUrl); }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 pointer-events-auto">
+                                    <ZoomIn className="w-4 h-4 text-white" />
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedJob.job_id, 'after', handoverSlot.id); }} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500 pointer-events-auto">
+                                    <X className="w-4 h-4 text-white" />
+                                  </button>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 pointer-events-none">
+                                  <Check className="w-3 h-3 text-amber-400 inline mr-1" />
+                                  <span className="text-[10px] text-white">Átadás-átvétel</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleSlotUploadClick(handoverSlot.id, 'after')}
+                                disabled={uploading === handoverSlot.id}
+                                className="w-full h-full flex flex-col items-center justify-center text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              >
+                                {uploading === handoverSlot.id ? (
+                                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-500/50 border-t-amber-400" />
+                                ) : (
+                                  <>
+                                    <Camera className="w-8 h-8 mb-2" />
+                                    <span className="text-xs text-center px-2">Kép feltöltése</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </TabsContent>
 
                 {/* Comparison View */}

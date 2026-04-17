@@ -32,6 +32,7 @@ class PromotionCreate(BaseModel):
     badge: str = "🎉 AKCIÓ"
     valid_until: Optional[str] = None
     active: bool = True
+    location: Optional[str] = None
 
 class PromotionUpdate(BaseModel):
     name: Optional[str] = None
@@ -47,11 +48,15 @@ class PromotionUpdate(BaseModel):
     badge: Optional[str] = None
     valid_until: Optional[str] = None
     active: Optional[bool] = None
+    location: Optional[str] = None
 
 @router.get("/services")
-async def get_services(user: User = Depends(get_current_user)):
-    """Get all services"""
-    services = await db.services.find({}, {"_id": 0}).to_list(1000)
+async def get_services(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all services, optionally filtered by location"""
+    query = {}
+    if location and location != "all":
+        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    services = await db.services.find(query, {"_id": 0}).to_list(1000)
     return services
 
 @router.get("/services/pricing-data")
@@ -97,9 +102,12 @@ async def get_promotions():
     return promotions
 
 @router.get("/services/promotions/admin")
-async def get_promotions_admin(user: User = Depends(get_current_user)):
-    """Get all promotions for admin (including inactive)"""
-    promotions = await db.promotions.find({}, {"_id": 0}).to_list(100)
+async def get_promotions_admin(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all promotions for admin (including inactive), optionally filtered by location"""
+    query = {}
+    if location and location != "all":
+        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    promotions = await db.promotions.find(query, {"_id": 0}).to_list(100)
     return promotions
 
 @router.post("/services/promotions")
@@ -128,6 +136,7 @@ async def create_promotion(data: PromotionCreate, user: User = Depends(get_curre
         "badge": data.badge,
         "valid_until": data.valid_until,
         "active": data.active,
+        "location": data.location,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
