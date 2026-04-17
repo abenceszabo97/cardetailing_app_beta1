@@ -29,9 +29,9 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { 
-  Settings as SettingsIcon, 
-  Users, 
+import {
+  Settings as SettingsIcon,
+  Users,
   UserPlus,
   Plus,
   Shield,
@@ -45,7 +45,9 @@ import {
   Check,
   X,
   Loader2,
-  Lock
+  Lock,
+  FileText,
+  ExternalLink
 } from "lucide-react";
 
 // Change Password Form Component
@@ -159,6 +161,12 @@ export const Settings = () => {
   // Data cleanup state
   const [orphanedData, setOrphanedData] = useState(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+
+  // Számlázz.hu state
+  const [szamlazzApiKey, setSzamlazzApiKey] = useState("");
+  const [szamlazzConfigured, setSzamlazzConfigured] = useState(false);
+  const [szamlazzSaving, setSzamlazzSaving] = useState(false);
+  const [szamlazzKeyVisible, setSzamlazzKeyVisible] = useState(false);
   
   const [newWorker, setNewWorker] = useState({
     name: "",
@@ -190,9 +198,35 @@ export const Settings = () => {
     }
   };
 
+  const fetchSzamlazzStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/invoices/status`, { withCredentials: true });
+      setSzamlazzConfigured(res.data.configured);
+    } catch { /* silent */ }
+  };
+
+  const handleSaveSzamlazzKey = async () => {
+    if (!szamlazzApiKey.trim()) {
+      toast.error("Kérjük add meg az API kulcsot");
+      return;
+    }
+    setSzamlazzSaving(true);
+    try {
+      await axios.post(`${API}/invoices/set-api-key`, { api_key: szamlazzApiKey }, { withCredentials: true });
+      toast.success("Számlázz.hu API kulcs elmentve!");
+      setSzamlazzConfigured(true);
+      setSzamlazzApiKey("");
+    } catch {
+      toast.error("Hiba az API kulcs mentésekor");
+    } finally {
+      setSzamlazzSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (user?.role === "admin") {
       fetchData();
+      fetchSzamlazzStatus();
     }
   }, [user]);
 
@@ -415,6 +449,62 @@ export const Settings = () => {
           Minta adatok betöltése
         </Button>
       </div>
+
+      {/* Számlázz.hu Integration */}
+      <Card className={`glass-card ${szamlazzConfigured ? 'border-green-500/30' : 'border-amber-500/20'}`}>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+            <FileText className="w-5 h-5 text-amber-400" />
+            Számlázz.hu integráció
+            {szamlazzConfigured ? (
+              <span className="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-normal">✓ Beállítva</span>
+            ) : (
+              <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-normal">Nincs beállítva</span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
+          <p className="text-slate-400 text-sm">
+            Az API kulcs megadásával a kész munkákhoz automatikusan kiállítható számla a Számlázz.hu rendszeren keresztül.
+            Az ügyfél emailben kapja meg a számlát.
+          </p>
+          <a
+            href="https://www.szamlazz.hu/szamla/main?page=beallitasok"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-amber-400 text-xs hover:underline"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Agent kulcs lekérése a Számlázz.hu fiókodból
+          </a>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                type={szamlazzKeyVisible ? "text" : "password"}
+                value={szamlazzApiKey}
+                onChange={(e) => setSzamlazzApiKey(e.target.value)}
+                placeholder={szamlazzConfigured ? "Kulcs már beállítva — felülíráshoz add meg az újat" : "Számlázz.hu agent kulcs"}
+                className="bg-slate-950 border-slate-700 text-white pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setSzamlazzKeyVisible(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                {szamlazzKeyVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <Button
+              onClick={handleSaveSzamlazzKey}
+              disabled={szamlazzSaving || !szamlazzApiKey.trim()}
+              className="bg-amber-600 hover:bg-amber-500"
+            >
+              {szamlazzSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              <span className="ml-1">Mentés</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Users Management */}
       <Card className="glass-card">

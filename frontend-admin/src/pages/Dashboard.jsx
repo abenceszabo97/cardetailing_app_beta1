@@ -22,10 +22,10 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { 
-  Car, 
-  Calendar, 
-  TrendingUp, 
+import {
+  Car,
+  Calendar,
+  TrendingUp,
   Plus,
   Clock,
   User,
@@ -42,7 +42,9 @@ import {
   Pencil,
   Bell,
   AlertTriangle,
-  Package
+  Package,
+  FileText,
+  Receipt
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -107,6 +109,54 @@ export const Dashboard = () => {
   // Edit job state
   const [editJobOpen, setEditJobOpen] = useState(false);
   const [editJob, setEditJob] = useState(null);
+
+  // Invoice state
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceJob, setInvoiceJob] = useState(null);
+  const [invoiceForm, setInvoiceForm] = useState({ buyer_name: "", buyer_email: "", buyer_address: "", buyer_tax_number: "", comment: "" });
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceConfigured, setInvoiceConfigured] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/invoices/status`, { withCredentials: true })
+      .then(r => setInvoiceConfigured(r.data.configured))
+      .catch(() => {});
+  }, []);
+
+  const openInvoiceDialog = (job) => {
+    setInvoiceJob(job);
+    setInvoiceForm({
+      buyer_name: job.customer_name || "",
+      buyer_email: job.email || "",
+      buyer_address: "",
+      buyer_tax_number: "",
+      comment: `${job.plate_number} – ${job.service_name || "Autókozmetikai szolgáltatás"}`
+    });
+    setInvoiceDialogOpen(true);
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!invoiceJob) return;
+    setInvoiceLoading(true);
+    try {
+      const res = await axios.post(`${API}/invoices/create`, {
+        job_id: invoiceJob.job_id,
+        buyer_name: invoiceForm.buyer_name,
+        buyer_email: invoiceForm.buyer_email || undefined,
+        buyer_address: invoiceForm.buyer_address || undefined,
+        buyer_tax_number: invoiceForm.buyer_tax_number || undefined,
+        payment_method: invoiceJob.payment_method || "keszpenz",
+        comment: invoiceForm.comment || undefined,
+      }, { withCredentials: true });
+      toast.success(res.data.message || "Számla kiállítva!");
+      setInvoiceDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Hiba a számla kiállításakor");
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
   
   const [newJob, setNewJob] = useState({
     customer_id: "",
@@ -972,9 +1022,24 @@ export const Dashboard = () => {
                                     </>
                                   )}
                                   {job.status === "kesz" && job.payment_method && (
-                                    <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
-                                      {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
-                                    </Badge>
+                                    <>
+                                      <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
+                                        {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
+                                      </Badge>
+                                      {invoiceConfigured && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className={`h-8 sm:h-7 text-xs px-2 ${job.invoice_number ? 'border-green-500/40 text-green-400' : 'border-amber-500/40 text-amber-400 hover:bg-amber-500/10'}`}
+                                          onClick={() => !job.invoice_number && openInvoiceDialog(job)}
+                                          title={job.invoice_number ? `Számla: ${job.invoice_number}` : "Számla kiállítása"}
+                                          disabled={!!job.invoice_number}
+                                        >
+                                          <Receipt className="w-3.5 h-3.5 mr-1" />
+                                          {job.invoice_number ? "Számlázva" : "Számla"}
+                                        </Button>
+                                      )}
+                                    </>
                                   )}
                                   {job.status === "nem_jott_el" && (
                                     <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs">
@@ -994,7 +1059,7 @@ export const Dashboard = () => {
                       </div>
                     );
                   })}
-                  
+
                   {/* Unassigned jobs section - if there are any */}
                   {todayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
                     <div className="md:col-span-2 bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden">
@@ -1471,6 +1536,66 @@ export const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Invoice Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <Receipt className="w-5 h-5" />
+              Számla kiállítása
+            </DialogTitle>
+          </DialogHeader>
+          {invoiceJob && (
+            <div className="space-y-4">
+              {/* Job summary */}
+              <div className="p-3 bg-slate-800/50 rounded-lg">
+                <p className="text-slate-400 text-xs">Munka</p>
+                <p className="text-white font-semibold">{invoiceJob.customer_name} · {invoiceJob.plate_number}</p>
+                <p className="text-slate-400 text-sm">{invoiceJob.service_name}</p>
+                <p className="text-green-400 font-bold">{invoiceJob.price?.toLocaleString()} Ft</p>
+              </div>
+
+              <div>
+                <Label className="text-slate-300">Vevő neve *</Label>
+                <Input value={invoiceForm.buyer_name} onChange={e => setInvoiceForm(f => ({...f, buyer_name: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Vevő teljes neve" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Email (opcionális)</Label>
+                <Input type="email" value={invoiceForm.buyer_email} onChange={e => setInvoiceForm(f => ({...f, buyer_email: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="A számla erre az emailre kerül elküldésre" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Cím (opcionális)</Label>
+                <Input value={invoiceForm.buyer_address} onChange={e => setInvoiceForm(f => ({...f, buyer_address: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Irányítószám, város, utca" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Adószám (cégek esetén)</Label>
+                <Input value={invoiceForm.buyer_tax_number} onChange={e => setInvoiceForm(f => ({...f, buyer_tax_number: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="12345678-1-00" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Megjegyzés</Label>
+                <Input value={invoiceForm.comment} onChange={e => setInvoiceForm(f => ({...f, comment: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" />
+              </div>
+
+              <p className="text-slate-500 text-xs">
+                A számla áfatartalma: 27%. Fizetési mód: {invoiceJob.payment_method === "keszpenz" ? "Készpénz" : invoiceJob.payment_method === "kartya" ? "Bankkártya" : "Átutalás"}.
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
+                <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} className="border-slate-700">Mégse</Button>
+                <Button
+                  onClick={handleCreateInvoice}
+                  disabled={invoiceLoading || !invoiceForm.buyer_name}
+                  className="bg-amber-600 hover:bg-amber-500"
+                >
+                  {invoiceLoading ? <span className="animate-spin mr-1">⏳</span> : <Receipt className="w-4 h-4 mr-1" />}
+                  Számla kiállítása
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Job Dialog */}
       <Dialog open={editJobOpen} onOpenChange={setEditJobOpen}>

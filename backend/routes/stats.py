@@ -313,6 +313,122 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
 
 
 
+@router.get("/stats/forecast")
+async def get_revenue_forecast(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """
+    Bevételi előrejelzés a következő hónapra lineáris regresszióval.
+    Az utolsó 6 hónap adatait használja.
+    """
+    today = datetime.now(timezone.utc)
+
+    # Collect last 6 months of monthly revenue
+    months_data = []
+    for i in range(6, 0, -1):
+        # Calculate month offset
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        month_str = f"{year}-{month:02d}"
+
+        query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
+        if location:
+            query["location"] = location
+
+        jobs = await db.jobs.find(query, {"price": 1, "_id": 0}).to_list(10000)
+        revenue = sum(j.get("price", 0) for j in jobs)
+        cars = len(jobs)
+        months_data.append({
+            "month": month_str,
+            "revenue": revenue,
+            "cars": cars,
+            "index": 6 - i  # 0..5
+        })
+
+    # Also get current (partial) month
+    current_month_str = today.strftime("%Y-%m")
+    current_query = {"status": "kesz", "date": {"$regex": f"^{current_month_str}"}}
+    if location:
+        current_query["location"] = location
+    current_jobs = await db.jobs.find(current_query, {"price": 1, "_id": 0}).to_list(10000)
+    current_revenue = sum(j.get("price", 0) for j in current_jobs)
+    current_cars = len(current_jobs)
+
+    # Linear regression on revenue (simple least squares)
+    n = len(months_data)
+    if n < 2:
+        return {"error": "Nincs elég adat az előrejelzéshez (minimum 2 hónap szükséges)"}
+
+    x_values = [d["index"] for d in months_data]
+    y_values = [d["revenue"] for d in months_data]
+
+    x_mean = sum(x_values) / n
+    y_mean = sum(y_values) / n
+
+    numerator = sum((x_values[i] - x_mean) * (y_values[i] - y_mean) for i in range(n))
+    denominator = sum((x_values[i] - x_mean) ** 2 for i in range(n))
+
+    slope = numerator / denominator if denominator != 0 else 0
+    intercept = y_mean - slope * x_mean
+
+    # Predict next month (index = 6)
+    predicted_revenue = max(0, slope * 6 + intercept)
+
+    # Cars: same regression
+    y_cars = [d["cars"] for d in months_data]
+    y_cars_mean = sum(y_cars) / n
+    num_cars = sum((x_values[i] - x_mean) * (y_cars[i] - y_cars_mean) for i in range(n))
+    slope_cars = num_cars / denominator if denominator != 0 else 0
+    intercept_cars = y_cars_mean - slope_cars * x_mean
+    predicted_cars = max(0, slope_cars * 6 + intercept_cars)
+
+    # Trend direction
+    recent_avg = sum(y_values[3:]) / 3 if len(y_values) >= 3 else y_mean
+    old_avg = sum(y_values[:3]) / 3 if len(y_values) >= 3 else y_mean
+    trend = "up" if recent_avg > old_avg else ("down" if recent_avg < old_avg else "stable")
+
+    # Next month label
+    nm = today.month + 1
+    ny = today.year
+    if nm > 12:
+        nm = 1
+        ny += 1
+    next_month_str = f"{ny}-{nm:02d}"
+
+    MONTH_NAMES = {
+        "01": "Január", "02": "Február", "03": "Március", "04": "Április",
+        "05": "Május", "06": "Június", "07": "Július", "08": "Augusztus",
+        "09": "Szeptember", "10": "Október", "11": "November", "12": "December"
+    }
+    next_month_name = f"{ny}. {MONTH_NAMES[f'{nm:02d}']}"
+
+    # Confidence: higher when variance is low
+    if y_mean > 0:
+        variance = sum((v - y_mean) ** 2 for v in y_values) / n
+        cv = (variance ** 0.5) / y_mean  # coefficient of variation
+        confidence = max(40, min(95, round(100 - cv * 100)))
+    else:
+        confidence = 50
+
+    return {
+        "next_month": next_month_str,
+        "next_month_name": next_month_name,
+        "predicted_revenue": round(predicted_revenue),
+        "predicted_cars": round(predicted_cars),
+        "trend": trend,
+        "confidence": confidence,
+        "current_month": {
+            "month": current_month_str,
+            "revenue": current_revenue,
+            "cars": current_cars,
+            "days_passed": today.day,
+        },
+        "history": months_data,
+        "slope": round(slope),
+    }
+
+
 @router.get("/stats/report")
 async def get_report_data(
     period: str = "daily",

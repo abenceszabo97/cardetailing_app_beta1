@@ -59,6 +59,7 @@ export const Statistics = () => {
   const [locationStats, setLocationStats] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [advancedStats, setAdvancedStats] = useState(null);
+  const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [historyStats, setHistoryStats] = useState(null);
@@ -88,6 +89,11 @@ export const Statistics = () => {
       setLocationStats(locationRes.data.filter(loc => loc.location === 'Debrecen'));
       setDashboardStats(dashRes.data);
       setAdvancedStats(advancedRes.data);
+      // Forecast (separate, non-blocking)
+      try {
+        const fRes = await axios.get(`${API}/stats/forecast${locationParam}`, { withCredentials: true });
+        setForecast(fRes.data?.error ? null : fRes.data);
+      } catch { setForecast(null); }
     } catch (error) {
       toast.error("Hiba a statisztikák betöltésekor");
     } finally {
@@ -416,6 +422,101 @@ export const Statistics = () => {
           </p>
         </CardContent>
       </Card>
+
+      {/* Revenue Forecast Card */}
+      {forecast && (
+        <Card className="glass-card border-purple-500/30 bg-purple-500/5">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              {/* Left: header + trend */}
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-purple-400 font-semibold text-sm">AI Bevételi előrejelzés</p>
+                  <p className="text-white text-lg font-bold">{forecast.next_month_name}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {forecast.trend === "up" ? (
+                      <span className="flex items-center gap-1 text-green-400 text-xs">
+                        <ArrowUpRight className="w-3 h-3" /> Növekvő trend
+                      </span>
+                    ) : forecast.trend === "down" ? (
+                      <span className="flex items-center gap-1 text-red-400 text-xs">
+                        <ArrowDownRight className="w-3 h-3" /> Csökkenő trend
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">Stabil trend</span>
+                    )}
+                    <span className="text-slate-500 text-xs">· {forecast.confidence}% megbízhatóság</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: predicted values */}
+              <div className="flex gap-4 sm:gap-6">
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">Várható bevétel</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-400">
+                    {forecast.predicted_revenue.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-slate-500">Ft</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">Várható autók</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-400">
+                    {forecast.predicted_cars}
+                  </p>
+                  <p className="text-xs text-slate-500">db</p>
+                </div>
+              </div>
+            </div>
+
+            {/* History sparkline bars */}
+            {forecast.history && forecast.history.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-purple-500/20">
+                <p className="text-xs text-slate-500 mb-2">Utolsó 6 hónap + előrejelzés</p>
+                <div className="flex items-end gap-1 h-14">
+                  {forecast.history.map((m, i) => {
+                    const maxRev = Math.max(...forecast.history.map(h => h.revenue), forecast.predicted_revenue) || 1;
+                    const heightPct = Math.max(8, (m.revenue / maxRev) * 100);
+                    return (
+                      <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                        <div
+                          className="w-full bg-purple-500/40 rounded-t"
+                          style={{ height: `${heightPct}%` }}
+                          title={`${m.month}: ${m.revenue.toLocaleString()} Ft`}
+                        />
+                        <span className="text-[9px] text-slate-500 hidden sm:block">{m.month.slice(5)}</span>
+                      </div>
+                    );
+                  })}
+                  {/* Forecast bar */}
+                  <div className="flex-1 flex flex-col items-center gap-1">
+                    {(() => {
+                      const maxRev = Math.max(...forecast.history.map(h => h.revenue), forecast.predicted_revenue) || 1;
+                      const heightPct = Math.max(8, (forecast.predicted_revenue / maxRev) * 100);
+                      return (
+                        <>
+                          <div
+                            className="w-full bg-purple-400/70 rounded-t border-2 border-purple-400 border-dashed"
+                            style={{ height: `${heightPct}%` }}
+                            title={`Előrejelzés: ${forecast.predicted_revenue.toLocaleString()} Ft`}
+                          />
+                          <span className="text-[9px] text-purple-400 hidden sm:block font-bold">előr.</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 mt-2">
+                  * Az előrejelzés az utolsó 6 hónap adatain alapuló lineáris regresszió — tájékoztató jellegű.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       {dashboardStats && (

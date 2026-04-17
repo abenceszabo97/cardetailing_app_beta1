@@ -61,6 +61,9 @@ const Calendar = () => {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Drag & Drop state
+  const [draggedBooking, setDraggedBooking] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // { date, hour }
   const [showBlacklistDialog, setShowBlacklistDialog] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState("");
   const [blacklistImages, setBlacklistImages] = useState([]);
@@ -247,6 +250,59 @@ const Calendar = () => {
     setBlacklistImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // DnD handlers
+  const handleDragStart = (e, booking) => {
+    setDraggedBooking(booking);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", booking.booking_id);
+  };
+
+  const handleDragOver = (e, date, hour) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const key = `${format(date, "yyyy-MM-dd")}-${hour}`;
+    if (!dropTarget || dropTarget.key !== key) {
+      setDropTarget({ date, hour, key });
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
+
+  const handleDrop = async (e, date, hour) => {
+    e.preventDefault();
+    setDropTarget(null);
+    if (!draggedBooking) return;
+
+    const newDate = format(date, "yyyy-MM-dd");
+    const newTimeSlot = `${hour.toString().padStart(2, "0")}:00`;
+
+    // Skip if nothing changed
+    if (draggedBooking.date === newDate && draggedBooking.time_slot?.startsWith(`${hour.toString().padStart(2, "0")}:`)) {
+      setDraggedBooking(null);
+      return;
+    }
+
+    try {
+      await axios.put(
+        `${API}/bookings/${draggedBooking.booking_id}`,
+        { date: newDate, time_slot: newTimeSlot },
+        { withCredentials: true }
+      );
+      toast.success(`${draggedBooking.customer_name} átütemezve → ${newDate} ${newTimeSlot}`);
+      fetchData();
+    } catch (err) {
+      toast.error("Hiba az átütemezéskor");
+    }
+    setDraggedBooking(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBooking(null);
+    setDropTarget(null);
+  };
+
   const getBookingsForDate = (date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     return bookings.filter(b => b.date === dateStr && (selectedWorker === "all" || b.worker_id === selectedWorker));
@@ -297,14 +353,29 @@ const Calendar = () => {
         <div className="max-h-[600px] overflow-y-auto">
           {hours.map(hour => {
             const slotBookings = getBookingsForSlot(currentDate, hour);
+            const isDropTarget = dropTarget?.key === `${format(currentDate, "yyyy-MM-dd")}-${hour}`;
             return (
-              <div key={hour} className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] divide-x divide-slate-800 border-t border-slate-800 min-h-[60px]">
+              <div
+                key={hour}
+                className={`grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] divide-x divide-slate-800 border-t border-slate-800 min-h-[60px] transition-colors ${isDropTarget ? 'bg-green-500/10' : ''}`}
+                onDragOver={(e) => handleDragOver(e, currentDate, hour)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, currentDate, hour)}
+              >
                 <div className="p-2 text-xs text-slate-500 text-right pr-3">{hour}:00</div>
                 <div className="p-1 space-y-1">
+                  {isDropTarget && draggedBooking && (
+                    <div className="p-2 rounded-lg border border-dashed border-green-500/50 bg-green-500/10 text-xs text-green-400 opacity-70">
+                      → {draggedBooking.customer_name}
+                    </div>
+                  )}
                   {slotBookings.map(booking => (
                     <div
                       key={booking.booking_id}
-                      className={`p-2 rounded-lg border cursor-pointer text-xs ${STATUS_COLORS[booking.status]}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, booking)}
+                      onDragEnd={handleDragEnd}
+                      className={`p-2 rounded-lg border cursor-grab active:cursor-grabbing text-xs select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                       onClick={() => openBookingDetails(booking)}
                     >
                       <div className="font-medium">{booking.customer_name}</div>
@@ -370,12 +441,22 @@ const Calendar = () => {
               </div>
               {displayWorkers.map((worker) => {
                 const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
+                const isWT = dropTarget?.key === `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}`;
                 return (
-                  <div key={worker.worker_id} className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                  <div
+                    key={worker.worker_id}
+                    className={`min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px] transition-colors ${isWT ? 'bg-green-500/10' : ''}`}
+                    onDragOver={(e) => { e.preventDefault(); setDropTarget({ date: currentDate, hour, key: `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}` }); }}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, currentDate, hour)}
+                  >
                     {workerBookings.map(booking => (
                       <div
                         key={booking.booking_id}
-                        className={`p-1.5 rounded text-xs cursor-pointer mb-1 ${STATUS_COLORS[booking.status]}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, booking)}
+                        onDragEnd={handleDragEnd}
+                        className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                         onClick={() => openBookingDetails(booking)}
                       >
                         <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
@@ -390,7 +471,10 @@ const Calendar = () => {
                   {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
                     <div
                       key={booking.booking_id}
-                      className={`p-1.5 rounded text-xs cursor-pointer mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, booking)}
+                      onDragEnd={handleDragEnd}
+                      className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300 select-none ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                       onClick={() => openBookingDetails(booking)}
                     >
                       <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
@@ -430,12 +514,22 @@ const Calendar = () => {
                 <div className="p-1 text-xs text-slate-500 text-right pr-2 pt-2">{hour}:00</div>
                 {days.map(day => {
                   const slotBookings = getBookingsForSlot(day, hour);
+                  const isWT = dropTarget?.key === `${format(day, "yyyy-MM-dd")}-${hour}`;
                   return (
-                    <div key={day.toISOString()} className="p-0.5 overflow-hidden">
+                    <div
+                      key={day.toISOString()}
+                      className={`p-0.5 overflow-hidden transition-colors ${isWT ? 'bg-green-500/10' : ''}`}
+                      onDragOver={(e) => handleDragOver(e, day, hour)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, day, hour)}
+                    >
                       {slotBookings.slice(0, 2).map(booking => (
                         <div
                           key={booking.booking_id}
-                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-pointer border-l-2 ${STATUS_COLORS[booking.status]} hover:brightness-110`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, booking)}
+                          onDragEnd={handleDragEnd}
+                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-grab active:cursor-grabbing border-l-2 select-none ${STATUS_COLORS[booking.status]} hover:brightness-110 ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                           onClick={() => openBookingDetails(booking)}
                           title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
                         >

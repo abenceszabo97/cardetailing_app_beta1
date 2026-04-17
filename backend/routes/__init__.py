@@ -18,6 +18,7 @@ from routes.blacklist import router as blacklist_router
 from routes.ai import router as ai_router
 from routes.misc import router as misc_router
 from routes.files import router as files_router
+from routes.invoices import router as invoices_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -38,3 +39,4 @@ api_router.include_router(blacklist_router, tags=["Blacklist"])
 api_router.include_router(ai_router, tags=["AI"])
 api_router.include_router(misc_router, tags=["Misc"])
 api_router.include_router(files_router, tags=["Files"])
+api_router.include_router(invoices_router, tags=["Invoices"])

@@ -1,0 +1,49 @@
+{
+  "short_name": "xClean",
+  "name": "xClean Autókozmetika Menedzsment",
+  "description": "xClean autókozmetika admin felület",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='24' fill='%2316a34a'/><text x='50%' y='55%' font-size='120' text-anchor='middle' dominant-baseline='middle' fill='white'>🚗</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='64' fill='%2316a34a'/><text x='50%' y='55%' font-size='320' text-anchor='middle' dominant-baseline='middle' fill='white'>🚗</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "lang": "hu",
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Főoldal",
+      "short_name": "Főoldal",
+      "description": "Mai munkák és statisztika",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+    },
+    {
+      "name": "Naptár",
+      "short_name": "Naptár",
+      "description": "Foglalások naptárja",
+      "url": "/calendar",
+      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+    },
+    {
+      "name": "Napzárás",
+      "short_name": "Napzárás",
+      "description": "Napnyitás és napzárás",
+      "url": "/day-management",
+      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+    }
+  ]
+}
