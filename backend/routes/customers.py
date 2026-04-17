@@ -11,11 +11,29 @@ from models.customer import Customer, CustomerCreate
 router = APIRouter()
 
 @router.get("/customers")
-async def get_customers(location: Optional[str] = None, user: User = Depends(get_current_user)):
-    """Get all customers, optionally filtered by location"""
+async def get_customers(
+    location: Optional[str] = None,
+    search: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all customers, optionally filtered by location and/or search query"""
     query = {}
     if location and location != "all":
         query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    if search and search.strip():
+        q = search.strip()
+        search_cond = {
+            "$or": [
+                {"name": {"$regex": q, "$options": "i"}},
+                {"plate_number": {"$regex": q, "$options": "i"}},
+                {"phone": {"$regex": q, "$options": "i"}},
+            ]
+        }
+        # Merge with existing query
+        if "$or" in query:
+            query = {"$and": [query, search_cond]}
+        else:
+            query.update(search_cond)
     customers = await db.customers.find(query, {"_id": 0}).to_list(1000)
     return customers
 

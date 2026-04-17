@@ -278,12 +278,48 @@ const BookingPage = () => {
     }
   };
 
+  // Resolve extra name from its ID (service_id or name)
+  const resolveExtraName = (extraId) =>
+    extras.find(e => (e.service_id || e.name) === extraId)?.name || extraId;
+
+  // Returns true if the given extraId cannot currently be selected
+  const isExtraDisabled = (extraId) => {
+    const name = resolveExtraName(extraId);
+    // "Eladásra felkészítés" is already selected → everything else blocked
+    const eladasId = extras.find(e => e.name === "Eladásra felkészítés");
+    const eladasKey = eladasId ? (eladasId.service_id || eladasId.name) : "Eladásra felkészítés";
+    if (selectedExtras.includes(eladasKey) && extraId !== eladasKey) return true;
+    // "Komplett kárpittisztítás" selected → "Kárpittisztítás/ülés" blocked
+    const kompKarpitKey = (() => { const e = extras.find(ex => ex.name === "Komplett kárpittisztítás"); return e ? (e.service_id || e.name) : "Komplett kárpittisztítás"; })();
+    if (name === "Kárpittisztítás/ülés" && selectedExtras.includes(kompKarpitKey)) return true;
+    // "Komplett 3 fázisú bőrápolás" selected → "3 fázisú bőrápolás/ülés" blocked
+    const kompBorapKey = (() => { const e = extras.find(ex => ex.name === "Komplett 3 fázisú bőrápolás"); return e ? (e.service_id || e.name) : "Komplett 3 fázisú bőrápolás"; })();
+    if (name === "3 fázisú bőrápolás/ülés" && selectedExtras.includes(kompBorapKey)) return true;
+    return false;
+  };
+
   const toggleExtra = (extraId) => {
-    setSelectedExtras(prev => 
-      prev.includes(extraId) 
-        ? prev.filter(id => id !== extraId)
-        : [...prev, extraId]
-    );
+    if (isExtraDisabled(extraId) && !selectedExtras.includes(extraId)) return; // blocked
+    const name = resolveExtraName(extraId);
+    setSelectedExtras(prev => {
+      if (prev.includes(extraId)) {
+        // Deselect always allowed
+        return prev.filter(id => id !== extraId);
+      }
+      // --- Selecting ---
+      // "Eladásra felkészítés": exclusive – clears all others
+      if (name === "Eladásra felkészítés") return [extraId];
+      // Selecting "Komplett kárpittisztítás" → remove "Kárpittisztítás/ülés" if present
+      let next = [...prev];
+      if (name === "Komplett kárpittisztítás") {
+        next = next.filter(id => resolveExtraName(id) !== "Kárpittisztítás/ülés");
+      }
+      // Selecting "Komplett 3 fázisú bőrápolás" → remove "3 fázisú bőrápolás/ülés" if present
+      if (name === "Komplett 3 fázisú bőrápolás") {
+        next = next.filter(id => resolveExtraName(id) !== "3 fázisú bőrápolás/ülés");
+      }
+      return [...next, extraId];
+    });
   };
 
   const canGoNext = () => {
@@ -764,36 +800,53 @@ const BookingPage = () => {
                       <p className="text-slate-500 text-xs mt-1">Az akciós árak fix csomagokat tartalmaznak, extra szolgáltatás nem adható hozzá.</p>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {extras.map(extra => (
-                        <div
-                          key={extra.service_id || extra.name}
-                          onClick={() => toggleExtra(extra.service_id || extra.name)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            selectedExtras.includes(extra.service_id || extra.name)
-                              ? 'border-green-500 bg-green-500/10'
-                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Checkbox 
-                                checked={selectedExtras.includes(extra.service_id || extra.name)}
-                                className="border-slate-600"
-                              />
-                              <div>
-                                <span className="text-white text-sm">{extra.name}</span>
-                                {extra.description && (
-                                  <p className="text-xs text-slate-500">{extra.description}</p>
-                                )}
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {extras.map(extra => {
+                        const extraKey = extra.service_id || extra.name;
+                        const isSelected = selectedExtras.includes(extraKey);
+                        const disabled = isExtraDisabled(extraKey);
+                        const isExclusive = extra.name === "Eladásra felkészítés";
+                        return (
+                          <div
+                            key={extraKey}
+                            onClick={() => !disabled && toggleExtra(extraKey)}
+                            className={`p-3 rounded-lg border transition-all ${
+                              disabled && !isSelected
+                                ? 'border-slate-800 bg-slate-900/30 cursor-not-allowed opacity-40'
+                                : isSelected
+                                  ? isExclusive
+                                    ? 'border-orange-500 bg-orange-500/10 cursor-pointer'
+                                    : 'border-green-500 bg-green-500/10 cursor-pointer'
+                                  : 'border-slate-700 hover:border-slate-600 bg-slate-800/30 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Checkbox
+                                  checked={isSelected}
+                                  disabled={disabled && !isSelected}
+                                  className={isSelected && isExclusive ? "border-orange-500" : "border-slate-600"}
+                                />
+                                <div className="min-w-0">
+                                  <span className={`text-sm font-medium ${isExclusive ? 'text-orange-300' : 'text-white'}`}>
+                                    {extra.name}
+                                    {isExclusive && <span className="ml-2 text-xs bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">FULL SERVICE</span>}
+                                  </span>
+                                  {extra.description && (
+                                    <p className="text-xs text-slate-500 truncate">{extra.description}</p>
+                                  )}
+                                  {disabled && !isSelected && (
+                                    <p className="text-xs text-slate-600 italic">Más szolgáltatással nem kombinálható</p>
+                                  )}
+                                </div>
                               </div>
+                              <span className={`font-medium text-sm whitespace-nowrap ${isExclusive ? 'text-orange-400' : 'text-green-400'}`}>
+                                {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                              </span>
                             </div>
-                            <span className="text-green-400 font-medium">
-                              {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
-                            </span>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -805,7 +858,7 @@ const BookingPage = () => {
                   {/* Smart Extra Suggestions - inline, automatic */}
                   {!selectedPromotion && selectedSize && selectedPackage && extras.length > 0 && (
                     (() => {
-                      const unselectedExtras = extras.filter(e => !selectedExtras.includes(e.service_id || e.name));
+                      const unselectedExtras = extras.filter(e => !selectedExtras.includes(e.service_id || e.name) && !isExtraDisabled(e.service_id || e.name));
                       if (unselectedExtras.length === 0) return null;
                       const suggested = unselectedExtras.slice(0, 3);
                       return (

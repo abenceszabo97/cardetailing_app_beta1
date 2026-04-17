@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { useLocation2 } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -48,13 +49,14 @@ const WORKER_COLORS = [
 ];
 
 const Calendar = () => {
+  const { selectedLocation: globalLocation } = useLocation2();
   const [view, setView] = useState("week"); // week, month, day
   const [viewMode, setViewMode] = useState("standard"); // standard, workers (per-worker columns)
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookings, setBookings] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [services, setServices] = useState([]);
-  const [location, setLocation] = useState("all");
+  const [location, setLocation] = useState(globalLocation || "all");
   const [selectedWorker, setSelectedWorker] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [loading, setLoading] = useState(true);

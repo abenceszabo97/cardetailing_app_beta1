@@ -377,7 +377,6 @@ export const Dashboard = () => {
   const handleFileSelected = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !selectedJob || !currentUploadSlot) {
-      console.log("Missing data:", { file: !!file, selectedJob: !!selectedJob, currentUploadSlot });
       return;
     }
     
@@ -394,9 +393,8 @@ export const Dashboard = () => {
       if (file.size > 2 * 1024 * 1024) { // > 2MB
         try {
           fileToUpload = await compressImage(file);
-          console.log(`Compressed from ${file.size} to ${fileToUpload.size}`);
-        } catch (compressError) {
-          console.log("Compression failed, using original:", compressError);
+        } catch {
+          // Compression failed, use original
         }
       }
       
