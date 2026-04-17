@@ -24,6 +24,14 @@ import { NotificationBell } from "./components/NotificationBell";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
+// Apply persisted theme + compact mode immediately on load
+(() => {
+  const theme = localStorage.getItem("xclean_theme") || "dark";
+  const compact = localStorage.getItem("xclean_compact") === "true";
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-compact", compact ? "true" : "false");
+})();
+
 // Auth Context
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);

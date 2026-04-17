@@ -12,6 +12,7 @@ import {
   LogOut,
   Sparkles,
   Sun,
+  Moon,
   MapPin,
   X,
   Car,
@@ -51,6 +52,15 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
     const interval = setInterval(fetchLowStock, 60000); // refresh every minute
     return () => clearInterval(interval);
   }, [locationForApi]);
+
+  // Theme toggle
+  const [isDark, setIsDark] = useState(() => (localStorage.getItem("xclean_theme") || "dark") === "dark");
+  const toggleTheme = () => {
+    const next = isDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("xclean_theme", next);
+    setIsDark(!isDark);
+  };
 
   // Global search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -312,6 +322,16 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
                 {user?.role === "admin" ? "Admin" : "Dolgozó"}
               </p>
             </div>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={toggleTheme}
+              title={isDark ? "Váltás világos módra" : "Váltás sötét módra"}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-xs"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? "Világos" : "Sötét"}
+            </button>
           </div>
           <button
             onClick={logout}

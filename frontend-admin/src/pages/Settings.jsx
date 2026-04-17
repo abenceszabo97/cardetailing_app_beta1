@@ -47,8 +47,27 @@ import {
   Loader2,
   Lock,
   FileText,
-  ExternalLink
+  ExternalLink,
+  Moon,
+  Sun,
+  Monitor,
+  Layout
 } from "lucide-react";
+
+// ── Theme / Appearance helpers ────────────────────────────────────────────────
+const getStoredTheme = () => localStorage.getItem("xclean_theme") || "dark";
+const getStoredCompact = () => localStorage.getItem("xclean_compact") === "true";
+const applyTheme = (theme) => {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("xclean_theme", theme);
+};
+const applyCompact = (compact) => {
+  document.documentElement.setAttribute("data-compact", compact ? "true" : "false");
+  localStorage.setItem("xclean_compact", compact ? "true" : "false");
+};
+// Apply on load
+applyTheme(getStoredTheme());
+applyCompact(getStoredCompact());
 
 // Change Password Form Component
 const ChangePasswordForm = () => {
@@ -1086,7 +1105,7 @@ export const Settings = () => {
 
               {/* Delete all button */}
               {(orphanedData.orphaned_worker_job_count > 0 || orphanedData.orphaned_customer_job_count > 0) && (
-                <Button 
+                <Button
                   onClick={handleCleanupAllOrphaned}
                   disabled={cleanupLoading}
                   className="w-full bg-red-600 hover:bg-red-500 mt-4"
@@ -1099,6 +1118,92 @@ export const Settings = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Appearance Settings */}
+      <AppearanceSettings />
     </div>
+  );
+};
+
+// ── Appearance Settings Component ─────────────────────────────────────────────
+const AppearanceSettings = () => {
+  const [theme, setTheme] = useState(getStoredTheme());
+  const [compact, setCompact] = useState(getStoredCompact());
+
+  const handleTheme = (t) => {
+    applyTheme(t);
+    setTheme(t);
+  };
+  const handleCompact = (c) => {
+    applyCompact(c);
+    setCompact(c);
+  };
+
+  return (
+    <Card className="glass-card">
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+          <Monitor className="w-5 h-5 text-purple-400" />
+          Megjelenés
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 sm:p-6 pt-0 space-y-6">
+        {/* Theme */}
+        <div>
+          <Label className="text-slate-300 mb-3 block">Téma</Label>
+          <div className="flex gap-2">
+            {[
+              { id: "dark", label: "Sötét", icon: Moon },
+              { id: "light", label: "Világos", icon: Sun },
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => handleTheme(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                  theme === id
+                    ? "bg-green-500/20 border-green-500/50 text-green-400"
+                    : "bg-slate-900/50 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+          {theme === "light" && (
+            <p className="text-xs text-amber-400 mt-2">
+              ⚠ A világos téma kísérleti — néhány elem elrendezése eltérhet.
+            </p>
+          )}
+        </div>
+
+        {/* Compact mode */}
+        <div>
+          <Label className="text-slate-300 mb-3 block">Nézet sűrűség</Label>
+          <div className="flex gap-2">
+            {[
+              { id: false, label: "Normál" },
+              { id: true, label: "Kompakt" },
+            ].map(({ id, label }) => (
+              <button
+                key={String(id)}
+                onClick={() => handleCompact(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                  compact === id
+                    ? "bg-green-500/20 border-green-500/50 text-green-400"
+                    : "bg-slate-900/50 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
+                }`}
+              >
+                <Layout className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Kompakt nézetben a sorok és kártyák kisebb helyen jelennek meg.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

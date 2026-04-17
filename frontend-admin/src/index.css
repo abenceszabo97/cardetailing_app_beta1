@@ -111,3 +111,79 @@
     display: contents !important;
   }
 }
+
+/* ── Light mode ─────────────────────────────────────────────────────────────── */
+html[data-theme="light"] {
+  --background: 220 13% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --muted: 210 40% 94%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 32% 88%;
+  --input: 214 32% 88%;
+  --ring: 142 71% 35%;
+}
+
+html[data-theme="light"] body { background-color: #f1f5f9; color: #0f172a; }
+
+/* Structural backgrounds */
+html[data-theme="light"] .bg-slate-950,
+html[data-theme="light"] .bg-slate-950\/60 { background-color: #f8fafc !important; }
+html[data-theme="light"] .bg-slate-900,
+html[data-theme="light"] .bg-slate-900\/50,
+html[data-theme="light"] .bg-slate-900\/60 { background-color: #f1f5f9 !important; }
+html[data-theme="light"] .bg-slate-800 { background-color: #e2e8f0 !important; }
+html[data-theme="light"] .bg-slate-700 { background-color: #cbd5e1 !important; }
+
+/* Text */
+html[data-theme="light"] .text-white { color: #0f172a !important; }
+html[data-theme="light"] .text-slate-400 { color: #475569 !important; }
+html[data-theme="light"] .text-slate-500 { color: #64748b !important; }
+html[data-theme="light"] .text-slate-600 { color: #64748b !important; }
+html[data-theme="light"] .placeholder-slate-500::placeholder { color: #94a3b8 !important; }
+html[data-theme="light"] .placeholder-slate-600::placeholder { color: #94a3b8 !important; }
+
+/* Borders */
+html[data-theme="light"] .border-slate-800 { border-color: #e2e8f0 !important; }
+html[data-theme="light"] .border-slate-700 { border-color: #cbd5e1 !important; }
+html[data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.08) !important; }
+
+/* Glass cards */
+html[data-theme="light"] .glass-card {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(0, 0, 0, 0.07) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Sidebar */
+html[data-theme="light"] aside.bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Inputs in light mode */
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Hover states */
+html[data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.04) !important; }
+
+/* ── Compact mode ───────────────────────────────────────────────────────────── */
+html[data-compact="true"] .p-4 { padding: 0.625rem !important; }
+html[data-compact="true"] .p-6 { padding: 1rem !important; }
+html[data-compact="true"] .py-3 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+html[data-compact="true"] .py-2\.5 { padding-top: 0.375rem !important; padding-bottom: 0.375rem !important; }
+html[data-compact="true"] .gap-6 { gap: 1rem !important; }
+html[data-compact="true"] .gap-4 { gap: 0.625rem !important; }
+html[data-compact="true"] .space-y-6 > * + * { margin-top: 0.75rem !important; }
+html[data-compact="true"] .space-y-4 > * + * { margin-top: 0.5rem !important; }
+html[data-compact="true"] .text-2xl { font-size: 1.25rem !important; }
+html[data-compact="true"] .text-3xl { font-size: 1.5rem !important; }
