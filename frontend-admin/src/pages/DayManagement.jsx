@@ -663,14 +663,14 @@ export const DayManagement = () => {
                   {(todayRecord.withdrawals || []).length > 0 ? (
                     <div className="space-y-2">
                       {(todayRecord.withdrawals || []).map((w, idx) => (
-                        <div key={w.withdrawal_id || idx} className="flex items-center justify-between p-2 bg-slate-950/50 rounded-lg text-sm">
-                          <div>
+                        <div key={w.withdrawal_id || idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2 bg-slate-950/50 rounded-lg text-sm">
+                          <div className="flex-1 min-w-0">
                             <span className="text-white font-medium">{w.reason}</span>
                             <span className="text-slate-500 text-xs ml-2">
-                              {w.withdrawn_by} - {format(new Date(w.timestamp), "HH:mm", { locale: hu })}
+                              {w.withdrawn_by} · {format(new Date(w.timestamp), "HH:mm", { locale: hu })}
                             </span>
                           </div>
-                          <span className="text-red-400 font-semibold">-{w.amount.toLocaleString()} Ft</span>
+                          <span className="text-red-400 font-semibold text-right">-{w.amount.toLocaleString()} Ft</span>
                         </div>
                       ))}
                     </div>

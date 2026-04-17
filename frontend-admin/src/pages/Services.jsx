@@ -916,45 +916,47 @@ export const Services = () => {
           <div className="space-y-3">
             {extras.map(extra => (
               <Card key={extra.service_id} className="glass-card">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-white font-medium">{extra.name}</h3>
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-white font-medium truncate">{extra.name}</h3>
                       {extra.location && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{extra.location}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 flex-shrink-0">{extra.location}</span>
                       )}
                     </div>
                     <p className="text-sm text-slate-400">{extra.description || extra.category}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-400 font-bold">
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <span className="text-green-400 font-bold text-sm sm:text-base">
                       {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
                     </span>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => {
-                        setEditingExtra(extra);
-                        setExtraForm({
-                          name: extra.name,
-                          category: extra.category || "extra_kulso",
-                          price: extra.price || 0,
-                          min_price: extra.min_price || 0,
-                          description: extra.description || "",
-                          location: extra.location || null
-                        });
-                        setIsNewExtraOpen(true);
-                      }}
-                      className="text-blue-400 hover:text-blue-300"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => handleDeleteExtra(extra.service_id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => {
+                          setEditingExtra(extra);
+                          setExtraForm({
+                            name: extra.name,
+                            category: extra.category || "extra_kulso",
+                            price: extra.price || 0,
+                            min_price: extra.min_price || 0,
+                            description: extra.description || "",
+                            location: extra.location || null
+                          });
+                          setIsNewExtraOpen(true);
+                        }}
+                        className="text-blue-400 hover:text-blue-300"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => handleDeleteExtra(extra.service_id)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

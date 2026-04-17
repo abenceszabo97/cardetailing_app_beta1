@@ -555,7 +555,7 @@ export const Workers = () => {
                       Új dolgozó
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                  <DialogContent className="bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="text-xl font-['Manrope']">Új dolgozó hozzáadása</DialogTitle>
                     </DialogHeader>
@@ -869,7 +869,7 @@ export const Workers = () => {
                     Új műszak
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogContent className="bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-['Manrope']">Új műszak létrehozása</DialogTitle>
                   </DialogHeader>
