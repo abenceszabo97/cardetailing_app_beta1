@@ -337,6 +337,63 @@ export const Statistics = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    // Build rows from current state
+    const now = format(new Date(), "yyyy-MM-dd");
+    const location = locationForApi || "Összes";
+
+    // Monthly stats CSV
+    if (monthlyStats.length > 0) {
+      const rows = [
+        [`X-CLEAN Havi statisztika – ${location} – exportálva: ${now}`],
+        [],
+        ["Hónap", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)"],
+        ...monthlyStats.map(m => [
+          m.month,
+          m.count,
+          m.revenue,
+          m.cash || "",
+          m.card || "",
+        ]),
+      ];
+      const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `xclean_havi_stat_${now}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Worker stats CSV
+    if (workerStats.length > 0) {
+      const rows2 = [
+        [`X-CLEAN Dolgozói statisztika – ${location} – exportálva: ${now}`],
+        [],
+        ["Dolgozó", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Jutalék (Ft)"],
+        ...workerStats.map(w => [
+          w.worker_name || w.name || "",
+          w.cars || w.count || 0,
+          w.revenue || 0,
+          w.cash || "",
+          w.card || "",
+          w.commission || "",
+        ]),
+      ];
+      const csv2 = rows2.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+      const blob2 = new Blob(["\uFEFF" + csv2], { type: "text/csv;charset=utf-8;" });
+      const url2 = URL.createObjectURL(blob2);
+      const a2 = document.createElement("a");
+      a2.href = url2;
+      a2.download = `xclean_dolgozo_stat_${now}.csv`;
+      a2.click();
+      URL.revokeObjectURL(url2);
+    }
+
+    toast.success("CSV fájlok letöltve");
+  };
+
   const CustomTooltip = ({ active, payload, label, formatter }) => {
     if (active && payload && payload.length) {
       return (
@@ -412,6 +469,15 @@ export const Statistics = () => {
               >
                 <Download className="w-4 h-4 mr-2" />
                 {generatingReport ? "Generálás..." : "PDF Letöltés"}
+              </Button>
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                className="border-green-700/50 text-green-400 hover:bg-green-500/10 w-full sm:w-auto"
+                title="Havi és dolgozói adatok CSV-be"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                CSV Export
               </Button>
             </div>
           </div>

@@ -130,6 +130,31 @@ export const Invoices = () => {
     return opt ? opt.label : val;
   };
 
+  const handleExportCSV = () => {
+    const rows = [
+      ["Számlaszám", "Ügyfél", "Telephely", "Összeg (Ft)", "Státusz", "Fizetési mód", "Dátum", "Entitás"],
+      ...filtered.map(inv => [
+        inv.invoice_number || "",
+        inv.customer_name || "",
+        inv.location || "",
+        inv.amount || 0,
+        inv.status === "fizetve" ? "Fizetve" : "Fizetésre vár",
+        inv.payment_method === "keszpenz" ? "Készpénz" : inv.payment_method === "kartya" ? "Kártya" : "Átutalás",
+        inv.created_at ? format(new Date(inv.created_at), "yyyy.MM.dd HH:mm", { locale: hu }) : "",
+        BILLING_ENTITY_LABELS[inv.billing_entity] || inv.billing_entity || "",
+      ])
+    ];
+    const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `szamlak_${filterMonth !== "all" ? filterMonth : "osszes"}_${filterLocation !== "all" ? filterLocation : "mindentelephely"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filtered.length} sor exportálva`);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6" data-testid="invoices-page">
       {/* Header */}
@@ -183,6 +208,16 @@ export const Invoices = () => {
 
             <Button onClick={fetchInvoices} variant="outline" className="border-slate-700 text-slate-300 hover:text-white shrink-0">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Frissítés"}
+            </Button>
+            <Button
+              onClick={handleExportCSV}
+              variant="outline"
+              className="border-green-700/50 text-green-400 hover:bg-green-500/10 shrink-0"
+              disabled={filtered.length === 0}
+              title="Exportálás CSV-be"
+            >
+              <Download className="w-4 h-4 mr-1.5" />
+              CSV
             </Button>
           </div>
         </CardContent>
