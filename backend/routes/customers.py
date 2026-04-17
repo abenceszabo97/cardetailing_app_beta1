@@ -19,18 +19,17 @@ async def get_customers(
     """Get all customers, optionally filtered by location and/or search query"""
     query = {}
     if location and location != "all":
-        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+        query["location"] = location
     if search and search.strip():
         q = search.strip()
-        search_cond = {
-            "$or": [
-                {"name": {"$regex": q, "$options": "i"}},
-                {"plate_number": {"$regex": q, "$options": "i"}},
-                {"phone": {"$regex": q, "$options": "i"}},
-            ]
-        }
-        # Merge with existing query
-        if "$or" in query:
+        search_cond = {"$or": [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"plate_number": {"$regex": q, "$options": "i"}},
+            {"phone": {"$regex": q, "$options": "i"}},
+        ]}
+        if "$and" in query:
+            query["$and"].append(search_cond)
+        elif query:
             query = {"$and": [query, search_cond]}
         else:
             query.update(search_cond)

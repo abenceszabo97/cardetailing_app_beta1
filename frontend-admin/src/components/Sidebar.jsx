@@ -245,7 +245,7 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
                   to={item.path}
                   onClick={onClose}
                   className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                    flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
                     ${isActive(item.path)
                       ? "text-green-400 bg-green-400/10"
                       : "text-slate-400 hover:text-white hover:bg-white/5"

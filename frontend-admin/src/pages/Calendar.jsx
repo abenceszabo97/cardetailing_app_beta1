@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { getStatusConfig } from "../lib/statusColors";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { 
@@ -23,19 +24,29 @@ import {
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 const LOCATIONS = ["all", "Debrecen", "Budapest"];
-const STATUS_COLORS = {
-  foglalt: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  folyamatban: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  kesz: "bg-green-500/20 text-green-400 border-green-500/30",
-  lemondta: "bg-red-500/20 text-red-400 border-red-500/30",
-  nem_jott_el: "bg-slate-500/20 text-slate-400 border-slate-500/30"
+// Build STATUS_COLORS from unified config; add lemondta alias for legacy data
+const _buildStatusColors = () => {
+  const statuses = ["foglalt","visszaigazolva","folyamatban","kesz","lemondva","nem_jott_el","torolt"];
+  const map = {};
+  statuses.forEach(s => {
+    const c = getStatusConfig(s);
+    map[s] = `${c.bg} ${c.text} ${c.border}`;
+  });
+  // Legacy alias used in some older bookings
+  map["lemondta"] = map["lemondva"];
+  return map;
 };
+const STATUS_COLORS = _buildStatusColors();
+
 const STATUS_LABELS = {
   foglalt: "Foglalt",
+  visszaigazolva: "Visszaigazolva",
   folyamatban: "Folyamatban",
   kesz: "Kész",
-  lemondta: "Lemondta",
-  nem_jott_el: "Nem jött el"
+  lemondva: "Lemondva",
+  lemondta: "Lemondva",
+  nem_jott_el: "Nem jött el",
+  torolt: "Törölve",
 };
 
 // Worker colors for column headers

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import { StatusBadge } from "../lib/statusColors";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -145,15 +146,7 @@ export const CustomerDetail = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      kesz: { label: "Kész", className: "status-kesz" },
-      folyamatban: { label: "Folyamatban", className: "status-folyamatban" },
-      foglalt: { label: "Foglalt", className: "status-foglalt" }
-    };
-    const config = statusConfig[status] || statusConfig.foglalt;
-    return <Badge className={config.className}>{config.label}</Badge>;
-  };
+  const getStatusBadge = (status) => <StatusBadge status={status} />;
 
   if (loading) {
     return (

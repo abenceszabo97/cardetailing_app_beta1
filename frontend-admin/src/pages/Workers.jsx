@@ -288,7 +288,7 @@ export const Workers = () => {
   
   const [newShift, setNewShift] = useState({
     worker_id: "",
-    location: "Debrecen",
+    location: locationForApi || "Debrecen",
     start_time: "",
     end_time: "",
     lunch_start: "",
@@ -300,8 +300,10 @@ export const Workers = () => {
     phone: "",
     email: "",
     position: "",
-    location: "Debrecen",
-    fuel_eligible: false
+    location: locationForApi || "Debrecen",
+    fuel_eligible: false,
+    travel_allowance_eligible: false,
+    travel_allowance_amount: 0
   });
 
   const monthStart = startOfMonth(currentDate);
@@ -356,7 +358,7 @@ export const Workers = () => {
       await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
       toast.success("Műszak sikeresen létrehozva!");
       setIsNewShiftOpen(false);
-      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "", shift_type: "normal", lunch_start: "", lunch_end: "" });
+      setNewShift({ worker_id: "", location: locationForApi || "Debrecen", start_time: "", end_time: "", shift_type: "normal", lunch_start: "", lunch_end: "" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a műszak létrehozásakor");
@@ -427,7 +429,7 @@ export const Workers = () => {
       await axios.post(`${API}/workers`, newWorker, { withCredentials: true });
       toast.success("Dolgozó sikeresen hozzáadva!");
       setIsNewWorkerOpen(false);
-      setNewWorker({ name: "", phone: "", email: "", position: "", location: "Debrecen", fuel_eligible: false });
+      setNewWorker({ name: "", phone: "", email: "", position: "", location: locationForApi || "Debrecen", fuel_eligible: false, travel_allowance_eligible: false, travel_allowance_amount: 0 });
       fetchData();
     } catch (error) {
       toast.error("Hiba a dolgozó hozzáadásakor");
@@ -442,7 +444,9 @@ export const Workers = () => {
       email: worker.email || "",
       position: worker.position || "",
       location: worker.location,
-      fuel_eligible: worker.fuel_eligible || false
+      fuel_eligible: worker.fuel_eligible || false,
+      travel_allowance_eligible: worker.travel_allowance_eligible || false,
+      travel_allowance_amount: worker.travel_allowance_amount || 0,
     });
   };
 
@@ -626,6 +630,33 @@ export const Workers = () => {
                           <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${newWorker.fuel_eligible ? 'translate-x-2' : '-translate-x-2'}`} />
                         </button>
                       </div>
+                      {/* Travel allowance fields — shown when travel_allowance_eligible is true */}
+                      <div className="flex items-center gap-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+                        <Car className="w-4 h-4 text-green-400" />
+                        <div className="flex-1">
+                          <Label className="text-slate-300 text-sm">Bejárási költségtérítésre jogosult</Label>
+                          <p className="text-xs text-slate-500">Beállítható fix napi összeg</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewWorker({...newWorker, travel_allowance_eligible: !newWorker.travel_allowance_eligible})}
+                          className={`w-10 h-6 rounded-full transition-colors ${newWorker.travel_allowance_eligible ? 'bg-green-500' : 'bg-slate-700'}`}
+                        >
+                          <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${newWorker.travel_allowance_eligible ? 'translate-x-2' : '-translate-x-2'}`} />
+                        </button>
+                      </div>
+                      {newWorker.travel_allowance_eligible && (
+                        <div>
+                          <Label className="text-slate-300">Bejárási díj összege (Ft/nap)</Label>
+                          <Input
+                            type="number"
+                            value={newWorker.travel_allowance_amount}
+                            onChange={(e) => setNewWorker({...newWorker, travel_allowance_amount: parseInt(e.target.value) || 0})}
+                            className="bg-slate-950 border-slate-700 text-white"
+                            placeholder="pl. 1500"
+                          />
+                        </div>
+                      )}
                       <Button
                         onClick={handleCreateWorker}
                         className="w-full bg-green-600 hover:bg-green-500"
@@ -797,6 +828,26 @@ export const Workers = () => {
                                     >
                                       <span className={`block w-3 h-3 bg-white rounded-full mx-auto transition-transform ${editWorkerForm.fuel_eligible ? 'translate-x-1.5' : '-translate-x-1.5'}`} />
                                     </button>
+                                    {/* Travel allowance */}
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-slate-400 text-xs">Bejárási díj:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditWorkerForm({...editWorkerForm, travel_allowance_eligible: !editWorkerForm.travel_allowance_eligible})}
+                                        className={`w-8 h-5 rounded-full transition-colors flex-shrink-0 ${editWorkerForm.travel_allowance_eligible ? 'bg-green-500' : 'bg-slate-700'}`}
+                                      >
+                                        <span className={`block w-3 h-3 bg-white rounded-full mx-auto transition-transform ${editWorkerForm.travel_allowance_eligible ? 'translate-x-1.5' : '-translate-x-1.5'}`} />
+                                      </button>
+                                      {editWorkerForm.travel_allowance_eligible && (
+                                        <Input
+                                          type="number"
+                                          value={editWorkerForm.travel_allowance_amount || 0}
+                                          onChange={(e) => setEditWorkerForm({...editWorkerForm, travel_allowance_amount: parseInt(e.target.value) || 0})}
+                                          className="bg-slate-950 border-slate-700 text-white h-7 text-xs w-24"
+                                          placeholder="Ft/nap"
+                                        />
+                                      )}
+                                    </div>
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -1467,7 +1518,9 @@ export const Workers = () => {
                       else if (worker.revenue <= 700000) fuel = 60000;
                       else fuel = 80000;
                     }
-                    const total = commission + fuel;
+                    const hasTravel = worker.travel_allowance_eligible === true && worker.travel_allowance_amount > 0;
+                    const travelAllowance = hasTravel ? (worker.travel_allowance_amount * (worker.days_worked || 0)) : 0;
+                    const total = commission + fuel + travelAllowance;
                     return (
                       <div key={worker.worker_id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-700 space-y-3">
                         <div className="flex items-center justify-between">
@@ -1497,6 +1550,17 @@ export const Workers = () => {
                             <span className="text-slate-400 flex items-center gap-1"><Fuel className="w-3.5 h-3.5 text-amber-400" /> Üzemanyag-térítés</span>
                             <span className="text-white font-semibold">{fuel.toLocaleString()} Ft
                               <span className="text-slate-500 text-xs ml-2">({worker.revenue <= 500000 ? "≤500k" : worker.revenue <= 700000 ? "501-700k" : ">700k"} sáv)</span>
+                            </span>
+                          </div>
+                        )}
+                        {hasTravel && (
+                          <div className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg border border-slate-700 text-sm">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Car className="w-3.5 h-3.5 text-green-400" /> Bejárási költségtérítés
+                            </span>
+                            <span className="text-white font-semibold">
+                              {travelAllowance.toLocaleString()} Ft
+                              <span className="text-slate-500 text-xs ml-2">({worker.days_worked || 0} nap × {worker.travel_allowance_amount?.toLocaleString()} Ft)</span>
                             </span>
                           </div>
                         )}

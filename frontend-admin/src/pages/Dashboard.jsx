@@ -554,13 +554,15 @@ export const Dashboard = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      kesz: { label: "Kész", className: "status-kesz" },
-      folyamatban: { label: "Folyamatban", className: "status-folyamatban" },
-      foglalt: { label: "Foglalt", className: "status-foglalt" },
-      nem_jott_el: { label: "Nem jött el", className: "bg-red-500/20 text-red-400 border border-red-500/30" },
-      lemondta: { label: "Lemondva", className: "bg-orange-500/20 text-orange-400 border border-orange-500/30" }
+      kesz:           { label: "Kész",            className: "bg-green-500/20 text-green-400 border border-green-500/30" },
+      folyamatban:    { label: "Folyamatban",     className: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
+      foglalt:        { label: "Foglalt",         className: "bg-blue-500/20 text-blue-400 border border-blue-500/30" },
+      visszaigazolva: { label: "Visszaigazolva",  className: "bg-blue-500/20 text-blue-300 border border-blue-500/30" },
+      nem_jott_el:    { label: "Nem jött el",     className: "bg-slate-500/20 text-slate-400 border border-slate-700" },
+      lemondva:       { label: "Lemondva",        className: "bg-red-500/20 text-red-400 border border-red-500/30" },
+      lemondta:       { label: "Lemondva",        className: "bg-red-500/20 text-red-400 border border-red-500/30" },
     };
-    const config = statusConfig[status] || statusConfig.foglalt;
+    const config = statusConfig[status] || { label: status, className: "bg-slate-700/20 text-slate-400 border border-slate-700" };
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 

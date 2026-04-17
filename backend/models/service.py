@@ -165,6 +165,9 @@ EXTRA_SERVICES = [
     {"name": "Vízkő eltávolítás", "category": "extra_kulso", "min_price": 9000, "description": ""},
     {"name": "Gyanta eltávolítás", "category": "extra_kulso", "min_price": 3000, "description": ""},
     {"name": "Liquid kerámia", "category": "extra_kulso", "price": 12000, "description": "Prémium védőréteg"},
+    # Lámpapolírozás — önállóan is kérhető, minden szolgáltatással kombinálható
+    {"name": "Lámpapolír (pár)", "category": "extra_kulso", "price": 21990, "description": "S, M, L méretű autókhoz"},
+    {"name": "Lámpapolír terepjáróhoz (pár)", "category": "extra_kulso", "price": 23990, "description": "XL, XXL méretű autókhoz"},
     # Belső extrák
     {"name": "Légtér, klíma ózonos fertőtlenítése", "category": "extra_belso", "price": 8000, "description": ""},
     {"name": "Komplett kárpittisztítás", "category": "extra_belso", "min_price": 28000, "description": ""},

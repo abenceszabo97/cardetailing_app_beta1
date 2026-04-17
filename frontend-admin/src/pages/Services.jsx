@@ -43,7 +43,9 @@ import {
   Calendar,
   Check,
   Pencil,
-  MapPin
+  MapPin,
+  Save,
+  X
 } from "lucide-react";
 
 export const Services = () => {
@@ -70,6 +72,14 @@ export const Services = () => {
   });
   
   const [servicesLoc, setServicesLoc] = useState("all");
+
+  // Polírozás price editing states
+  const [polishPrices, setPolishPrices] = useState({
+    "1lepes": { S: 37990, M: 43990, L: 50990, XL: 56990, XXL: 63990 },
+    "tobbLepes": { S: 50990, M: 56990, L: 63990, XL: 69990, XXL: 75990 }
+  });
+  const [polishEditMode, setPolishEditMode] = useState(false);
+  const [polishSaving, setPolishSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -128,10 +138,23 @@ export const Services = () => {
     }
   };
 
+  const fetchPolishPrices = async () => {
+    try {
+      const response = await axios.get(`${API}/services/polishing-prices`, { withCredentials: true });
+      if (response.data && typeof response.data === "object") {
+        setPolishPrices(response.data);
+      }
+    } catch (error) {
+      // If endpoint doesn't exist yet, keep defaults
+      console.warn("Could not fetch polishing prices:", error);
+    }
+  };
+
   useEffect(() => {
     fetchServices(servicesLoc);
     fetchPromotions(servicesLoc);
     fetchExtras();
+    fetchPolishPrices();
   }, [servicesLoc]);
 
   const fetchExtras = async () => {
@@ -323,6 +346,20 @@ export const Services = () => {
       extra: "bg-orange-500/20 text-orange-400"
     };
     return colors[category] || colors.komplett;
+  };
+
+  const getCategoryLabel = (cat) => {
+    if (cat === "extra_kulso") return "Külső extra";
+    if (cat === "extra_belso") return "Belső extra";
+    if (cat === "extra_special") return "Speciális";
+    return cat || "Extra";
+  };
+
+  const getCategoryBadgeClass = (cat) => {
+    if (cat === "extra_kulso") return "bg-green-500/20 text-green-400";
+    if (cat === "extra_belso") return "bg-blue-500/20 text-blue-400";
+    if (cat === "extra_special") return "bg-orange-500/20 text-orange-400";
+    return "bg-slate-500/20 text-slate-400";
   };
 
   const groupedServices = services.reduce((acc, service) => {
@@ -906,21 +943,19 @@ export const Services = () => {
               Extra szolgáltatások
             </h2>
             <div className="flex gap-2">
-              {extras.length === 0 && (
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      const res = await axios.post(`${API}/services/extras/seed`, {}, { withCredentials: true });
-                      toast.success(res.data.message || "Alapértelmezett extrák betöltve!");
-                      fetchExtras();
-                    } catch { toast.error("Hiba az extrák betöltésekor"); }
-                  }}
-                  className="border-slate-600 text-slate-300 hover:text-white text-xs"
-                >
-                  Alapértelmezések betöltése
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const res = await axios.post(`${API}/services/extras/seed`, {}, { withCredentials: true });
+                    toast.success(res.data.message || "Alapértelmezett extrák betöltve!");
+                    fetchExtras();
+                  } catch { toast.error("Hiba az extrák betöltésekor"); }
+                }}
+                className="border-slate-600 text-slate-300 hover:text-white text-xs"
+              >
+                Új extrák betöltése
+              </Button>
               <Button
                 onClick={() => {
                   setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
@@ -935,27 +970,25 @@ export const Services = () => {
             </div>
           </div>
 
-          {/* Extras List */}
-          <div className="space-y-3">
+          {/* Extras Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {extras.map(extra => (
-              <Card key={extra.service_id} className="glass-card">
-                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-white font-medium truncate">{extra.name}</h3>
-                      {extra.location && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 flex-shrink-0">{extra.location}</span>
+              <Card key={extra.service_id} className="glass-card hover:border-blue-500/30 transition-colors overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0">
+                      <Badge className={`mb-2 text-xs ${getCategoryBadgeClass(extra.category)}`}>
+                        {getCategoryLabel(extra.category)}
+                      </Badge>
+                      <h3 className="text-white font-semibold truncate">{extra.name}</h3>
+                      {extra.description && (
+                        <p className="text-slate-400 text-sm mt-1">{extra.description}</p>
                       )}
                     </div>
-                    <p className="text-sm text-slate-400">{extra.description || extra.category}</p>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-3">
-                    <span className="text-green-400 font-bold text-sm sm:text-base">
-                      {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost" size="sm"
+                    <div className="flex gap-1 ml-2 flex-shrink-0">
+                      <button
+                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
                         onClick={() => {
                           setEditingExtra(extra);
                           setExtraForm({
@@ -968,30 +1001,38 @@ export const Services = () => {
                           });
                           setIsNewExtraOpen(true);
                         }}
-                        className="text-blue-400 hover:text-blue-300"
                       >
                         <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
+                      </button>
+                      <button
+                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
                         onClick={() => handleDeleteExtra(extra.service_id)}
-                        className="text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </button>
                     </div>
+                  </div>
+                  {extra.location && (
+                    <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs mb-3">
+                      <MapPin className="w-3 h-3 mr-1" />{extra.location}
+                    </Badge>
+                  )}
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
+                    <span className="text-xl font-bold text-blue-400">
+                      {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
             ))}
-            {extras.length === 0 && (
-              <div className="text-center text-slate-500 py-12">
-                <Plus className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p>Nincs extra szolgáltatás</p>
-                <p className="text-sm mt-1">Adj hozzá extra szolgáltatásokat a Booking oldalhoz</p>
-              </div>
-            )}
           </div>
+          {extras.length === 0 && (
+            <div className="text-center text-slate-500 py-12">
+              <Plus className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p>Nincs extra szolgáltatás</p>
+              <p className="text-sm mt-1">Adj hozzá extra szolgáltatásokat a Booking oldalhoz</p>
+            </div>
+          )}
         </TabsContent>
 
         {/* Polírozás Tab */}
@@ -1008,42 +1049,74 @@ export const Services = () => {
                   Egyéni polírozási szolgáltatásokat az alábbi gombbal hozhatsz létre.
                 </p>
               </div>
-              <Button
-                className="bg-amber-600 hover:bg-amber-500 shrink-0"
-                onClick={async () => {
-                  // Seed default polishing services
-                  const POLISHING_DEFAULTS = [
-                    { name: "1-lépéses polírozás (S)", price: 37990, duration: 90, description: "1–3 óra | Kis autó" },
-                    { name: "1-lépéses polírozás (M)", price: 43990, duration: 100, description: "1–3 óra | Közepes autó" },
-                    { name: "1-lépéses polírozás (L)", price: 50990, duration: 120, description: "1–3 óra | Nagy autó" },
-                    { name: "1-lépéses polírozás (XL)", price: 56990, duration: 140, description: "1–3 óra | SUV" },
-                    { name: "1-lépéses polírozás (XXL)", price: 63990, duration: 160, description: "1–3 óra | Nagy SUV" },
-                    { name: "Többlépéses polírozás (S)", price: 50990, duration: 150, description: "2–5 óra | Kis autó" },
-                    { name: "Többlépéses polírozás (M)", price: 56990, duration: 180, description: "2–5 óra | Közepes autó" },
-                    { name: "Többlépéses polírozás (L)", price: 63990, duration: 210, description: "2–5 óra | Nagy autó" },
-                    { name: "Többlépéses polírozás (XL)", price: 69990, duration: 240, description: "2–5 óra | SUV" },
-                    { name: "Többlépéses polírozás (XXL)", price: 75990, duration: 270, description: "2–5 óra | Nagy SUV" },
-                  ];
-                  let created = 0;
-                  for (const p of POLISHING_DEFAULTS) {
-                    try {
-                      await axios.post(`${API}/services`, { ...p, category: "poliroz", location: "Debrecen" }, { withCredentials: true });
-                      created++;
-                    } catch { /* skip existing */ }
-                  }
-                  toast.success(`${created} polírozási szolgáltatás létrehozva!`);
-                  fetchServices(servicesLoc);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Alapértelmezések betöltése
-              </Button>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={() => setPolishEditMode(!polishEditMode)}
+                  className={polishEditMode ? "border-amber-500 text-amber-400" : "border-slate-600 text-slate-300"}
+                >
+                  {polishEditMode ? (
+                    <><X className="w-4 h-4 mr-2" /> Mégse</>
+                  ) : (
+                    <><Pencil className="w-4 h-4 mr-2" /> Árak szerkesztése</>
+                  )}
+                </Button>
+                {polishEditMode && (
+                  <Button
+                    className="bg-amber-600 hover:bg-amber-500"
+                    disabled={polishSaving}
+                    onClick={async () => {
+                      setPolishSaving(true);
+                      try {
+                        await axios.post(`${API}/services/polishing-prices`, polishPrices, { withCredentials: true });
+                        toast.success("Polírozási árak mentve!");
+                        setPolishEditMode(false);
+                      } catch { toast.error("Hiba a mentéskor"); }
+                      setPolishSaving(false);
+                    }}
+                  >
+                    <Save className="w-4 h-4 mr-2" /> Mentés
+                  </Button>
+                )}
+                <Button
+                  className="bg-amber-600 hover:bg-amber-500"
+                  onClick={async () => {
+                    // Seed default polishing services
+                    const POLISHING_DEFAULTS = [
+                      { name: "1-lépéses polírozás (S)", price: 37990, duration: 90, description: "1–3 óra | Kis autó" },
+                      { name: "1-lépéses polírozás (M)", price: 43990, duration: 100, description: "1–3 óra | Közepes autó" },
+                      { name: "1-lépéses polírozás (L)", price: 50990, duration: 120, description: "1–3 óra | Nagy autó" },
+                      { name: "1-lépéses polírozás (XL)", price: 56990, duration: 140, description: "1–3 óra | SUV" },
+                      { name: "1-lépéses polírozás (XXL)", price: 63990, duration: 160, description: "1–3 óra | Nagy SUV" },
+                      { name: "Többlépéses polírozás (S)", price: 50990, duration: 150, description: "2–5 óra | Kis autó" },
+                      { name: "Többlépéses polírozás (M)", price: 56990, duration: 180, description: "2–5 óra | Közepes autó" },
+                      { name: "Többlépéses polírozás (L)", price: 63990, duration: 210, description: "2–5 óra | Nagy autó" },
+                      { name: "Többlépéses polírozás (XL)", price: 69990, duration: 240, description: "2–5 óra | SUV" },
+                      { name: "Többlépéses polírozás (XXL)", price: 75990, duration: 270, description: "2–5 óra | Nagy SUV" },
+                    ];
+                    let created = 0;
+                    for (const p of POLISHING_DEFAULTS) {
+                      try {
+                        await axios.post(`${API}/services`, { ...p, category: "poliroz", location: "Debrecen" }, { withCredentials: true });
+                        created++;
+                      } catch { /* skip existing */ }
+                    }
+                    toast.success(`${created} polírozási szolgáltatás létrehozva!`);
+                    fetchServices(servicesLoc);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Alapértelmezések betöltése
+                </Button>
+              </div>
             </div>
 
             {/* Standard polishing price table */}
             <Card className="glass-card">
               <CardHeader className="p-4">
-                <CardTitle className="text-base text-white font-medium">Polírozás árak (rögzített táblázat)</CardTitle>
+                <CardTitle className="text-base text-white font-medium">
+                  Polírozás árak {polishEditMode && <span className="text-amber-400 text-sm font-normal ml-2">(szerkesztési mód)</span>}
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1059,13 +1132,29 @@ export const Services = () => {
                   </thead>
                   <tbody>
                     {[
-                      { label: "1-lépéses (1–3 óra)", prices: [37990, 43990, 50990, 56990, 63990] },
-                      { label: "Többlépéses (2–5 óra)", prices: [50990, 56990, 63990, 69990, 75990] },
+                      { typeKey: "1lepes", label: "1-lépéses (1–3 óra)" },
+                      { typeKey: "tobbLepes", label: "Többlépéses (2–5 óra)" },
                     ].map((row) => (
-                      <tr key={row.label} className="border-b border-slate-800">
+                      <tr key={row.typeKey} className="border-b border-slate-800">
                         <td className="text-white py-3 pr-4 font-medium">{row.label}</td>
-                        {row.prices.map((p, i) => (
-                          <td key={i} className="text-green-400 text-center py-3 px-2 font-semibold">{p.toLocaleString()} Ft</td>
+                        {["S", "M", "L", "XL", "XXL"].map((sizeKey) => (
+                          <td key={sizeKey} className="text-center py-3 px-2">
+                            {polishEditMode ? (
+                              <input
+                                type="number"
+                                value={polishPrices[row.typeKey]?.[sizeKey] || 0}
+                                onChange={(e) => setPolishPrices(prev => ({
+                                  ...prev,
+                                  [row.typeKey]: { ...prev[row.typeKey], [sizeKey]: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-20 text-center bg-slate-800 border border-amber-500/50 rounded text-white text-sm p-1"
+                              />
+                            ) : (
+                              <span className="text-green-400 font-semibold">
+                                {(polishPrices[row.typeKey]?.[sizeKey] || 0).toLocaleString()} Ft
+                              </span>
+                            )}
+                          </td>
                         ))}
                       </tr>
                     ))}
