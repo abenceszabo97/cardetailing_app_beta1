@@ -58,6 +58,25 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Ctrl+K / Cmd+K global shortcut — focus sidebar search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        // On mobile open the sidebar first
+        if (window.innerWidth < 1024) onClose && onClose();
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+      if (e.key === "Escape") {
+        setShowResults(false);
+        searchInputRef.current?.blur();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const navItems = [
     { path: "/dashboard", label: "Főoldal", icon: LayoutDashboard },
@@ -170,15 +189,20 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Rendszám, ügyfélnév, telefon…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onFocus={() => searchResults.length > 0 && setShowResults(true)}
-              className="w-full bg-slate-950/60 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500 transition-colors"
+              className="w-full bg-slate-950/60 border border-slate-700 rounded-lg pl-9 pr-14 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500 transition-colors"
             />
-            {searchLoading && (
+            {searchLoading ? (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+            ) : !searchQuery && (
+              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] text-slate-500 bg-slate-800 border border-slate-700 rounded">
+                ⌘K
+              </kbd>
             )}
             {/* Results dropdown */}
             {showResults && searchResults.length > 0 && (

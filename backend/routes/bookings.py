@@ -8,6 +8,7 @@ import asyncio
 import uuid
 import logging
 from dependencies import get_current_user
+from routes.events import publish_event
 from database import db
 from config import RESEND_API_KEY, SENDER_EMAIL
 from models.user import User
@@ -458,6 +459,7 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"cancel_count": 1}})
     elif data.status == "kesz" and booking:
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
+    publish_event("refresh", {"reason": "booking_updated"})
     return {"message": "Foglalás frissítve"}
 
 @router.delete("/bookings/{booking_id}")
@@ -465,6 +467,7 @@ async def delete_booking(booking_id: str, user: User = Depends(get_current_user)
     result = await db.bookings.delete_one({"booking_id": booking_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Foglalás nem található")
+    publish_event("refresh", {"reason": "booking_deleted"})
     return {"message": "Foglalás törölve"}
 
 

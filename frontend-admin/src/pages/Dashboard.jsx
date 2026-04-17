@@ -201,6 +201,32 @@ export const Dashboard = () => {
     fetchData();
     // Request notification permission on load
     requestNotificationPermission();
+
+    // ── SSE: live refresh when jobs/bookings change ────────────────────────
+    let es;
+    let retryTimeout;
+    const connectSSE = () => {
+      try {
+        es = new EventSource(`${API}/events/dashboard`, { withCredentials: true });
+        es.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "refresh") fetchData();
+          } catch {}
+        };
+        es.onerror = () => {
+          es.close();
+          // Reconnect after 5 s
+          retryTimeout = setTimeout(connectSSE, 5000);
+        };
+      } catch {}
+    };
+    connectSSE();
+    return () => {
+      es?.close();
+      clearTimeout(retryTimeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLocation, locationForApi]);
 
   // Notification permission state
@@ -850,6 +876,59 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Revenue Forecast */}
+      {(() => {
+        const now = new Date();
+        const dayOfMonth = now.getDate();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysRemaining = daysInMonth - dayOfMonth;
+        const dailyAvg = dayOfMonth > 0 ? (stats.month_revenue || 0) / dayOfMonth : 0;
+        const projected = Math.round(dailyAvg * daysInMonth);
+        const progress = daysInMonth > 0 ? Math.round((dayOfMonth / daysInMonth) * 100) : 0;
+        const revenueProgress = projected > 0 ? Math.min(100, Math.round(((stats.month_revenue || 0) / projected) * 100)) : 0;
+        if (!stats.month_revenue) return null;
+        return (
+          <Card className="glass-card border-purple-500/20">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="w-9 h-9 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <p className="text-xs text-slate-400">Bevétel előrejelzés ({now.toLocaleString("hu-HU", { month: "long" })})</p>
+                    <span className="text-xs text-slate-500">{dayOfMonth}. nap / {daysInMonth} — még {daysRemaining} nap</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 mt-1">
+                    <span className="text-lg font-bold text-purple-400">{projected.toLocaleString()} Ft</span>
+                    <span className="text-xs text-slate-500">várható havi bevétel</span>
+                    <span className="text-xs text-green-400">Jelenlegi: {(stats.month_revenue || 0).toLocaleString()} Ft</span>
+                    <span className="text-xs text-slate-500">Napi átlag: {Math.round(dailyAvg).toLocaleString()} Ft</span>
+                  </div>
+                  {/* Progress bars */}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                        <div className="bg-slate-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-[10px] text-slate-500 w-8 text-right">{progress}%</span>
+                      <span className="text-[10px] text-slate-600">idő</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                        <div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: `${revenueProgress}%` }} />
+                      </div>
+                      <span className="text-[10px] text-purple-400 w-8 text-right">{revenueProgress}%</span>
+                      <span className="text-[10px] text-slate-600">bevétel</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Low Stock Alert */}
       {lowStockItems.length > 0 && (

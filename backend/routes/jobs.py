@@ -8,6 +8,7 @@ from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.job import Job, JobCreate, JobUpdate, IMAGE_SLOT_LABELS_BEFORE, IMAGE_SLOT_LABELS_AFTER, IMAGE_SLOTS_BEFORE, IMAGE_SLOTS_AFTER
+from routes.events import publish_event
 
 router = APIRouter()
 
@@ -203,6 +204,7 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
     
     result = job.model_dump()
     result["booking_id"] = booking_doc["booking_id"]
+    publish_event("refresh", {"reason": "job_created"})
     return result
 
 @router.put("/jobs/{job_id}")
@@ -387,6 +389,7 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 {"$set": booking_sync}
             )
     
+    publish_event("refresh", {"reason": "job_updated"})
     return {"message": "Munka frissítve"}
 
 @router.delete("/jobs/{job_id}")
@@ -395,4 +398,5 @@ async def delete_job(job_id: str, user: User = Depends(get_current_user)):
     result = await db.jobs.delete_one({"job_id": job_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Munka nem található")
+    publish_event("refresh", {"reason": "job_deleted"})
     return {"message": "Munka törölve"}
