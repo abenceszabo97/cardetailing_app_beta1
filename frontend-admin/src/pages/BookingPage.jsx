@@ -107,6 +107,8 @@ const CAR_SIZE_INFO = {
 
 const BookingPage = () => {
   const [step, setStep] = useState(1);
+  const [stepDir, setStepDir] = useState("forward"); // "forward" | "back"
+  const goToStep = (n) => { setStepDir(n > step ? "forward" : "back"); setStep(n); };
   const [pricingData, setPricingData] = useState(null);
   const [extras, setExtras] = useState([]);
   const [slots, setSlots] = useState([]);
@@ -477,7 +479,7 @@ const BookingPage = () => {
 
         {/* Step 1: Car Size, Category, Package Selection */}
         {step === 1 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-1">
+          <Card key="step-1" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-1">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -938,7 +940,7 @@ const BookingPage = () => {
 
         {/* Step 2: Date & Time Selection */}
         {step === 2 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-2">
+          <Card key="step-2" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-2">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -1098,7 +1100,7 @@ const BookingPage = () => {
 
         {/* Step 3: Personal Data */}
         {step === 3 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-3">
+          <Card key="step-3" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-3">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -1182,7 +1184,7 @@ const BookingPage = () => {
 
         {/* Step 4: Summary */}
         {step === 4 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-4">
+          <Card key="step-4" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-4">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -1284,15 +1286,15 @@ const BookingPage = () => {
           <Button 
             variant="outline" 
             className="border-slate-700 text-slate-300 hover:bg-slate-800" 
-            onClick={() => setStep(s => s - 1)} 
+            onClick={() => goToStep(step - 1)}
             disabled={step === 1}
           >
             <ChevronLeft className="w-4 h-4 mr-2" /> Vissza
           </Button>
           {step < 4 ? (
-            <Button 
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
-              onClick={() => setStep(s => s + 1)} 
+            <Button
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8"
+              onClick={() => goToStep(step + 1)}
               disabled={!canGoNext()}
             >
               Tovább <ChevronRight className="w-4 h-4 ml-2" />

@@ -111,3 +111,15 @@
     display: contents !important;
   }
 }
+
+/* ── Booking step transitions ───────────────────────────────────────────────── */
+@keyframes stepSlideIn {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes stepSlideInBack {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.step-enter { animation: stepSlideIn 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.step-enter-back { animation: stepSlideInBack 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
