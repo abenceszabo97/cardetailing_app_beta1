@@ -298,7 +298,7 @@ export const Dashboard = () => {
       if (paymentMethod) updateData.payment_method = paymentMethod;
       await axios.put(`${API}/jobs/${jobId}`, updateData, { withCredentials: true });
       toast.success("Státusz frissítve!");
-      
+
       // Send notification
       if (job) {
         if (paymentMethod) {
@@ -307,7 +307,14 @@ export const Dashboard = () => {
           notifyJobStatusChange(job, status);
         }
       }
-      
+
+      // Auto-open invoice dialog when marking job as done with payment
+      if (status === "kesz" && paymentMethod && invoiceConfigured && job && !job.invoice_number) {
+        const jobWithPayment = { ...job, payment_method: paymentMethod };
+        // Small delay so fetchData can start, then open dialog
+        setTimeout(() => openInvoiceDialog(jobWithPayment), 300);
+      }
+
       fetchData();
     } catch (error) {
       toast.error("Hiba a státusz frissítésekor");
@@ -1539,21 +1546,32 @@ export const Dashboard = () => {
 
       {/* Invoice Dialog */}
       <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-amber-500/30 text-white max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-amber-400 flex items-center gap-2">
               <Receipt className="w-5 h-5" />
-              Számla kiállítása
+              Számla / Nyugta kiállítása
             </DialogTitle>
+            <p className="text-slate-400 text-sm pt-1">
+              Tölts ki annyi adatot, amennyit meg tudsz adni. Adószám megadásával számla, anélkül nyugta készül.
+            </p>
           </DialogHeader>
           {invoiceJob && (
             <div className="space-y-4">
               {/* Job summary */}
-              <div className="p-3 bg-slate-800/50 rounded-lg">
-                <p className="text-slate-400 text-xs">Munka</p>
-                <p className="text-white font-semibold">{invoiceJob.customer_name} · {invoiceJob.plate_number}</p>
-                <p className="text-slate-400 text-sm">{invoiceJob.service_name}</p>
-                <p className="text-green-400 font-bold">{invoiceJob.price?.toLocaleString()} Ft</p>
+              <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-semibold">{invoiceJob.customer_name} · {invoiceJob.plate_number}</p>
+                    <p className="text-slate-400 text-sm">{invoiceJob.service_name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-green-400 font-bold text-lg">{invoiceJob.price?.toLocaleString()} Ft</p>
+                    <p className="text-slate-500 text-xs">
+                      {invoiceJob.payment_method === "keszpenz" ? "💵 Készpénz" : invoiceJob.payment_method === "kartya" ? "💳 Kártya" : "🏦 Átutalás"}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1561,16 +1579,19 @@ export const Dashboard = () => {
                 <Input value={invoiceForm.buyer_name} onChange={e => setInvoiceForm(f => ({...f, buyer_name: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Vevő teljes neve" />
               </div>
               <div>
-                <Label className="text-slate-300">Email (opcionális)</Label>
-                <Input type="email" value={invoiceForm.buyer_email} onChange={e => setInvoiceForm(f => ({...f, buyer_email: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="A számla erre az emailre kerül elküldésre" />
-              </div>
-              <div>
-                <Label className="text-slate-300">Cím (opcionális)</Label>
-                <Input value={invoiceForm.buyer_address} onChange={e => setInvoiceForm(f => ({...f, buyer_address: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Irányítószám, város, utca" />
-              </div>
-              <div>
-                <Label className="text-slate-300">Adószám (cégek esetén)</Label>
+                <Label className="text-slate-300">
+                  Adószám
+                  <span className="ml-2 text-xs text-amber-400">→ ha megadod, számla készül (nem nyugta)</span>
+                </Label>
                 <Input value={invoiceForm.buyer_tax_number} onChange={e => setInvoiceForm(f => ({...f, buyer_tax_number: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="12345678-1-00" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Email <span className="text-slate-500 font-normal">(opcionális)</span></Label>
+                <Input type="email" value={invoiceForm.buyer_email} onChange={e => setInvoiceForm(f => ({...f, buyer_email: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Az ügyfél erre kapja a számlát" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Cím <span className="text-slate-500 font-normal">(opcionális)</span></Label>
+                <Input value={invoiceForm.buyer_address} onChange={e => setInvoiceForm(f => ({...f, buyer_address: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Irányítószám, város, utca" />
               </div>
               <div>
                 <Label className="text-slate-300">Megjegyzés</Label>
@@ -1578,18 +1599,20 @@ export const Dashboard = () => {
               </div>
 
               <p className="text-slate-500 text-xs">
-                A számla áfatartalma: 27%. Fizetési mód: {invoiceJob.payment_method === "keszpenz" ? "Készpénz" : invoiceJob.payment_method === "kartya" ? "Bankkártya" : "Átutalás"}.
+                ÁFA: 27%. {invoiceForm.buyer_tax_number ? "Adószám megadva → számla lesz kiállítva." : "Adószám nélkül → nyugta kerül kiállításra."}
               </p>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
-                <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} className="border-slate-700">Mégse</Button>
+                <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} className="border-slate-700 text-slate-400">
+                  Kihagyás
+                </Button>
                 <Button
                   onClick={handleCreateInvoice}
                   disabled={invoiceLoading || !invoiceForm.buyer_name}
                   className="bg-amber-600 hover:bg-amber-500"
                 >
                   {invoiceLoading ? <span className="animate-spin mr-1">⏳</span> : <Receipt className="w-4 h-4 mr-1" />}
-                  Számla kiállítása
+                  {invoiceForm.buyer_tax_number ? "Számla kiállítása" : "Nyugta kiállítása"}
                 </Button>
               </div>
             </div>

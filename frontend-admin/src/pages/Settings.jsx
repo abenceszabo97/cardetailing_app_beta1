@@ -162,11 +162,11 @@ export const Settings = () => {
   const [orphanedData, setOrphanedData] = useState(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
 
-  // Számlázz.hu state
-  const [szamlazzApiKey, setSzamlazzApiKey] = useState("");
-  const [szamlazzConfigured, setSzamlazzConfigured] = useState(false);
-  const [szamlazzSaving, setSzamlazzSaving] = useState(false);
-  const [szamlazzKeyVisible, setSzamlazzKeyVisible] = useState(false);
+  // Számlázz.hu state — one entry per billing entity
+  const [szamlazzStatus, setSzamlazzStatus] = useState({ budapest: false, debrecen_private: false, debrecen_company: false });
+  const [szamlazzKeys, setSzamlazzKeys] = useState({ budapest: "", debrecen_private: "", debrecen_company: "" });
+  const [szamlazzSaving, setSzamlazzSaving] = useState({ budapest: false, debrecen_private: false, debrecen_company: false });
+  const [szamlazzVisible, setSzamlazzVisible] = useState({ budapest: false, debrecen_private: false, debrecen_company: false });
   
   const [newWorker, setNewWorker] = useState({
     name: "",
@@ -201,25 +201,29 @@ export const Settings = () => {
   const fetchSzamlazzStatus = async () => {
     try {
       const res = await axios.get(`${API}/invoices/status`, { withCredentials: true });
-      setSzamlazzConfigured(res.data.configured);
+      setSzamlazzStatus({
+        budapest: res.data.budapest || false,
+        debrecen_private: res.data.debrecen_private || false,
+        debrecen_company: res.data.debrecen_company || false,
+      });
     } catch { /* silent */ }
   };
 
-  const handleSaveSzamlazzKey = async () => {
-    if (!szamlazzApiKey.trim()) {
+  const handleSaveSzamlazzKey = async (entity) => {
+    if (!szamlazzKeys[entity]?.trim()) {
       toast.error("Kérjük add meg az API kulcsot");
       return;
     }
-    setSzamlazzSaving(true);
+    setSzamlazzSaving(s => ({ ...s, [entity]: true }));
     try {
-      await axios.post(`${API}/invoices/set-api-key`, { api_key: szamlazzApiKey }, { withCredentials: true });
+      await axios.post(`${API}/invoices/set-api-key`, { entity, api_key: szamlazzKeys[entity] }, { withCredentials: true });
       toast.success("Számlázz.hu API kulcs elmentve!");
-      setSzamlazzConfigured(true);
-      setSzamlazzApiKey("");
+      setSzamlazzStatus(s => ({ ...s, [entity]: true }));
+      setSzamlazzKeys(s => ({ ...s, [entity]: "" }));
     } catch {
       toast.error("Hiba az API kulcs mentésekor");
     } finally {
-      setSzamlazzSaving(false);
+      setSzamlazzSaving(s => ({ ...s, [entity]: false }));
     }
   };
 
@@ -451,22 +455,24 @@ export const Settings = () => {
       </div>
 
       {/* Számlázz.hu Integration */}
-      <Card className={`glass-card ${szamlazzConfigured ? 'border-green-500/30' : 'border-amber-500/20'}`}>
+      <Card className={`glass-card ${Object.values(szamlazzStatus).some(Boolean) ? 'border-green-500/30' : 'border-amber-500/20'}`}>
         <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+          <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2 flex-wrap">
             <FileText className="w-5 h-5 text-amber-400" />
             Számlázz.hu integráció
-            {szamlazzConfigured ? (
-              <span className="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-normal">✓ Beállítva</span>
+            {Object.values(szamlazzStatus).every(Boolean) ? (
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-normal">✓ Mind beállítva</span>
+            ) : Object.values(szamlazzStatus).some(Boolean) ? (
+              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-normal">⚠ Részben beállítva</span>
             ) : (
-              <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-normal">Nincs beállítva</span>
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-normal">Nincs beállítva</span>
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-5">
           <p className="text-slate-400 text-sm">
-            Az API kulcs megadásával a kész munkákhoz automatikusan kiállítható számla a Számlázz.hu rendszeren keresztül.
-            Az ügyfél emailben kapja meg a számlát.
+            Háromféle számlázási entitás: Budapest (X cég), Debrecen magánszemély (Y cég), Debrecen cég (Z cég).
+            Az ügyfél neve alapján automatikusan kerül kiválasztásra a megfelelő számlázó.
           </p>
           <a
             href="https://www.szamlazz.hu/szamla/main?page=beallitasok"
@@ -477,32 +483,53 @@ export const Settings = () => {
             <ExternalLink className="w-3 h-3" />
             Agent kulcs lekérése a Számlázz.hu fiókodból
           </a>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={szamlazzKeyVisible ? "text" : "password"}
-                value={szamlazzApiKey}
-                onChange={(e) => setSzamlazzApiKey(e.target.value)}
-                placeholder={szamlazzConfigured ? "Kulcs már beállítva — felülíráshoz add meg az újat" : "Számlázz.hu agent kulcs"}
-                className="bg-slate-950 border-slate-700 text-white pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setSzamlazzKeyVisible(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-              >
-                {szamlazzKeyVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+
+          {/* Budapest */}
+          {[
+            { entity: "budapest", label: "Budapest — X cég", desc: "Minden budapesti munkához" },
+            { entity: "debrecen_private", label: "Debrecen – Magánszemély — Y cég", desc: "Debreceni magánügyfelek (nincs adószám)" },
+            { entity: "debrecen_company", label: "Debrecen – Cég — Z cég", desc: "Debreceni vállalkozások (KFT, BT, ZRT stb.)" },
+          ].map(({ entity, label, desc }) => (
+            <div key={entity} className="p-3 rounded-lg border border-slate-700 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">{label}</p>
+                  <p className="text-slate-500 text-xs">{desc}</p>
+                </div>
+                {szamlazzStatus[entity] ? (
+                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">✓ Beállítva</span>
+                ) : (
+                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Hiányzik</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={szamlazzVisible[entity] ? "text" : "password"}
+                    value={szamlazzKeys[entity]}
+                    onChange={(e) => setSzamlazzKeys(s => ({ ...s, [entity]: e.target.value }))}
+                    placeholder={szamlazzStatus[entity] ? "Felülíráshoz add meg az új kulcsot" : "Számlázz.hu agent kulcs"}
+                    className="bg-slate-950 border-slate-700 text-white pr-10 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSzamlazzVisible(v => ({ ...v, [entity]: !v[entity] }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {szamlazzVisible[entity] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <Button
+                  onClick={() => handleSaveSzamlazzKey(entity)}
+                  disabled={szamlazzSaving[entity] || !szamlazzKeys[entity]?.trim()}
+                  className="bg-amber-600 hover:bg-amber-500 shrink-0"
+                >
+                  {szamlazzSaving[entity] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span className="ml-1 hidden sm:inline">Mentés</span>
+                </Button>
+              </div>
             </div>
-            <Button
-              onClick={handleSaveSzamlazzKey}
-              disabled={szamlazzSaving || !szamlazzApiKey.trim()}
-              className="bg-amber-600 hover:bg-amber-500"
-            >
-              {szamlazzSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-              <span className="ml-1">Mentés</span>
-            </Button>
-          </div>
+          ))}
         </CardContent>
       </Card>
 

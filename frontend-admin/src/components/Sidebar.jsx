@@ -1,20 +1,21 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  Package, 
-  BarChart3, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  Package,
+  BarChart3,
+  Settings,
+  LogOut,
   Sparkles,
   Sun,
   Moon,
   MapPin,
   X,
   Car,
-  CalendarDays
+  CalendarDays,
+  FileText
 } from "lucide-react";
 import {
   Select,
@@ -36,6 +37,7 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
     { path: "/inventory", label: "Készlet", icon: Package },
     { path: "/statistics", label: "Statisztika", icon: BarChart3 },
     { path: "/services", label: "Szolgáltatások", icon: Sparkles },
+    { path: "/invoices", label: "Számlák", icon: FileText },
     { path: "/day-management", label: "Napnyitás/Zárás", icon: Sun },
     { path: "/settings", label: "Beállítások", icon: Settings },
   ];

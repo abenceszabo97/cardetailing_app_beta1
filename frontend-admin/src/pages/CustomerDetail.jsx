@@ -31,7 +31,10 @@ import {
   ZoomIn,
   ArrowLeftRight,
   Camera,
-  Mail
+  Mail,
+  FileText,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -58,6 +61,8 @@ export const CustomerDetail = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedJobImages, setSelectedJobImages] = useState(null);
   const [fullscreenImage, setFullscreenImage] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -81,8 +86,18 @@ export const CustomerDetail = () => {
     }
   };
 
+  const fetchInvoices = async () => {
+    setInvoicesLoading(true);
+    try {
+      const res = await axios.get(`${API}/invoices?customer_id=${customerId}`, { withCredentials: true });
+      setInvoices(res.data.invoices || []);
+    } catch { /* silent */ }
+    finally { setInvoicesLoading(false); }
+  };
+
   useEffect(() => {
     fetchCustomer();
+    fetchInvoices();
   }, [customerId]);
 
   const handleDelete = async () => {
@@ -316,6 +331,85 @@ export const CustomerDetail = () => {
                   </div>
                 </div>
               )})}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Invoice History */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
+            <FileText className="w-5 h-5 text-amber-400" />
+            Számlák / Nyugták
+            {invoices.length > 0 && (
+              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-normal ml-1">
+                {invoices.length} db
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {invoicesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : invoices.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Nincs kiállított számla / nyugta ehhez az ügyfélhez</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map((inv) => (
+                <div key={inv.invoice_id} className="bg-slate-950/50 rounded-xl p-3 border border-slate-800 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {inv.is_receipt ? (
+                      <Receipt className="w-5 h-5 text-blue-400 shrink-0" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-amber-400 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-white text-sm font-medium">
+                          {inv.is_receipt ? "Nyugta" : "Számla"}
+                        </span>
+                        {inv.invoice_number && (
+                          <span className="text-slate-400 font-mono text-xs">#{inv.invoice_number}</span>
+                        )}
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${inv.status === "fizetve" ? "bg-green-500/20 text-green-400" : "bg-orange-500/20 text-orange-400"}`}>
+                          {inv.status === "fizetve" ? "✓ Fizetve" : "⏳ Fizetésre vár"}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 text-xs mt-0.5">
+                        {inv.created_at ? format(new Date(inv.created_at), 'yyyy. MM. dd.', { locale: hu }) : ""} · {inv.location}
+                        {inv.payment_method === "keszpenz" ? " · 💵 Készpénz" : inv.payment_method === "kartya" ? " · 💳 Kártya" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-between sm:justify-end">
+                    <span className="text-green-400 font-bold">{Number(inv.amount || 0).toLocaleString()} Ft</span>
+                    {inv.invoice_number && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs px-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                        onClick={() => window.open("https://www.szamlazz.hu", "_blank")}
+                        title="Megnyitás Számlázz.hu-n"
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        Számlázz.hu
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-3 border-t border-slate-700 mt-2">
+                <span className="text-slate-400 text-sm">Összesen számlázva</span>
+                <span className="text-green-400 font-bold text-lg">
+                  {invoices.reduce((s, i) => s + Number(i.amount || 0), 0).toLocaleString()} Ft
+                </span>
+              </div>
             </div>
           )}
         </CardContent>

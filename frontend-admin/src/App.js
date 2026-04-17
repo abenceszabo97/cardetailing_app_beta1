@@ -15,6 +15,7 @@ import { Statistics } from "./pages/Statistics";
 import { Services } from "./pages/Services";
 import { DayManagement } from "./pages/DayManagement";
 import { Settings } from "./pages/Settings";
+import { Invoices } from "./pages/Invoices";
 import BookingPage from "./pages/BookingPage";
 import Calendar from "./pages/Calendar";
 import { Sidebar } from "./components/Sidebar";
@@ -192,6 +193,11 @@ function AppRouter() {
       <Route path="/day-management" element={
         <ProtectedRoute>
           <MainLayout><DayManagement /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/invoices" element={
+        <ProtectedRoute>
+          <MainLayout><Invoices /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/settings" element={
