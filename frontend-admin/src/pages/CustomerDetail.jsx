@@ -16,10 +16,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../components/ui/dialog";
-import { 
-  ArrowLeft, 
-  Phone, 
-  Car, 
+import {
+  ArrowLeft,
+  Phone,
+  Car,
   Banknote,
   Calendar,
   Edit,
@@ -30,7 +30,8 @@ import {
   Image,
   ZoomIn,
   ArrowLeftRight,
-  Camera
+  Camera,
+  Mail
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -62,6 +63,7 @@ export const CustomerDetail = () => {
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
+    email: "",
     car_type: "",
     plate_number: ""
   });
@@ -97,6 +99,7 @@ export const CustomerDetail = () => {
     setEditForm({
       name: customer.name || "",
       phone: customer.phone || "",
+      email: customer.email || "",
       car_type: customer.car_type || "",
       plate_number: customer.plate_number || ""
     });
@@ -105,7 +108,7 @@ export const CustomerDetail = () => {
 
   const cancelEditing = () => {
     setIsEditing(false);
-    setEditForm({ name: "", phone: "", car_type: "", plate_number: "" });
+    setEditForm({ name: "", phone: "", email: "", car_type: "", plate_number: "" });
   };
 
   const handleSave = async () => {
@@ -186,58 +189,72 @@ export const CustomerDetail = () => {
       </div>
 
       {/* Customer Info */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
         <Card className="glass-card">
-          <CardContent className="p-3 sm:p-6">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] sm:text-xs text-slate-400">Telefonszám</p>
-                <p className="text-white font-medium text-sm sm:text-base truncate">{customer.phone}</p>
+                <p className="text-white font-medium text-sm truncate">{customer.phone}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-3 sm:p-6">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Email</p>
+                <p className="text-white font-medium text-sm truncate">{customer.email || "-"}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Car className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] sm:text-xs text-slate-400">Autó típusa</p>
-                <p className="text-white font-medium text-sm sm:text-base truncate">{customer.car_type || "-"}</p>
+                <p className="text-white font-medium text-sm truncate">{customer.car_type || "-"}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                <span className="text-orange-400 font-bold text-sm">ABC</span>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-orange-400 font-bold text-xs">ABC</span>
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Rendszám</p>
-                <p className="text-white font-bold font-mono">{customer.plate_number}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Rendszám</p>
+                <p className="text-white font-bold font-mono text-sm truncate">{customer.plate_number}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <Banknote className="w-5 h-5 text-green-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Banknote className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Összes költés</p>
-                <p className="text-green-400 font-bold">{(customer.total_spent || 0).toLocaleString()} Ft</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Összes költés</p>
+                <p className="text-green-400 font-bold text-sm truncate">{(customer.total_spent || 0).toLocaleString()} Ft</p>
               </div>
             </div>
           </CardContent>
@@ -352,6 +369,17 @@ export const CustomerDetail = () => {
                 className="bg-slate-950 border-slate-700 text-white"
                 placeholder="+36 70 123 4567"
                 data-testid="edit-customer-phone"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Email</Label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="email@example.com"
+                data-testid="edit-customer-email"
               />
             </div>
             <div>

@@ -337,9 +337,9 @@ export const Inventory = () => {
                     const isEditing = editingItem === item.inventory_id;
                     
                     return (
-                      <TableRow 
+                      <TableRow
                         key={item.inventory_id}
-                        className={`border-slate-800 ${isLow ? 'bg-red-500/5' : 'hover:bg-white/5'}`}
+                        className={`border-slate-800 ${isLow ? 'bg-red-500/10 border-l-2 border-l-red-500' : 'hover:bg-white/5'}`}
                         data-testid={`inventory-row-${item.inventory_id}`}
                       >
                         <TableCell className="text-white font-medium">
@@ -350,7 +350,10 @@ export const Inventory = () => {
                               className="w-40 bg-slate-950 border-slate-700 text-white"
                             />
                           ) : (
-                            item.product_name
+                            <span className="flex items-center gap-2">
+                              {isLow && <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />}
+                              {item.product_name}
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-slate-300">

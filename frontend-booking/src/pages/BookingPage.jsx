@@ -1040,6 +1040,12 @@ const BookingPage = () => {
                 <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white" />
               </div>
+              <Input
+                placeholder="Rendszám *"
+                value={form.plate_number}
+                onChange={e => set("plate_number", e.target.value.toUpperCase())}
+                className="bg-slate-800/50 border-slate-700 text-white uppercase font-mono tracking-wider"
+              />
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
                 className="bg-slate-800/50 border-slate-700 text-white" />
               
