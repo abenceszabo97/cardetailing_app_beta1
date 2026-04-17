@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+BOOKING_FRONTEND_URL = os.environ.get("BOOKING_FRONTEND_URL", "https://xclean.hu/foglalas")
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -24,6 +25,26 @@ else:
 
 def generate_booking_confirmation_html(booking: dict) -> str:
     """Generate HTML email for booking confirmation"""
+    modify_token = booking.get("modify_token", "")
+    cancel_token = booking.get("cancel_token", "")
+    modify_url = f"{BOOKING_FRONTEND_URL}/modify/{modify_token}" if modify_token else ""
+    cancel_url = f"{BOOKING_FRONTEND_URL}/modify/{cancel_token}?action=cancel" if cancel_token else ""
+    self_service_section = ""
+    if modify_url:
+        self_service_section = f"""
+                <div style="background:#f0f9ff;border-left:4px solid #3b82f6;padding:15px;margin:20px 0;border-radius:0 8px 8px 0;">
+                    <p style="margin:0 0 8px 0;font-weight:bold;color:#1e40af;">Foglalás kezelése</p>
+                    <p style="margin:0 0 8px 0;font-size:13px;color:#1d4ed8;">
+                        Az alábbi linkeken módosíthatja vagy lemondhatja foglalását.<br>
+                        <em>A linkek csak egyszer használhatók fel, és a foglalás státuszától függően érhetők el.</em>
+                    </p>
+                    <p style="margin:4px 0;">
+                        <a href="{modify_url}" style="color:#2563eb;font-size:14px;font-weight:bold;">📅 Időpont módosítása</a>
+                    </p>
+                    <p style="margin:4px 0;">
+                        <a href="{cancel_url}" style="color:#dc2626;font-size:14px;">❌ Foglalás lemondása</a>
+                    </p>
+                </div>"""
     return f"""
     <!DOCTYPE html>
     <html>
@@ -99,6 +120,7 @@ def generate_booking_confirmation_html(booking: dict) -> str:
                         <strong>Attila:</strong> +36 30 665 7623
                     </p>
                 </div>
+                {self_service_section}
             </div>
             <div class="footer">
                 <p style="font-weight: bold; margin-bottom: 10px;">xClean Autókozmetika</p>

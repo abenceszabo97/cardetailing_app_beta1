@@ -471,6 +471,64 @@ async def delete_booking(booking_id: str, user: User = Depends(get_current_user)
     return {"message": "Foglalás törölve"}
 
 
+# ============== SELF-SERVICE: MODIFY / CANCEL BY TOKEN ==============
+
+@router.get("/bookings/by-token/{token}")
+async def get_booking_by_token(token: str):
+    """Public — returns booking details for self-service modification page"""
+    booking = await db.bookings.find_one(
+        {"$or": [{"modify_token": token}, {"cancel_token": token}]},
+        {"_id": 0, "modify_token": 0, "cancel_token": 0}
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
+    if booking.get("status") not in ("foglalt", "visszaigazolva"):
+        raise HTTPException(status_code=410, detail="Ez a foglalás már nem módosítható")
+    return booking
+
+
+@router.put("/bookings/by-token/{token}/modify")
+async def modify_booking_by_token(token: str, date: str, time_slot: str):
+    """Public — reschedule booking date/time using modify_token"""
+    booking = await db.bookings.find_one({"modify_token": token}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
+    if booking.get("status") not in ("foglalt", "visszaigazolva"):
+        raise HTTPException(status_code=410, detail="Ez a foglalás már nem módosítható")
+
+    # Validate date is in the future
+    try:
+        booking_dt = datetime.fromisoformat(f"{date}T{time_slot}:00")
+        if booking_dt < datetime.now():
+            raise HTTPException(status_code=400, detail="A kiválasztott időpont a múltban van")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Érvénytelen dátum vagy időpont")
+
+    await db.bookings.update_one(
+        {"modify_token": token},
+        {"$set": {"date": date, "time_slot": time_slot, "status": "foglalt"}}
+    )
+    publish_event("refresh", {"reason": "booking_modified"})
+    return {"message": "Foglalás módosítva", "date": date, "time_slot": time_slot}
+
+
+@router.put("/bookings/by-token/{token}/cancel")
+async def cancel_booking_by_token(token: str):
+    """Public — cancel booking using cancel_token"""
+    booking = await db.bookings.find_one({"cancel_token": token}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
+    if booking.get("status") not in ("foglalt", "visszaigazolva"):
+        raise HTTPException(status_code=410, detail="Ez a foglalás már korábban lemondva vagy teljesítve")
+
+    await db.bookings.update_one(
+        {"cancel_token": token},
+        {"$set": {"status": "lemondta"}}
+    )
+    publish_event("refresh", {"reason": "booking_cancelled"})
+    return {"message": "Foglalás lemondva"}
+
+
 # ============== REMINDER EMAILS ==============
 
 @router.post("/bookings/send-reminders")

@@ -34,6 +34,9 @@ class Booking(BaseModel):
     extras: Optional[List[str]] = None  # list of extra service IDs
     extras_price: Optional[float] = None
     payment_method: Optional[str] = None  # cash, card, transfer
+    # Self-service modification/cancellation tokens
+    modify_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    cancel_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BookingCreate(BaseModel):
