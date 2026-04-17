@@ -105,7 +105,7 @@ export const DayManagement = () => {
   const handleOpenDay = async () => {
     try {
       await axios.post(`${API}/day-records/open`, {
-        location: selectedLocation,
+        location: dayLoc,
         opening_balance: parseFloat(openingBalance) || 0
       }, { withCredentials: true });
       
@@ -121,7 +121,7 @@ export const DayManagement = () => {
     const closingVal = parseFloat(closingBalance) || 0;
     try {
       const response = await axios.post(`${API}/day-records/close`, {
-        location: selectedLocation,
+        location: dayLoc,
         closing_balance: closingVal,
         notes: closingNotes
       }, { withCredentials: true });
@@ -156,7 +156,7 @@ export const DayManagement = () => {
     
     try {
       await axios.post(`${API}/day-records/withdraw`, {
-        location: selectedLocation,
+        location: dayLoc,
         amount,
         reason: withdrawalReason
       }, { withCredentials: true });
@@ -182,7 +182,7 @@ export const DayManagement = () => {
     doc.text("X-CLEAN Napi Zarasi Osszesito", 14, 22);
     doc.setFontSize(12);
     doc.text(`Datum: ${today}`, 14, 32);
-    doc.text(`Telephely: ${selectedLocation}`, 14, 40);
+    doc.text(`Telephely: ${dayLoc}`, 14, 40);
     
     doc.setFontSize(14);
     doc.text("Penzforgalom", 14, 54);
@@ -326,7 +326,7 @@ export const DayManagement = () => {
   const handleDownloadPDF = () => {
     const doc = generateDayClosePDF();
     const today = format(new Date(), "yyyy-MM-dd");
-    savePDF(doc, `xclean_napzaras_${selectedLocation}_${today}.pdf`);
+    savePDF(doc, `xclean_napzaras_${dayLoc}_${today}.pdf`);
   };
 
   const handleEmailPDF = async () => {
@@ -340,10 +340,10 @@ export const DayManagement = () => {
       
       await axios.post(`${API}/send-email`, {
         recipient_email: email,
-        subject: `X-CLEAN Napi zaras - ${selectedLocation} - ${today}`,
+        subject: `X-CLEAN Napi zaras - ${dayLoc} - ${today}`,
         html_content: `<h2>X-CLEAN Napi Zarasi Osszesito</h2>
           <p><strong>Datum:</strong> ${today}</p>
-          <p><strong>Telephely:</strong> ${selectedLocation}</p>
+          <p><strong>Telephely:</strong> ${dayLoc}</p>
           <p><strong>Elkeszult autok:</strong> ${stats.today_cars} db</p>
           <p><strong>Osszes bevetel:</strong> ${stats.today_revenue.toLocaleString()} Ft</p>
           <p><strong>Keszpenz:</strong> ${stats.cash.toLocaleString()} Ft</p>
@@ -403,7 +403,7 @@ export const DayManagement = () => {
                 </div>
                 <div>
                   <p className="text-green-400 font-semibold text-sm sm:text-base">Nap lezárva</p>
-                  <p className="text-slate-400 text-xs sm:text-sm">A mai nap le van zárva a(z) {selectedLocation} telephelyen</p>
+                  <p className="text-slate-400 text-xs sm:text-sm">A mai nap le van zárva a(z) {dayLoc} telephelyen</p>
                 </div>
               </>
             ) : todayRecord ? (
@@ -764,7 +764,7 @@ export const DayManagement = () => {
             <DialogTitle className="text-blue-400">Nap lezárása</DialogTitle>
           </DialogHeader>
           <p className="text-slate-400">Biztosan le szeretnéd zárni a mai napot?</p>
-          <p className="text-white">Telephely: <strong>{selectedLocation}</strong></p>
+          <p className="text-white">Telephely: <strong>{dayLoc}</strong></p>
           <p className="text-green-400 font-bold">Bevétel: {stats.today_revenue.toLocaleString()} Ft</p>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setShowCloseDayConfirm(false)} className="border-slate-700">
