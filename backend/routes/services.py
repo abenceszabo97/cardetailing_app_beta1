@@ -52,11 +52,20 @@ class PromotionUpdate(BaseModel):
     location: Optional[str] = None
 
 @router.get("/services")
-async def get_services(location: Optional[str] = None, user: User = Depends(get_current_user)):
-    """Get all services, optionally filtered by location"""
+async def get_services(location: Optional[str] = None, strict: bool = False, user: User = Depends(get_current_user)):
+    """Get services filtered by location.
+
+    - strict=True: only services explicitly assigned to that location (admin edit view)
+    - strict=False (default): services for that location + global (no location set), for display/booking
+    """
     query = {}
     if location and location != "all":
-        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+        if strict:
+            # Admin strict view: only services with this exact location
+            query["location"] = location
+        else:
+            # Display view: include global (null/missing) + location-specific
+            query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     services = await db.services.find(query, {"_id": 0}).to_list(1000)
     return services
 
@@ -70,11 +79,15 @@ async def get_pricing_data(location: Optional[str] = None):
     db_promotions = await db.promotions.find(promo_query, {"_id": 0}).to_list(100)
 
     # Also include any hard-coded defaults that match the location and aren't already in DB
+    # Deduplicate by both id AND name (case-insensitive) to avoid duplicates
     db_promo_ids = {p.get("id") for p in db_promotions}
+    db_promo_names = {p.get("name", "").strip().lower() for p in db_promotions}
     for p in PROMOTIONS:
         if not p.get("active", True):
             continue
         if p.get("id") in db_promo_ids:
+            continue
+        if p.get("name", "").strip().lower() in db_promo_names:
             continue
         # Check location match
         if location and p.get("location") and p.get("location") != location:

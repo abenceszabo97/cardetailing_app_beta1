@@ -1111,17 +1111,19 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Plate Lookup */}
+              {/* Plate Number (required) + smart lookup */}
               <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-xl p-4 border border-green-500/20">
-                <label className="text-sm text-green-400 mb-2 block flex items-center gap-2">
-                  <Search className="w-4 h-4" /> Gyors foglalás rendszámmal
+                <label className="text-sm font-semibold text-green-400 mb-2 block flex items-center gap-2">
+                  <Car className="w-4 h-4" /> Rendszám <span className="text-red-400 ml-0.5">*</span>
+                  <span className="text-slate-500 font-normal text-xs ml-1">– visszatérő ügyfeleket automatikusan felismerünk</span>
                 </label>
                 <div className="relative">
-                  <Input 
-                    placeholder="ABC-123" 
-                    value={form.plate_number} 
+                  <Input
+                    placeholder="ABC-123"
+                    value={form.plate_number}
                     onChange={e => handlePlateChange(e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-lg tracking-wider pr-10" 
+                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-lg tracking-wider pr-10"
+                    required
                   />
                   {lookingUp && (
                     <Loader2 className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />

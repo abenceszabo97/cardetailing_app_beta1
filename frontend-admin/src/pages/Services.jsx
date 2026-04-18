@@ -68,10 +68,11 @@ export const Services = () => {
   const [isNewExtraOpen, setIsNewExtraOpen] = useState(false);
   const [editingExtra, setEditingExtra] = useState(null);
   const [extraForm, setExtraForm] = useState({
-    name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null
+    name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: locationForApi || null
   });
   
-  const [servicesLoc, setServicesLoc] = useState("all");
+  // Use global location context so Services page reflects the selected location
+  const [servicesLoc, setServicesLoc] = useState(locationForApi || "all");
 
   // Polírozás price editing states
   const [polishPrices, setPolishPrices] = useState({
@@ -89,7 +90,7 @@ export const Services = () => {
     description: "",
     car_size: "",
     package: "",
-    location: null
+    location: locationForApi || null
   });
 
   const [promoForm, setPromoForm] = useState({
@@ -104,7 +105,7 @@ export const Services = () => {
     badge: "🎉 AKCIÓ",
     valid_until: "",
     active: true,
-    location: null
+    location: locationForApi || null
   });
 
   const categories = [
@@ -118,8 +119,14 @@ export const Services = () => {
 
   const fetchServices = async (loc) => {
     try {
-      const locParam = (loc && loc !== "all") ? `?location=${loc}` : "";
-      const response = await axios.get(`${API}/services${locParam}`, { withCredentials: true });
+      // Use strict=true so admin only sees services explicitly assigned to this location
+      const params = new URLSearchParams();
+      if (loc && loc !== "all") {
+        params.append("location", loc);
+        params.append("strict", "true");
+      }
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      const response = await axios.get(`${API}/services${qs}`, { withCredentials: true });
       setServices(response.data);
     } catch (error) {
       toast.error("Hiba a szolgáltatások betöltésekor");
@@ -149,6 +156,11 @@ export const Services = () => {
       console.warn("Could not fetch polishing prices:", error);
     }
   };
+
+  // Sync servicesLoc with the global location when it changes
+  useEffect(() => {
+    setServicesLoc(locationForApi || "all");
+  }, [locationForApi]);
 
   useEffect(() => {
     fetchServices(servicesLoc);
@@ -180,7 +192,7 @@ export const Services = () => {
       }
       setIsNewExtraOpen(false);
       setEditingExtra(null);
-      setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
+      setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: locationForApi || null });
       fetchExtras();
     } catch (error) {
       toast.error("Hiba az extra mentésekor");
@@ -217,7 +229,7 @@ export const Services = () => {
       setIsNewServiceOpen(false);
       setEditingService(null);
       resetForm();
-      fetchServices();
+      fetchServices(servicesLoc);
     } catch (error) {
       console.error("Service error:", error);
       toast.error(error.response?.data?.detail || "Hiba történt");
@@ -278,7 +290,7 @@ export const Services = () => {
       setIsNewPromoOpen(false);
       setEditingPromo(null);
       resetPromoForm();
-      fetchPromotions();
+      fetchPromotions(servicesLoc);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba történt");
     }
@@ -958,7 +970,7 @@ export const Services = () => {
               </Button>
               <Button
                 onClick={() => {
-                  setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
+                  setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: locationForApi || null });
                   setEditingExtra(null);
                   setIsNewExtraOpen(true);
                 }}

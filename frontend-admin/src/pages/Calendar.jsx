@@ -38,13 +38,13 @@ const _buildStatusColors = () => {
 };
 const STATUS_COLORS = _buildStatusColors();
 
+// Filter button labels — only canonical statuses (no lemondta alias to avoid duplicate button)
 const STATUS_LABELS = {
   foglalt: "Foglalt",
   visszaigazolva: "Visszaigazolva",
   folyamatban: "Folyamatban",
   kesz: "Kész",
   lemondva: "Lemondva",
-  lemondta: "Lemondva",
   nem_jott_el: "Nem jött el",
   torolt: "Törölve",
 };
