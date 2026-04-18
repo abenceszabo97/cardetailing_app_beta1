@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
+import { StatusBadge } from "../lib/statusColors";
 
 const MONTHS_HU = [
   "Január", "Február", "Március", "Április", "Május", "Június",
@@ -300,13 +301,7 @@ export const Invoices = () => {
                             Cég
                           </Badge>
                         )}
-                        <Badge className={`text-xs ${inv.status === "fizetve" ? "bg-green-500/20 text-green-400" : "bg-orange-500/20 text-orange-400"}`}>
-                          {inv.status === "fizetve" ? (
-                            <><CheckCircle className="w-3 h-3 mr-1 inline" />Fizetve</>
-                          ) : (
-                            <><Clock className="w-3 h-3 mr-1 inline" />Fizetésre vár</>
-                          )}
-                        </Badge>
+                        <StatusBadge status={inv.status} />
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-slate-500">
                         {inv.invoice_number && (
