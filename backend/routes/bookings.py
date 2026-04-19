@@ -321,8 +321,9 @@ async def create_booking(data: BookingCreate):
         
         # Calculate next time slot (30 min later + service duration)
         hour, minute = map(int, data.time_slot.split(":"))
-        # Add service duration (rounded to 30 min slots)
-        duration_slots = (service["duration"] + 29) // 30  # Round up to next 30 min
+        # Add service duration (rounded to 30 min slots); service may be None for dynamic bookings
+        service_duration = (service.get("duration") if service else None) or data.duration or 60
+        duration_slots = (service_duration + 29) // 30  # Round up to next 30 min
         total_minutes = hour * 60 + minute + duration_slots * 30
         next_hour = total_minutes // 60
         next_minute = total_minutes % 60
@@ -522,6 +523,22 @@ async def delete_booking(booking_id: str, user: User = Depends(get_current_user)
 
 # ============== SELF-SERVICE: MODIFY / CANCEL BY TOKEN ==============
 
+TOKEN_EXPIRY_DAYS = 90  # modify/cancel links expire after 90 days
+
+def _check_token_expiry(booking: dict):
+    """Raise 410 if the booking's self-service token has expired."""
+    created_raw = booking.get("created_at")
+    if created_raw:
+        try:
+            created_at = datetime.fromisoformat(str(created_raw))
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - created_at > timedelta(days=TOKEN_EXPIRY_DAYS):
+                raise HTTPException(status_code=410, detail="A módosítási link lejárt (90 nap)")
+        except (ValueError, TypeError):
+            pass  # can't parse date → don't block
+
+
 @router.get("/bookings/by-token/{token}")
 async def get_booking_by_token(token: str):
     """Public — returns booking details for self-service modification page"""
@@ -533,6 +550,7 @@ async def get_booking_by_token(token: str):
         raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
     if booking.get("status") not in ("foglalt", "visszaigazolva"):
         raise HTTPException(status_code=410, detail="Ez a foglalás már nem módosítható")
+    _check_token_expiry(booking)
     return booking
 
 
@@ -544,11 +562,12 @@ async def modify_booking_by_token(token: str, date: str, time_slot: str):
         raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
     if booking.get("status") not in ("foglalt", "visszaigazolva"):
         raise HTTPException(status_code=410, detail="Ez a foglalás már nem módosítható")
+    _check_token_expiry(booking)
 
-    # Validate date is in the future
+    # Validate date is in the future (timezone-aware comparison)
     try:
-        booking_dt = datetime.fromisoformat(f"{date}T{time_slot}:00")
-        if booking_dt < datetime.now():
+        booking_dt = datetime.fromisoformat(f"{date}T{time_slot}:00").replace(tzinfo=timezone.utc)
+        if booking_dt < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="A kiválasztott időpont a múltban van")
     except ValueError:
         raise HTTPException(status_code=400, detail="Érvénytelen dátum vagy időpont")
@@ -569,6 +588,7 @@ async def cancel_booking_by_token(token: str):
         raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
     if booking.get("status") not in ("foglalt", "visszaigazolva"):
         raise HTTPException(status_code=410, detail="Ez a foglalás már korábban lemondva vagy teljesítve")
+    _check_token_expiry(booking)
 
     await db.bookings.update_one(
         {"cancel_token": token},

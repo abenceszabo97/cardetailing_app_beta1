@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from config import CORS_ORIGINS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, RESEND_API_KEY
@@ -31,6 +31,11 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("X-CLEAN API starting up...")
     
+    # Warn if using default (insecure) JWT secret
+    from config import JWT_SECRET_KEY
+    if JWT_SECRET_KEY == "xclean-secret-key-change-in-production-2024":
+        logger.warning("⚠️  JWT_SECRET_KEY is the default insecure value! Set JWT_SECRET_KEY env variable in Railway immediately.")
+
     # Check Cloudinary configuration
     try:
         from services.storage_service import get_cloudinary_config
@@ -41,6 +46,39 @@ async def lifespan(app: FastAPI):
             logger.warning("Cloudinary not configured - image uploads will fail")
     except Exception as e:
         logger.warning(f"Cloudinary config check failed: {e}")
+
+    # Create MongoDB indexes for performance and data integrity
+    try:
+        # Bookings
+        await db.bookings.create_index("plate_number")
+        await db.bookings.create_index([("date", 1), ("location", 1)])
+        await db.bookings.create_index("status")
+        await db.bookings.create_index("modify_token", sparse=True)
+        await db.bookings.create_index("cancel_token", sparse=True)
+        await db.bookings.create_index("review_token", sparse=True)
+        # Customers
+        await db.customers.create_index("plate_number", unique=True)
+        # Workers
+        await db.workers.create_index("worker_id", unique=True)
+        await db.workers.create_index([("location", 1), ("active", 1)])
+        # Shifts
+        await db.shifts.create_index([("worker_id", 1), ("start_time", 1)])
+        await db.shifts.create_index("shift_id", unique=True)
+        # Jobs
+        await db.jobs.create_index([("worker_id", 1), ("date", 1)])
+        await db.jobs.create_index("plate_number")
+        await db.jobs.create_index([("location", 1), ("date", 1)])
+        # Sessions — TTL: auto-delete expired sessions from MongoDB
+        await db.user_sessions.create_index("session_token")
+        await db.user_sessions.create_index(
+            "expires_at",
+            expireAfterSeconds=0  # MongoDB TTL index: removes doc when expires_at passes
+        )
+        # Reviews
+        await db.reviews.create_index("booking_id", unique=True, sparse=True)
+        logger.info("MongoDB indexes created/verified")
+    except Exception as e:
+        logger.warning(f"Index creation warning: {e}")
     
     # Start background reminder task
     import asyncio
@@ -118,15 +156,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         method = request.method
-        # Protect: POST /api/bookings (create booking) and GET available-slots
+        # Protect: POST /api/bookings, available-slots, token modify, and login (brute force)
         limited = (
             (method == "POST" and path == "/api/bookings") or
             (method == "GET" and "/api/bookings/available-slots" in path) or
-            (method == "PUT" and "/api/bookings/by-token/" in path)
+            (method == "PUT" and "/api/bookings/by-token/" in path) or
+            (method == "POST" and path == "/api/auth/login")
         )
         if limited:
             ip = request.client.host if request.client else "unknown"
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             cutoff = now - timedelta(seconds=self.window_seconds)
             self._store[ip] = [t for t in self._store[ip] if t > cutoff]
             if len(self._store[ip]) >= self.max_requests:

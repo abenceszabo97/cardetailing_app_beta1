@@ -36,10 +36,12 @@ async def submit_review(data: ReviewCreate):
     if booking.get("status") != "kesz":
         raise HTTPException(status_code=400, detail="Ez a foglalás még nem teljesített")
 
-    # Check for duplicate review
+    # Check for duplicate review (also check if token already consumed)
     existing_review = await db.reviews.find_one({"booking_id": booking["booking_id"]})
     if existing_review:
         raise HTTPException(status_code=400, detail="Ehhez a foglaláshoz már érkezett értékelés")
+    if booking.get("review_token_used"):
+        raise HTTPException(status_code=400, detail="Ez az értékelési link már fel lett használva")
 
     # Create review document
     review = Review(
@@ -55,6 +57,13 @@ async def submit_review(data: ReviewCreate):
     doc["created_at"] = doc["created_at"].isoformat()
     await db.reviews.insert_one(doc)
     del doc["_id"]
+
+    # Mark review token as consumed so it cannot be reused
+    await db.bookings.update_one(
+        {"booking_id": booking["booking_id"]},
+        {"$set": {"review_token_used": True}}
+    )
+
     return doc
 
 
