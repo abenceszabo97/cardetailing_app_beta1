@@ -704,7 +704,7 @@ export const Services = () => {
               <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-['Manrope']">
-                    {editingPromo?._hardcoded ? "Beépített akció mentése DB-be" : editingPromo ? "Akció szerkesztése" : "Új akció létrehozása"}
+                    {editingPromo ? "Akció szerkesztése" : "Új akció létrehozása"}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
@@ -848,7 +848,7 @@ export const Services = () => {
                     Mégse
                   </Button>
                   <Button onClick={handlePromoSubmit} className="bg-pink-600 hover:bg-pink-500">
-                    {editingPromo?._hardcoded ? "Mentés DB-be" : editingPromo ? "Mentés" : "Létrehozás"}
+                    {editingPromo ? "Mentés" : "Létrehozás"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -877,7 +877,7 @@ export const Services = () => {
                           {promo.badge || '🎉 AKCIÓ'}
                         </Badge>
                         {promo._hardcoded && (
-                          <Badge className="bg-amber-700/30 text-amber-400 text-xs">Beépített – katt. szerk.</Badge>
+                          <Badge className="bg-amber-700/30 text-amber-400 text-xs">Beépített</Badge>
                         )}
                         {!promo._hardcoded && !promo.active && (
                           <Badge className="bg-slate-700 text-slate-500">Inaktív</Badge>
@@ -889,7 +889,7 @@ export const Services = () => {
                     <div className="flex gap-1">
                       <button
                         className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
-                        title={promo._hardcoded ? "Mentés DB-be és szerkesztés" : "Szerkesztés"}
+                        title="Szerkesztés"
                         onClick={() => openEditPromoDialog(promo)}
                       >
                         <Edit className="w-4 h-4" />
@@ -1228,7 +1228,7 @@ export const Services = () => {
                           <div className="flex gap-1 ml-2 flex-shrink-0">
                             <button
                               className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
-                              title={isDbRecord ? "Szerkesztés" : "Szerkesztés (mentés DB-be)"}
+                              title="Szerkesztés"
                               onClick={() => openEditPolishType(typeKey, typeData)}
                             >
                               <Pencil className="w-4 h-4" />
@@ -1253,9 +1253,6 @@ export const Services = () => {
                             <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs">
                               <MapPin className="w-3 h-3 mr-1" />{typeData.location}
                             </Badge>
-                          )}
-                          {!isDbRecord && (
-                            <Badge className="bg-amber-700/30 text-amber-400 text-xs" title="Szerkesztés DB-be menti">Beépített</Badge>
                           )}
                         </div>
                         <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
@@ -1410,7 +1407,7 @@ export const Services = () => {
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-amber-400">
-              {editingPolishType?.service_id ? "Polírozás típus szerkesztése" : "Beépített típus mentése DB-be"}
+              Polírozás típus szerkesztése
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -1454,7 +1451,7 @@ export const Services = () => {
           <DialogFooter className="mt-4 gap-2">
             <Button variant="outline" onClick={() => setIsEditPolishTypeOpen(false)} className="border-slate-700">Mégse</Button>
             <Button onClick={handleUpdatePolishType} disabled={polishTypeSaving} className="bg-amber-600 hover:bg-amber-500">
-              {polishTypeSaving ? "Mentés..." : editingPolishType?.service_id ? "Mentés" : "Mentés DB-be"}
+              {polishTypeSaving ? "Mentés..." : "Mentés"}
             </Button>
           </DialogFooter>
         </DialogContent>
