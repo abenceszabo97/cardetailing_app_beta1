@@ -72,16 +72,6 @@ async def get_services(location: Optional[str] = None, strict: bool = False, use
 @router.get("/services/pricing-data")
 async def get_pricing_data(location: Optional[str] = None):
     """Get all pricing data for the booking page (public, no auth)"""
-    import logging as _log
-    _log.getLogger(__name__).info(f"pricing-data called, location={location}")
-    try:
-        return await _get_pricing_data_inner(location)
-    except Exception as exc:
-        import traceback
-        _log.getLogger(__name__).error(f"pricing-data 500 error: {exc}\n{traceback.format_exc()}")
-        raise
-
-async def _get_pricing_data_inner(location: Optional[str] = None):
     # Get promotions from database
     promo_query = {"active": True}
     if location == "Budapest":
@@ -121,7 +111,6 @@ async def _get_pricing_data_inner(location: Optional[str] = None):
         for extra in EXTRA_SERVICES:
             existing = await db.services.find_one({"name": extra["name"], "service_type": "extra"})
             if not existing:
-                from models.service import Service
                 service = Service(
                     name=extra["name"],
                     category=extra.get("category", "extra_kulso"),
