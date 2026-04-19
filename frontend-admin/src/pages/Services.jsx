@@ -1388,8 +1388,9 @@ export const Services = () => {
               <Label className="text-slate-300">Telephely</Label>
               <select value={polishTypeForm.location || ""} onChange={e => setPolishTypeForm({...polishTypeForm, location: e.target.value || null})}
                 className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2">
-                <option value="">Mindenhol (Debrecen)</option>
+                <option value="">Összes telephely</option>
                 <option value="Debrecen">Debrecen</option>
+                <option value="Budapest">Budapest</option>
               </select>
             </div>
           </div>
@@ -1443,8 +1444,9 @@ export const Services = () => {
               <Label className="text-slate-300">Telephely</Label>
               <select value={polishTypeForm.location || ""} onChange={e => setPolishTypeForm({...polishTypeForm, location: e.target.value || null})}
                 className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2">
-                <option value="">Mindenhol (Debrecen)</option>
+                <option value="">Összes telephely</option>
                 <option value="Debrecen">Debrecen</option>
+                <option value="Budapest">Budapest</option>
               </select>
             </div>
           </div>

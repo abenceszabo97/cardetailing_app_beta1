@@ -129,10 +129,15 @@ async def get_pricing_data(location: Optional[str] = None):
         if not db_extras:
             db_extras = EXTRA_SERVICES
 
-    # Get polishing services from DB (for Debrecen)
+    # Get polishing services from DB, filtered by location
     polishing_query = {"category": "poliroz", "active": {"$ne": False}}
-    if location and location.lower() == "debrecen":
-        polishing_query["$or"] = [{"location": "Debrecen"}, {"location": None}, {"location": {"$exists": False}}]
+    if location:
+        # Include types for this specific location + global (no location set)
+        polishing_query["$or"] = [
+            {"location": location},
+            {"location": None},
+            {"location": {"$exists": False}}
+        ]
     db_polishing = await db.services.find(polishing_query, {"_id": 0}).to_list(50)
 
     # Check for custom polishing prices in DB settings
@@ -147,21 +152,29 @@ async def get_pricing_data(location: Optional[str] = None):
     else:
         merged_polishing = POLISHING_PRICES
 
-    # Merge DB polishing services (with size_prices) into the types dict
-    # DB polishing types are identified by category=="poliroz" and having a service_id
+    # Merge DB polishing services into the types dict.
+    # If a DB record has the same name as a hardcoded type, it REPLACES the hardcoded
+    # entry (no duplicates). Otherwise it is added as a new custom type.
     merged_polishing_with_db = dict(merged_polishing)
+    # Build name → hardcoded key map for deduplication
+    hardcoded_name_to_key = {
+        v["name"].strip().lower(): k
+        for k, v in merged_polishing.items()
+    }
     for db_pol in db_polishing:
         if db_pol.get("size_prices"):
-            # This is a full polishing type record, expose it in types by service_id key
-            type_key = db_pol["service_id"]
-            prices = db_pol["size_prices"]
-            merged_polishing_with_db[type_key] = {
+            db_name = db_pol["name"].strip().lower()
+            hardcoded_key = hardcoded_name_to_key.get(db_name)
+            if hardcoded_key and hardcoded_key in merged_polishing_with_db:
+                # DB version supersedes hardcoded — remove the hardcoded entry
+                del merged_polishing_with_db[hardcoded_key]
+            merged_polishing_with_db[db_pol["service_id"]] = {
                 "name": db_pol["name"],
                 "duration_label": db_pol.get("duration_label", ""),
                 "description": db_pol.get("description", ""),
                 "location": db_pol.get("location"),
                 "service_id": db_pol["service_id"],
-                "prices": prices,
+                "prices": db_pol["size_prices"],
                 "_db": True
             }
 
