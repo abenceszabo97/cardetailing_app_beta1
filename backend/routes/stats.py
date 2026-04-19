@@ -403,6 +403,40 @@ async def get_revenue_forecast(location: Optional[str] = None, user: User = Depe
     }
     next_month_name = f"{ny}. {MONTH_NAMES[f'{nm:02d}']}"
 
+    # Weighted moving average (recent months count 2x more)
+    weights = [1, 1, 1, 2, 2, 3]  # ascending weight for last 6 months
+    w_sum = sum(weights[:n])
+    wma_revenue = sum(y_values[i] * weights[i] for i in range(n)) / w_sum if w_sum else y_mean
+    wma_cars = sum(y_cars[i] * weights[i] for i in range(n)) / w_sum if w_sum else y_cars_mean
+
+    # Blend linear regression + weighted moving average (50/50)
+    predicted_revenue = max(0, (predicted_revenue + wma_revenue) / 2)
+    predicted_cars = max(0, (predicted_cars + wma_cars) / 2)
+
+    # Standard deviation for pessimistic/optimistic range
+    std_rev = (sum((v - y_mean) ** 2 for v in y_values) / n) ** 0.5
+    optimistic_revenue = round(predicted_revenue + std_rev)
+    pessimistic_revenue = max(0, round(predicted_revenue - std_rev))
+
+    # Already-confirmed bookings for next month
+    next_bookings_query = {
+        "status": {"$in": ["foglalt", "visszaigazolva"]},
+        "date": {"$regex": f"^{next_month_str}"}
+    }
+    if location:
+        next_bookings_query["location"] = location
+    next_bookings = await db.bookings.find(next_bookings_query, {"price": 1, "_id": 0}).to_list(500)
+    confirmed_next_revenue = sum(b.get("price", 0) for b in next_bookings)
+    confirmed_next_cars = len(next_bookings)
+
+    # Current month projection (extrapolate from days passed)
+    days_in_month = 30  # approximate
+    days_passed = max(1, today.day)
+    if days_passed < days_in_month and current_revenue > 0:
+        projected_current = round(current_revenue / days_passed * days_in_month)
+    else:
+        projected_current = current_revenue
+
     # Confidence: higher when variance is low
     if y_mean > 0:
         variance = sum((v - y_mean) ** 2 for v in y_values) / n
@@ -416,6 +450,11 @@ async def get_revenue_forecast(location: Optional[str] = None, user: User = Depe
         "next_month_name": next_month_name,
         "predicted_revenue": round(predicted_revenue),
         "predicted_cars": round(predicted_cars),
+        "optimistic_revenue": optimistic_revenue,
+        "pessimistic_revenue": pessimistic_revenue,
+        "confirmed_next_revenue": confirmed_next_revenue,
+        "confirmed_next_cars": confirmed_next_cars,
+        "projected_current_revenue": projected_current,
         "trend": trend,
         "confidence": confidence,
         "current_month": {

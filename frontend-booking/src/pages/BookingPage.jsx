@@ -129,6 +129,7 @@ const BookingPage = () => {
   const [stepDir, setStepDir] = useState("forward");
   const goToStep = (n) => { setStepDir(n > step ? "forward" : "back"); setStep(n); };
   const [pricingData, setPricingData] = useState(null);
+  const [pricingError, setPricingError] = useState(false);
   const [extras, setExtras] = useState([]);
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -163,14 +164,21 @@ const BookingPage = () => {
   // Load pricing data and extras
   // Load pricing data when location changes
   useEffect(() => {
+    setPricingError(false);
     const locParam = form.location ? `?location=${form.location}` : "";
     axios.get(`${API}/services/pricing-data${locParam}`)
       .then(r => {
         setPricingData(r.data);
+        setPricingError(false);
         if (r.data.extras) setExtras(r.data.extras);
       })
-      .catch(err => console.error("Pricing data error:", err));
-    
+      .catch(err => {
+        console.error("Pricing data error:", err);
+        // On error fall back to empty data so the page doesn't stay frozen
+        setPricingData({});
+        setPricingError(true);
+      });
+
     if (!form.location) {
       axios.get(`${API}/services/extras`)
         .then(r => setExtras(Array.isArray(r.data) ? r.data : []))
@@ -506,6 +514,13 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 pb-20">
       <div className="w-full max-w-3xl relative">
+        {/* Connection error banner */}
+        {pricingError && (
+          <div className="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Nem sikerült betölteni a szolgáltatásokat. Ellenőrizze az internetkapcsolatot, majd frissítse az oldalt.
+          </div>
+        )}
         {/* Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-3 shadow-lg shadow-green-500/20 p-2">

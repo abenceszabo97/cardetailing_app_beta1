@@ -199,7 +199,8 @@ async def get_attendance_report(month: Optional[str] = None, worker_id: Optional
                 "total_hours": 0,
                 "normal_days": 0,
                 "vacation_days": 0,
-                "sick_days": 0
+                "sick_days": 0,
+                "absence_days": 0
             }
         
         start = datetime.fromisoformat(shift["start_time"])
@@ -235,6 +236,8 @@ async def get_attendance_report(month: Optional[str] = None, worker_id: Optional
             workers_data[wid]["vacation_days"] += 1
         elif shift_type == "sick_leave":
             workers_data[wid]["sick_days"] += 1
+        elif shift_type == "absence":
+            workers_data[wid]["absence_days"] = workers_data[wid].get("absence_days", 0) + 1
     
     # Round totals
     for wid in workers_data:

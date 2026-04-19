@@ -183,9 +183,18 @@ export const Workers = () => {
         currentY += 6;
         
         doc.setFontSize(10);
-        doc.text(`Osszes ora: ${worker.total_hours} | Munkanapok: ${worker.normal_days} | Szabadsag: ${worker.vacation_days} | Betegszabadsag: ${worker.sick_days}`, 14, currentY);
+        const absLine = worker.absence_days > 0 ? ` | Hianyzes: ${worker.absence_days}` : "";
+        doc.text(`Osszes ora: ${worker.total_hours} | Munkanapok: ${worker.normal_days} | Szabadsag: ${worker.vacation_days} | Betegszabadsag: ${worker.sick_days}${absLine}`, 14, currentY);
         currentY += 6;
-        
+
+        const shiftTypeLabel = (t) => {
+          if (t === "normal") return "Munka";
+          if (t === "vacation") return "Szabadsag";
+          if (t === "sick_leave") return "Betegszab.";
+          if (t === "absence") return "Hianyzes";
+          return t;
+        };
+
         if (worker.shifts.length > 0) {
           autoTable(doc, {
             startY: currentY,
@@ -195,8 +204,8 @@ export const Workers = () => {
               s.day_name.substring(0, 3),
               s.start_time,
               s.end_time,
-              `${s.hours} ora`,
-              s.shift_type === "normal" ? "Munka" : s.shift_type === "vacation" ? "Szabadsag" : "Beteg"
+              s.shift_type === "absence" ? "–" : `${s.hours} ora`,
+              shiftTypeLabel(s.shift_type)
             ]),
             theme: "grid",
             headStyles: { fillColor: [30, 41, 59], fontSize: 8 },
