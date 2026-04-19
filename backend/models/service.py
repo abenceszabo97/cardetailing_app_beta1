@@ -205,9 +205,17 @@ POLISHING_PRICES = {
     "lampapolir": {
         "name": "Lámpapolírozás (pár)",
         "duration_label": "30–60 perc",
-        "description": "S/M/L méretű autókhoz 21.990 Ft, XL/XXL (terepjáró) 23.990 Ft — páronként",
+        "description": "S, M, L méretű autókhoz — páronként",
         "prices": {
-            "S": 21990, "M": 21990, "L": 21990, "XL": 23990, "XXL": 23990
+            "S": 21990, "M": 21990, "L": 21990, "XL": 0, "XXL": 0
+        }
+    },
+    "lampapolirTerepjaro": {
+        "name": "Lámpapolírozás terepjáróhoz (pár)",
+        "duration_label": "30–60 perc",
+        "description": "XL, XXL méretű autókhoz (terepjáró) — páronként",
+        "prices": {
+            "S": 0, "M": 0, "L": 0, "XL": 23990, "XXL": 23990
         }
     }
 }

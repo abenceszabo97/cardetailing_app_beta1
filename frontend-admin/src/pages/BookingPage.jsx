@@ -359,7 +359,7 @@ const BookingPage = () => {
       if (selectedPromotion) {
         serviceName = `${selectedPromotion.name}`;
       } else if (selectedCategory === "poliroz") {
-        const polishLabel = selectedPolishingType === "1lepes" ? "1-lépéses polírozás" : "Többlépéses polírozás";
+        const polishLabel = pricingData?.polishing?.types?.[selectedPolishingType]?.name || selectedPolishingType || "Polírozás";
         let polishName = `${selectedSize} - ${polishLabel}`;
         if (cleaningAddon) {
           const addonLabel = cleaningAddon === "kulso" ? "Külső mosás" : cleaningAddon === "belso" ? "Belső takarítás" : "Komplett (K+B)";
@@ -710,7 +710,7 @@ const BookingPage = () => {
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">3. Polírozás típusa</label>
                   <div className="grid grid-cols-2 gap-3">
-                    {pricingData?.polishing?.types && Object.entries(pricingData.polishing.types).map(([typeId, typeData]) => {
+                    {pricingData?.polishing?.types && Object.entries(pricingData.polishing.types).filter(([_, typeData]) => (typeData.prices?.[selectedSize] || 0) > 0).map(([typeId, typeData]) => {
                       const price = typeData.prices?.[selectedSize] || 0;
                       const isSelected = selectedPolishingType === typeId;
                       return (
@@ -740,17 +740,6 @@ const BookingPage = () => {
                       );
                     })}
                   </div>
-                  {pricingData?.polishing?.addons?.length > 0 && (
-                    <div className="mt-3 p-3 rounded-lg bg-slate-800/30 border border-slate-700">
-                      <p className="text-xs text-amber-400/80 mb-2 font-medium">Elérhető kiegészítők:</p>
-                      {pricingData.polishing.addons.map((addon, i) => (
-                        <div key={i} className="flex justify-between text-xs py-1">
-                          <span className="text-slate-400">{addon.name} <span className="text-slate-600">({addon.note})</span></span>
-                          <span className="text-slate-300">+{addon.price.toLocaleString()} Ft</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1302,7 +1291,7 @@ const BookingPage = () => {
                     {selectedPromotion
                       ? selectedPromotion.name
                       : selectedCategory === "poliroz"
-                        ? `${selectedSize} – ${selectedPolishingType === "1lepes" ? "1-lépéses polírozás" : "Többlépéses polírozás"}`
+                        ? `${selectedSize} – ${pricingData?.polishing?.types?.[selectedPolishingType]?.name || selectedPolishingType || "Polírozás"}`
                         : `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} ${selectedPackage}`
                     }
                   </span>
@@ -1362,6 +1351,63 @@ const BookingPage = () => {
                   </div>
                 )}
                 
+                {/* Cleaning Addon (poliroz only) - inside summary card */}
+                {selectedCategory === "poliroz" && (
+                  <div className="pt-3 border-t border-slate-700 space-y-3">
+                    <span className="text-slate-400 text-sm font-medium flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-green-400" />
+                      Kiegészítő mosás / takarítás
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { id: null, label: "Nincs" },
+                        { id: "kulso", label: "Külső mosás" },
+                        { id: "belso", label: "Belső takarítás" },
+                        { id: "komplett", label: "Komplett (K+B)" }
+                      ].map(opt => (
+                        <button
+                          key={String(opt.id)}
+                          onClick={() => setCleaningAddon(opt.id)}
+                          className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                            cleaningAddon === opt.id
+                              ? 'border-green-500 bg-green-500/10 text-white'
+                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {cleaningAddon && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {["Eco", "Pro", "VIP"].map(pkg => {
+                            const addonPrice = pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[pkg] ?? 0;
+                            return (
+                              <button
+                                key={pkg}
+                                onClick={() => setCleaningPackage(pkg)}
+                                className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                                  cleaningPackage === pkg
+                                    ? 'border-green-500 bg-green-500/10 text-white'
+                                    : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
+                                }`}
+                              >
+                                <span className="block">{pkg}</span>
+                                <span className="text-xs text-green-400 font-bold">{addonPrice.toLocaleString()} Ft</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-400">Kiegészítő ára:</span>
+                          <span className="text-green-400 font-bold">+{getCleaningAddonPrice().toLocaleString()} Ft</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="pt-4 mt-3 border-t border-slate-700 flex justify-between items-center">
                   <span className="text-slate-300 font-medium">Fizetendő összeg</span>
                   <span className="text-green-400 text-2xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
@@ -1369,65 +1415,6 @@ const BookingPage = () => {
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Step 4: Cleaning Addon (poliroz only) */}
-        {step === 4 && selectedCategory === "poliroz" && (
-          <div className="mt-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <h3 className="text-white font-semibold text-base flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-green-400" />
-              Kiegészítő mosás / takarítás
-            </h3>
-            {/* Cleaning type row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { id: null, label: "Nincs" },
-                { id: "kulso", label: "Külső mosás" },
-                { id: "belso", label: "Belső takarítás" },
-                { id: "komplett", label: "Komplett (K+B)" }
-              ].map(opt => (
-                <button
-                  key={String(opt.id)}
-                  onClick={() => setCleaningAddon(opt.id)}
-                  className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                    cleaningAddon === opt.id
-                      ? 'border-green-500 bg-green-500/10 text-white'
-                      : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {/* Package row - only show when a cleaning type is selected */}
-            {cleaningAddon && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  {["Eco", "Pro", "VIP"].map(pkg => {
-                    const addonPrice = pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[pkg] ?? 0;
-                    return (
-                      <button
-                        key={pkg}
-                        onClick={() => setCleaningPackage(pkg)}
-                        className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                          cleaningPackage === pkg
-                            ? 'border-green-500 bg-green-500/10 text-white'
-                            : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
-                        }`}
-                      >
-                        <span className="block">{pkg}</span>
-                        <span className="text-xs text-green-400 font-bold">{addonPrice.toLocaleString()} Ft</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-800">
-                  <span className="text-slate-400 text-sm">Kiegészítő ára:</span>
-                  <span className="text-green-400 font-bold text-lg">{getCleaningAddonPrice().toLocaleString()} Ft</span>
-                </div>
-              </div>
-            )}
-          </div>
         )}
 
         {/* Navigation */}

@@ -74,7 +74,10 @@ async def get_pricing_data(location: Optional[str] = None):
     """Get all pricing data for the booking page (public, no auth)"""
     # Get promotions from database
     promo_query = {"active": True}
-    if location:
+    if location == "Budapest":
+        # Budapest: STRICT — only show explicitly Budapest-tagged promotions (no global/null ones)
+        promo_query["location"] = "Budapest"
+    elif location:
         promo_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     db_promotions = await db.promotions.find(promo_query, {"_id": 0}).to_list(100)
 
@@ -89,8 +92,11 @@ async def get_pricing_data(location: Optional[str] = None):
             continue
         if p.get("name", "").strip().lower() in db_promo_names:
             continue
-        # Check location match
-        if location and p.get("location") and p.get("location") != location:
+        if location == "Budapest":
+            # Budapest strict: only include hardcoded promotions explicitly tagged Budapest
+            if p.get("location") != "Budapest":
+                continue
+        elif location and p.get("location") and p.get("location") != location:
             continue
         db_promotions.append(p)
     
@@ -185,11 +191,30 @@ async def get_promotions():
 
 @router.get("/services/promotions/admin")
 async def get_promotions_admin(location: Optional[str] = None, user: User = Depends(get_current_user)):
-    """Get all promotions for admin (including inactive), optionally filtered by location"""
+    """Get all promotions for admin (including inactive), optionally filtered by location.
+    Also merges hardcoded PROMOTIONS that are not yet in DB so they can be managed."""
     query = {}
     if location and location != "all":
         query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     promotions = await db.promotions.find(query, {"_id": 0}).to_list(100)
+
+    # Include hardcoded promotions not yet saved to DB (read-only preview, marked _hardcoded=True)
+    db_promo_ids = {p.get("id") for p in promotions}
+    db_promo_names = {p.get("name", "").strip().lower() for p in promotions}
+    for p in PROMOTIONS:
+        if p.get("id") in db_promo_ids:
+            continue
+        if p.get("name", "").strip().lower() in db_promo_names:
+            continue
+        if location and location != "all":
+            p_loc = p.get("location")
+            # Include if location matches OR if promo has no location (global)
+            if p_loc and p_loc != location:
+                continue
+        merged = dict(p)
+        merged["_hardcoded"] = True  # flag so admin can seed it to DB
+        promotions.append(merged)
+
     return promotions
 
 @router.post("/services/promotions")

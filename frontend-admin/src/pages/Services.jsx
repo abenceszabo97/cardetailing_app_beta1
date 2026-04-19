@@ -44,8 +44,6 @@ import {
   Check,
   Pencil,
   MapPin,
-  Save,
-  X
 } from "lucide-react";
 
 export const Services = () => {
@@ -73,14 +71,6 @@ export const Services = () => {
   
   // Use global location context so Services page reflects the selected location
   const [servicesLoc, setServicesLoc] = useState(locationForApi || "all");
-
-  // Polírozás price editing states
-  const [polishPrices, setPolishPrices] = useState({
-    "1lepes": { S: 37990, M: 43990, L: 50990, XL: 56990, XXL: 63990 },
-    "tobbLepes": { S: 50990, M: 56990, L: 63990, XL: 69990, XXL: 75990 }
-  });
-  const [polishEditMode, setPolishEditMode] = useState(false);
-  const [polishSaving, setPolishSaving] = useState(false);
 
   // Polírozás type management states
   const [polishTypes, setPolishTypes] = useState({});
@@ -156,18 +146,6 @@ export const Services = () => {
     }
   };
 
-  const fetchPolishPrices = async () => {
-    try {
-      const response = await axios.get(`${API}/services/polishing-prices`, { withCredentials: true });
-      if (response.data && typeof response.data === "object") {
-        setPolishPrices(response.data);
-      }
-    } catch (error) {
-      // If endpoint doesn't exist yet, keep defaults
-      console.warn("Could not fetch polishing prices:", error);
-    }
-  };
-
   const fetchPolishTypes = async () => {
     try {
       const response = await axios.get(`${API}/services/pricing-data`, { withCredentials: true });
@@ -188,7 +166,6 @@ export const Services = () => {
     fetchServices(servicesLoc);
     fetchPromotions(servicesLoc);
     fetchExtras();
-    fetchPolishPrices();
     fetchPolishTypes();
   }, [servicesLoc]);
 
@@ -274,19 +251,27 @@ export const Services = () => {
     setPolishTypeSaving(true);
     try {
       const prices = polishTypeForm.prices;
-      const minPrice = Math.min(...Object.values(prices).map(Number));
-      await axios.put(`${API}/services/${editingPolishType.service_id}`, {
+      const minPrice = Math.min(...Object.values(prices).map(Number).filter(v => v > 0));
+      const payload = {
         name: polishTypeForm.name,
         description: polishTypeForm.description,
         category: "poliroz",
         service_type: "poliroz",
-        price: minPrice,
+        price: minPrice || 0,
         duration: 120,
         duration_label: polishTypeForm.duration_label,
         size_prices: prices,
         location: polishTypeForm.location
-      }, { withCredentials: true });
-      toast.success("Polírozás típus frissítve!");
+      };
+      if (editingPolishType.service_id) {
+        // DB record — update it
+        await axios.put(`${API}/services/${editingPolishType.service_id}`, payload, { withCredentials: true });
+        toast.success("Polírozás típus frissítve!");
+      } else {
+        // Hardcoded — create as new DB record
+        await axios.post(`${API}/services`, payload, { withCredentials: true });
+        toast.success("Polírozás típus DB-be mentve!");
+      }
       setIsEditPolishTypeOpen(false);
       setEditingPolishType(null);
       resetPolishTypeForm();
@@ -392,12 +377,13 @@ export const Services = () => {
 
   const handlePromoSubmit = async () => {
     try {
-      if (editingPromo) {
+      if (editingPromo && !editingPromo._hardcoded) {
         await axios.put(`${API}/services/promotions/${editingPromo.id}`, promoForm, { withCredentials: true });
         toast.success("Akció frissítve!");
       } else {
+        // New or hardcoded (seed to DB)
         await axios.post(`${API}/services/promotions`, promoForm, { withCredentials: true });
-        toast.success("Akció létrehozva!");
+        toast.success(editingPromo?._hardcoded ? "Akció DB-be mentve!" : "Akció létrehozva!");
       }
       setIsNewPromoOpen(false);
       setEditingPromo(null);
@@ -718,7 +704,7 @@ export const Services = () => {
               <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-['Manrope']">
-                    {editingPromo ? "Akció szerkesztése" : "Új akció létrehozása"}
+                    {editingPromo?._hardcoded ? "Beépített akció mentése DB-be" : editingPromo ? "Akció szerkesztése" : "Új akció létrehozása"}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
@@ -862,7 +848,7 @@ export const Services = () => {
                     Mégse
                   </Button>
                   <Button onClick={handlePromoSubmit} className="bg-pink-600 hover:bg-pink-500">
-                    {editingPromo ? "Mentés" : "Létrehozás"}
+                    {editingPromo?._hardcoded ? "Mentés DB-be" : editingPromo ? "Mentés" : "Létrehozás"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -872,23 +858,28 @@ export const Services = () => {
           {/* Promotions list */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {promotions.map(promo => (
-              <Card 
+              <Card
                 key={promo.id}
                 className={`overflow-hidden transition-colors ${
-                  promo.active 
-                    ? 'border-pink-500/50 hover:border-pink-500' 
-                    : 'border-slate-800 opacity-60'
+                  promo._hardcoded
+                    ? 'border-amber-500/40 hover:border-amber-500'
+                    : promo.active
+                      ? 'border-pink-500/50 hover:border-pink-500'
+                      : 'border-slate-800 opacity-60'
                 }`}
               >
-                <div className={`h-1 ${promo.active ? 'bg-gradient-to-r from-pink-500 to-orange-500' : 'bg-slate-700'}`} />
+                <div className={`h-1 ${promo._hardcoded ? 'bg-gradient-to-r from-amber-500 to-yellow-400' : promo.active ? 'bg-gradient-to-r from-pink-500 to-orange-500' : 'bg-slate-700'}`} />
                 <CardContent className="p-5">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge className={promo.active ? 'bg-pink-500/20 text-pink-400' : 'bg-slate-700 text-slate-500'}>
+                        <Badge className={promo._hardcoded ? 'bg-amber-500/20 text-amber-400' : promo.active ? 'bg-pink-500/20 text-pink-400' : 'bg-slate-700 text-slate-500'}>
                           {promo.badge || '🎉 AKCIÓ'}
                         </Badge>
-                        {!promo.active && (
+                        {promo._hardcoded && (
+                          <Badge className="bg-amber-700/30 text-amber-400 text-xs">Beépített – katt. szerk.</Badge>
+                        )}
+                        {!promo._hardcoded && !promo.active && (
                           <Badge className="bg-slate-700 text-slate-500">Inaktív</Badge>
                         )}
                       </div>
@@ -896,18 +887,21 @@ export const Services = () => {
                       <p className="text-slate-400 text-sm">{promo.description}</p>
                     </div>
                     <div className="flex gap-1">
-                      <button 
+                      <button
                         className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                        title={promo._hardcoded ? "Mentés DB-be és szerkesztés" : "Szerkesztés"}
                         onClick={() => openEditPromoDialog(promo)}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
-                        onClick={() => setDeletePromoId(promo.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!promo._hardcoded && (
+                        <button
+                          className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                          onClick={() => setDeletePromoId(promo.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -1173,46 +1167,16 @@ export const Services = () => {
                   Új polírozás típust az alábbi gombbal hozhatsz létre.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={() => setPolishEditMode(!polishEditMode)}
-                  className={polishEditMode ? "border-amber-500 text-amber-400" : "border-slate-600 text-slate-300"}
-                >
-                  {polishEditMode ? (
-                    <><X className="w-4 h-4 mr-2" /> Mégse</>
-                  ) : (
-                    <><Pencil className="w-4 h-4 mr-2" /> Árak szerkesztése</>
-                  )}
-                </Button>
-                {polishEditMode && (
-                  <Button
-                    className="bg-amber-600 hover:bg-amber-500"
-                    disabled={polishSaving}
-                    onClick={async () => {
-                      setPolishSaving(true);
-                      try {
-                        await axios.post(`${API}/services/polishing-prices`, polishPrices, { withCredentials: true });
-                        toast.success("Polírozási árak mentve!");
-                        setPolishEditMode(false);
-                      } catch { toast.error("Hiba a mentéskor"); }
-                      setPolishSaving(false);
-                    }}
-                  >
-                    <Save className="w-4 h-4 mr-2" /> Mentés
-                  </Button>
-                )}
-                <Button
-                  className="bg-amber-600 hover:bg-amber-500"
-                  onClick={() => {
-                    resetPolishTypeForm();
-                    setIsNewPolishTypeOpen(true);
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Új polírozás típus
-                </Button>
-              </div>
+              <Button
+                className="bg-amber-600 hover:bg-amber-500"
+                onClick={() => {
+                  resetPolishTypeForm();
+                  setIsNewPolishTypeOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Új polírozás típus
+              </Button>
             </div>
 
             {/* Polishing type card grid */}
@@ -1240,21 +1204,20 @@ export const Services = () => {
                             )}
                           </div>
                           <div className="flex gap-1 ml-2 flex-shrink-0">
+                            <button
+                              className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                              title={isDbRecord ? "Szerkesztés" : "Szerkesztés (mentés DB-be)"}
+                              onClick={() => openEditPolishType(typeKey, typeData)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
                             {isDbRecord && (
-                              <>
-                                <button
-                                  className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
-                                  onClick={() => openEditPolishType(typeKey, typeData)}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
-                                  onClick={() => handleDeletePolishType(typeData.service_id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </>
+                              <button
+                                className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                                onClick={() => handleDeletePolishType(typeData.service_id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             )}
                           </div>
                         </div>
@@ -1270,7 +1233,7 @@ export const Services = () => {
                             </Badge>
                           )}
                           {!isDbRecord && (
-                            <Badge className="bg-slate-700/50 text-slate-400 text-xs">Beépített</Badge>
+                            <Badge className="bg-amber-700/30 text-amber-400 text-xs" title="Szerkesztés DB-be menti">Beépített</Badge>
                           )}
                         </div>
                         <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
@@ -1294,62 +1257,6 @@ export const Services = () => {
               </div>
             </div>
 
-            {/* Standard polishing price table */}
-            <Card className="glass-card">
-              <CardHeader className="p-4">
-                <CardTitle className="text-base text-white font-medium">
-                  Beépített polírozás árak {polishEditMode && <span className="text-amber-400 text-sm font-normal ml-2">(szerkesztési mód)</span>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-700">
-                      <th className="text-left text-slate-400 py-2 pr-4">Típus</th>
-                      <th className="text-center text-slate-400 py-2 px-2">S</th>
-                      <th className="text-center text-slate-400 py-2 px-2">M</th>
-                      <th className="text-center text-slate-400 py-2 px-2">L</th>
-                      <th className="text-center text-slate-400 py-2 px-2">XL</th>
-                      <th className="text-center text-slate-400 py-2 px-2">XXL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { typeKey: "1lepes", label: "1-lépéses (1–3 óra)" },
-                      { typeKey: "tobbLepes", label: "Többlépéses (2–5 óra)" },
-                    ].map((row) => (
-                      <tr key={row.typeKey} className="border-b border-slate-800">
-                        <td className="text-white py-3 pr-4 font-medium">{row.label}</td>
-                        {["S", "M", "L", "XL", "XXL"].map((sizeKey) => (
-                          <td key={sizeKey} className="text-center py-3 px-2">
-                            {polishEditMode ? (
-                              <input
-                                type="number"
-                                value={polishPrices[row.typeKey]?.[sizeKey] || 0}
-                                onChange={(e) => setPolishPrices(prev => ({
-                                  ...prev,
-                                  [row.typeKey]: { ...prev[row.typeKey], [sizeKey]: parseInt(e.target.value) || 0 }
-                                }))}
-                                className="w-20 text-center bg-slate-800 border border-amber-500/50 rounded text-white text-sm p-1"
-                              />
-                            ) : (
-                              <span className="text-green-400 font-semibold">
-                                {(polishPrices[row.typeKey]?.[sizeKey] || 0).toLocaleString()} Ft
-                              </span>
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    <tr>
-                      <td className="text-slate-400 py-3 pr-4">Lámpapolír (S/M/L – pár)</td>
-                      <td className="text-amber-400 text-center py-3 px-2 font-semibold" colSpan={3}>21.990 Ft</td>
-                      <td className="text-amber-400 text-center py-3 px-2 font-semibold" colSpan={2}>23.990 Ft</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
       </Tabs>

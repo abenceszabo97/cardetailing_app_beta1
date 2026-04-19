@@ -19,7 +19,14 @@ async def get_customers(
     """Get all customers, optionally filtered by location and/or search query"""
     query = {}
     if location and location != "all":
-        query["location"] = location
+        # Include customers explicitly tagged to this location AND legacy customers
+        # with no location set (they were created before location tracking was added)
+        query["$or"] = [
+            {"location": location},
+            {"location": None},
+            {"location": {"$exists": False}},
+            {"location": ""}
+        ]
     if search and search.strip():
         q = search.strip()
         search_cond = {"$or": [
