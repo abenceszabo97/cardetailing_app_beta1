@@ -129,10 +129,33 @@ async def get_pricing_data(location: Optional[str] = None):
         if not db_extras:
             db_extras = EXTRA_SERVICES
 
+    # Auto-seed polishing types from POLISHING_PRICES if DB has none at all
+    all_poliroz_count = await db.services.count_documents({"category": "poliroz"})
+    if all_poliroz_count == 0:
+        for type_key, type_data in POLISHING_PRICES.items():
+            prices = type_data.get("prices", {})
+            non_zero = [v for v in prices.values() if v > 0]
+            if not non_zero:
+                continue
+            min_price = min(non_zero)
+            service = Service(
+                name=type_data["name"],
+                category="poliroz",
+                service_type="poliroz",
+                price=min_price,
+                duration=120,
+                duration_label=type_data.get("duration_label", ""),
+                description=type_data.get("description", ""),
+                size_prices=prices,
+                active=True
+            )
+            doc = service.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.services.insert_one(doc)
+
     # Get polishing services from DB, filtered by location
     polishing_query = {"category": "poliroz", "active": {"$ne": False}}
     if location:
-        # Include types for this specific location + global (no location set)
         polishing_query["$or"] = [
             {"location": location},
             {"location": None},
@@ -140,42 +163,17 @@ async def get_pricing_data(location: Optional[str] = None):
         ]
     db_polishing = await db.services.find(polishing_query, {"_id": 0}).to_list(50)
 
-    # Check for custom polishing prices in DB settings
-    saved_polish = await db.settings.find_one({"key": "polishing_prices"}, {"_id": 0})
-    if saved_polish and "prices" in saved_polish:
-        merged_polishing = {}
-        for type_key, type_data in POLISHING_PRICES.items():
-            merged_polishing[type_key] = {
-                **type_data,
-                "prices": saved_polish["prices"].get(type_key, type_data["prices"])
-            }
-    else:
-        merged_polishing = POLISHING_PRICES
-
-    # Merge DB polishing services into the types dict.
-    # If a DB record has the same name as a hardcoded type, it REPLACES the hardcoded
-    # entry (no duplicates). Otherwise it is added as a new custom type.
-    merged_polishing_with_db = dict(merged_polishing)
-    # Build name → hardcoded key map for deduplication
-    hardcoded_name_to_key = {
-        v["name"].strip().lower(): k
-        for k, v in merged_polishing.items()
-    }
+    # Build polishing types dict purely from DB records
+    polishing_types = {}
     for db_pol in db_polishing:
         if db_pol.get("size_prices"):
-            db_name = db_pol["name"].strip().lower()
-            hardcoded_key = hardcoded_name_to_key.get(db_name)
-            if hardcoded_key and hardcoded_key in merged_polishing_with_db:
-                # DB version supersedes hardcoded — remove the hardcoded entry
-                del merged_polishing_with_db[hardcoded_key]
-            merged_polishing_with_db[db_pol["service_id"]] = {
+            polishing_types[db_pol["service_id"]] = {
                 "name": db_pol["name"],
                 "duration_label": db_pol.get("duration_label", ""),
                 "description": db_pol.get("description", ""),
                 "location": db_pol.get("location"),
                 "service_id": db_pol["service_id"],
                 "prices": db_pol["size_prices"],
-                "_db": True
             }
 
     return {
@@ -188,9 +186,8 @@ async def get_pricing_data(location: Optional[str] = None):
         "promotions": db_promotions,
         "extras": db_extras,
         "polishing": {
-            "types": merged_polishing_with_db,
+            "types": polishing_types,
             "addons": POLISHING_ADDONS,
-            "custom": db_polishing
         }
     }
 

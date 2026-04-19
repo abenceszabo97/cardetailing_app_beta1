@@ -72,20 +72,6 @@ export const Services = () => {
   // Use global location context so Services page reflects the selected location
   const [servicesLoc, setServicesLoc] = useState(locationForApi || "all");
 
-  // Polírozás type management states
-  const [polishTypes, setPolishTypes] = useState({});
-  const [isNewPolishTypeOpen, setIsNewPolishTypeOpen] = useState(false);
-  const [editingPolishType, setEditingPolishType] = useState(null); // { typeKey, data }
-  const [isEditPolishTypeOpen, setIsEditPolishTypeOpen] = useState(false);
-  const [polishTypeForm, setPolishTypeForm] = useState({
-    name: "",
-    description: "",
-    duration_label: "",
-    location: null,
-    prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 }
-  });
-  const [polishTypeSaving, setPolishTypeSaving] = useState(false);
-
   const [formData, setFormData] = useState({
     name: "",
     category: "komplett",
@@ -94,7 +80,9 @@ export const Services = () => {
     description: "",
     car_size: "",
     package: "",
-    location: locationForApi || null
+    location: locationForApi || null,
+    size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+    duration_label: ""
   });
 
   const [promoForm, setPromoForm] = useState({
@@ -116,6 +104,12 @@ export const Services = () => {
     { value: "komplett", label: "Komplett" },
     { value: "kulso", label: "Külső" },
     { value: "belso", label: "Belső" }
+  ];
+
+  // All categories including poliroz (for the service dialog)
+  const allCategories = [
+    ...categories,
+    { value: "poliroz", label: "Polírozás" }
   ];
 
   const carSizes = ["S", "M", "L", "XL", "XXL"];
@@ -146,17 +140,6 @@ export const Services = () => {
     }
   };
 
-  const fetchPolishTypes = async () => {
-    try {
-      const response = await axios.get(`${API}/services/pricing-data`, { withCredentials: true });
-      if (response.data?.polishing?.types) {
-        setPolishTypes(response.data.polishing.types);
-      }
-    } catch (error) {
-      console.warn("Could not fetch polishing types:", error);
-    }
-  };
-
   // Sync servicesLoc with the global location when it changes
   useEffect(() => {
     setServicesLoc(locationForApi || "all");
@@ -166,7 +149,6 @@ export const Services = () => {
     fetchServices(servicesLoc);
     fetchPromotions(servicesLoc);
     fetchExtras();
-    fetchPolishTypes();
   }, [servicesLoc]);
 
   const fetchExtras = async () => {
@@ -209,113 +191,35 @@ export const Services = () => {
     }
   };
 
-  const resetPolishTypeForm = () => {
-    setPolishTypeForm({
-      name: "",
-      description: "",
-      duration_label: "",
-      location: null,
-      prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 }
-    });
-  };
-
-  const handleCreatePolishType = async () => {
-    setPolishTypeSaving(true);
-    try {
-      const prices = polishTypeForm.prices;
-      const minPrice = Math.min(...Object.values(prices).map(Number));
-      await axios.post(`${API}/services`, {
-        name: polishTypeForm.name,
-        description: polishTypeForm.description,
-        category: "poliroz",
-        service_type: "poliroz",
-        price: minPrice,
-        duration: 120,
-        duration_label: polishTypeForm.duration_label,
-        size_prices: prices,
-        location: polishTypeForm.location
-      }, { withCredentials: true });
-      toast.success("Polírozás típus létrehozva!");
-      setIsNewPolishTypeOpen(false);
-      resetPolishTypeForm();
-      fetchPolishTypes();
-      fetchServices(servicesLoc);
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Hiba a létrehozáskor");
-    }
-    setPolishTypeSaving(false);
-  };
-
-  const handleUpdatePolishType = async () => {
-    if (!editingPolishType) return;
-    setPolishTypeSaving(true);
-    try {
-      const prices = polishTypeForm.prices;
-      const minPrice = Math.min(...Object.values(prices).map(Number).filter(v => v > 0));
-      const payload = {
-        name: polishTypeForm.name,
-        description: polishTypeForm.description,
-        category: "poliroz",
-        service_type: "poliroz",
-        price: minPrice || 0,
-        duration: 120,
-        duration_label: polishTypeForm.duration_label,
-        size_prices: prices,
-        location: polishTypeForm.location
-      };
-      if (editingPolishType.service_id) {
-        // DB record — update it
-        await axios.put(`${API}/services/${editingPolishType.service_id}`, payload, { withCredentials: true });
-        toast.success("Polírozás típus frissítve!");
-      } else {
-        // Hardcoded — create as new DB record
-        await axios.post(`${API}/services`, payload, { withCredentials: true });
-        toast.success("Polírozás típus DB-be mentve!");
-      }
-      setIsEditPolishTypeOpen(false);
-      setEditingPolishType(null);
-      resetPolishTypeForm();
-      fetchPolishTypes();
-      fetchServices(servicesLoc);
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Hiba a mentéskor");
-    }
-    setPolishTypeSaving(false);
-  };
-
-  const handleDeletePolishType = async (serviceId) => {
-    try {
-      await axios.delete(`${API}/services/${serviceId}`, { withCredentials: true });
-      toast.success("Polírozás típus törölve!");
-      fetchPolishTypes();
-      fetchServices(servicesLoc);
-    } catch (error) {
-      toast.error("Hiba a törlés során");
-    }
-  };
-
-  const openEditPolishType = (typeKey, typeData) => {
-    setEditingPolishType({ typeKey, ...typeData });
-    setPolishTypeForm({
-      name: typeData.name || "",
-      description: typeData.description || "",
-      duration_label: typeData.duration_label || "",
-      location: typeData.location || null,
-      prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0, ...(typeData.prices || {}) }
-    });
-    setIsEditPolishTypeOpen(true);
-  };
-
   const handleSubmit = async () => {
     try {
-      // Clean up empty strings to null
-      const cleanedData = {
-        ...formData,
-        car_size: formData.car_size || null,
-        package: formData.package || null,
-        description: formData.description || null
-      };
-      
+      let cleanedData;
+      if (formData.category === "poliroz") {
+        const prices = formData.size_prices || {};
+        const nonZero = Object.values(prices).map(Number).filter(v => v > 0);
+        const minPrice = nonZero.length ? Math.min(...nonZero) : 0;
+        cleanedData = {
+          name: formData.name,
+          category: "poliroz",
+          service_type: "poliroz",
+          price: minPrice,
+          duration: formData.duration || 120,
+          duration_label: formData.duration_label || null,
+          description: formData.description || null,
+          size_prices: prices,
+          location: formData.location || null,
+        };
+      } else {
+        cleanedData = {
+          ...formData,
+          car_size: formData.car_size || null,
+          package: formData.package || null,
+          description: formData.description || null,
+          size_prices: undefined,
+          duration_label: undefined,
+        };
+      }
+
       if (editingService) {
         await axios.put(`${API}/services/${editingService.service_id}`, cleanedData, { withCredentials: true });
         toast.success("Szolgáltatás frissítve!");
@@ -353,7 +257,9 @@ export const Services = () => {
       description: "",
       car_size: "",
       package: "",
-      location: servicesLoc !== "all" ? servicesLoc : null
+      location: servicesLoc !== "all" ? servicesLoc : null,
+      size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+      duration_label: ""
     });
   };
 
@@ -443,7 +349,9 @@ export const Services = () => {
       description: service.description || "",
       car_size: service.car_size || "",
       package: service.package || "",
-      location: service.location || null
+      location: service.location || null,
+      size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0, ...(service.size_prices || {}) },
+      duration_label: service.duration_label || ""
     });
     setIsNewServiceOpen(true);
   };
@@ -555,7 +463,7 @@ export const Services = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        {categories.map(cat => (
+                        {allCategories.map(cat => (
                           <SelectItem key={cat.value} value={cat.value} className="text-white">
                             {cat.label}
                           </SelectItem>
@@ -563,55 +471,90 @@ export const Services = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-slate-300">Ár (Ft)</Label>
-                    <Input
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})}
-                      className="bg-slate-950 border-slate-700 text-white"
-                    />
-                  </div>
+                  {formData.category !== "poliroz" && (
+                    <div>
+                      <Label className="text-slate-300">Ár (Ft)</Label>
+                      <Input
+                        type="number"
+                        value={formData.price}
+                        onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})}
+                        className="bg-slate-950 border-slate-700 text-white"
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-slate-300">Időtartam (perc)</Label>
-                    <Input
-                      type="number"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value) || 0})}
-                      className="bg-slate-950 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Autó méret</Label>
-                    <Select value={formData.car_size || "none"} onValueChange={(v) => setFormData({...formData, car_size: v === "none" ? "" : v})}>
-                      <SelectTrigger className="bg-slate-950 border-slate-700">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="none" className="text-white">-</SelectItem>
-                        {carSizes.map(size => (
-                          <SelectItem key={size} value={size} className="text-white">{size}</SelectItem>
+
+                {/* Poliroz-specific fields */}
+                {formData.category === "poliroz" ? (
+                  <>
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető ennél a méretnél</Label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {["S","M","L","XL","XXL"].map(sz => (
+                          <div key={sz}>
+                            <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
+                            <Input
+                              type="number"
+                              value={formData.size_prices?.[sz] || 0}
+                              onChange={(e) => setFormData({...formData, size_prices: {...formData.size_prices, [sz]: parseInt(e.target.value) || 0}})}
+                              className="bg-slate-950 border-slate-700 text-white text-center px-1"
+                            />
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Időtartam felirat (pl. "1–3 óra")</Label>
+                      <Input
+                        value={formData.duration_label}
+                        onChange={(e) => setFormData({...formData, duration_label: e.target.value})}
+                        className="bg-slate-950 border-slate-700 text-white"
+                        placeholder="pl. 1–3 óra"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-slate-300">Időtartam (perc)</Label>
+                      <Input
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value) || 0})}
+                        className="bg-slate-950 border-slate-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Autó méret</Label>
+                      <Select value={formData.car_size || "none"} onValueChange={(v) => setFormData({...formData, car_size: v === "none" ? "" : v})}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="none" className="text-white">-</SelectItem>
+                          {carSizes.map(size => (
+                            <SelectItem key={size} value={size} className="text-white">{size}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Csomag</Label>
+                      <Select value={formData.package || "none"} onValueChange={(v) => setFormData({...formData, package: v === "none" ? "" : v})}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="none" className="text-white">-</SelectItem>
+                          {packages.map(pkg => (
+                            <SelectItem key={pkg} value={pkg} className="text-white">{pkg}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-slate-300">Csomag</Label>
-                    <Select value={formData.package || "none"} onValueChange={(v) => setFormData({...formData, package: v === "none" ? "" : v})}>
-                      <SelectTrigger className="bg-slate-950 border-slate-700">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="none" className="text-white">-</SelectItem>
-                        {packages.map(pkg => (
-                          <SelectItem key={pkg} value={pkg} className="text-white">{pkg}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                )}
+
                 <div>
                   <Label className="text-slate-300">Telephely</Label>
                   <Select value={formData.location || "all"} onValueChange={(v) => setFormData({...formData, location: v === "all" ? null : v})}>
@@ -637,7 +580,7 @@ export const Services = () => {
                 <Button
                   onClick={handleSubmit}
                   className="w-full bg-green-600 hover:bg-green-500"
-                  disabled={!formData.name || !formData.price}
+                  disabled={!formData.name || (formData.category !== "poliroz" && !formData.price)}
                 >
                   {editingService ? "Mentés" : "Létrehozás"}
                 </Button>
@@ -1177,105 +1120,111 @@ export const Services = () => {
 
         {/* Polírozás Tab */}
         <TabsContent value="poliroz" className="mt-6">
-          <div className="space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg text-white font-semibold flex items-center gap-2">
-                  ✨ Polírozási szolgáltatások
-                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full font-normal">Debrecen</span>
-                </h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  A polírozási árak automatikusan szinkronizálva vannak a Debreceni booking oldallal.
-                  Új polírozás típust az alábbi gombbal hozhatsz létre.
-                </p>
-              </div>
-              <Button
-                className="bg-amber-600 hover:bg-amber-500"
-                onClick={() => {
-                  resetPolishTypeForm();
-                  setIsNewPolishTypeOpen(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Új polírozás típus
-              </Button>
-            </div>
-
-            {/* Polishing type card grid */}
-            <div>
-              <h3 className="text-white font-medium mb-3 text-sm text-slate-300">Polírozás típusok</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(polishTypes).map(([typeKey, typeData]) => {
-                  const prices = typeData.prices || {};
-                  const priceValues = Object.values(prices).map(Number).filter(v => v > 0);
-                  const minP = priceValues.length ? Math.min(...priceValues) : 0;
-                  const maxP = priceValues.length ? Math.max(...priceValues) : 0;
-                  const isDbRecord = !!typeData._db && !!typeData.service_id;
-                  return (
-                    <Card
-                      key={typeKey}
-                      className="bg-slate-900/80 border-slate-800 rounded-xl hover:border-amber-500/30 transition-colors overflow-hidden"
-                    >
-                      <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-400" />
-                      <CardContent className="p-5">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-white font-semibold truncate">{typeData.name}</h3>
-                            {typeData.description && (
-                              <p className="text-slate-400 text-xs mt-0.5">{typeData.description}</p>
-                            )}
+          <div className="flex justify-end mb-4">
+            <Button
+              className="bg-amber-600 hover:bg-amber-500"
+              onClick={() => {
+                setEditingService(null);
+                setFormData({
+                  name: "",
+                  category: "poliroz",
+                  price: 0,
+                  duration: 120,
+                  description: "",
+                  car_size: "",
+                  package: "",
+                  location: servicesLoc !== "all" ? servicesLoc : null,
+                  size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+                  duration_label: ""
+                });
+                setIsNewServiceOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Új polírozás típus
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {services.filter(s => s.category === "poliroz").map(service => {
+              const prices = service.size_prices || {};
+              const priceValues = Object.values(prices).map(Number).filter(v => v > 0);
+              const minP = priceValues.length ? Math.min(...priceValues) : 0;
+              const maxP = priceValues.length ? Math.max(...priceValues) : 0;
+              return (
+                <Card
+                  key={service.service_id}
+                  className="bg-slate-900/80 border-slate-800 rounded-xl hover:border-amber-500/30 transition-colors overflow-hidden"
+                >
+                  <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-400" />
+                  <CardContent className="p-5">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-semibold truncate">{service.name}</h3>
+                        {service.description && (
+                          <p className="text-slate-400 text-xs mt-0.5">{service.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 ml-2 flex-shrink-0">
+                        <button
+                          className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                          title="Szerkesztés"
+                          onClick={() => openEditDialog(service)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                          onClick={() => setDeleteServiceId(service.service_id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      {service.duration_label && (
+                        <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                          <Clock className="w-3 h-3 mr-1" />{service.duration_label}
+                        </Badge>
+                      )}
+                      {service.location && (
+                        <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs">
+                          <MapPin className="w-3 h-3 mr-1" />{service.location}
+                        </Badge>
+                      )}
+                    </div>
+                    {/* Size price grid */}
+                    {Object.keys(prices).length > 0 && (
+                      <div className="grid grid-cols-5 gap-1 mb-3">
+                        {["S","M","L","XL","XXL"].map(sz => (
+                          <div key={sz} className="text-center">
+                            <div className="text-xs text-slate-500">{sz}</div>
+                            <div className={`text-xs font-medium ${prices[sz] > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                              {prices[sz] > 0 ? `${Number(prices[sz]).toLocaleString()}` : "–"}
+                            </div>
                           </div>
-                          <div className="flex gap-1 ml-2 flex-shrink-0">
-                            <button
-                              className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
-                              title="Szerkesztés"
-                              onClick={() => openEditPolishType(typeKey, typeData)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            {isDbRecord && (
-                              <button
-                                className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
-                                onClick={() => handleDeletePolishType(typeData.service_id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          {typeData.duration_label && (
-                            <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
-                              <Clock className="w-3 h-3 mr-1" />{typeData.duration_label}
-                            </Badge>
-                          )}
-                          {typeData.location && (
-                            <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs">
-                              <MapPin className="w-3 h-3 mr-1" />{typeData.location}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
-                          {minP > 0 && (
-                            <span className="text-amber-400 font-bold text-lg">
-                              {minP === maxP
-                                ? `${minP.toLocaleString()} Ft`
-                                : `${minP.toLocaleString()} – ${maxP.toLocaleString()} Ft`}
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                {Object.keys(polishTypes).length === 0 && (
-                  <div className="col-span-full text-center py-8 text-slate-500 text-sm">
-                    Nincsenek polírozás típusok betöltve
-                  </div>
-                )}
+                        ))}
+                      </div>
+                    )}
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
+                      {minP > 0 && (
+                        <span className="text-amber-400 font-bold text-lg">
+                          {minP === maxP
+                            ? `${minP.toLocaleString()} Ft`
+                            : `${minP.toLocaleString()} – ${maxP.toLocaleString()} Ft`}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {services.filter(s => s.category === "poliroz").length === 0 && (
+              <div className="col-span-full text-center py-12 text-slate-400">
+                <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nincsenek polírozás típusok</p>
+                <p className="text-sm mt-1">Kattints az "Új polírozás típus" gombra a létrehozáshoz</p>
               </div>
-            </div>
-
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -1344,116 +1293,6 @@ export const Services = () => {
             <Button variant="outline" onClick={() => setIsNewExtraOpen(false)} className="border-slate-700">Mégse</Button>
             <Button onClick={handleExtraSubmit} className="bg-blue-600 hover:bg-blue-500">
               {editingExtra ? "Mentés" : "Létrehozás"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* New Polírozás Type Dialog */}
-      <Dialog open={isNewPolishTypeOpen} onOpenChange={(open) => { setIsNewPolishTypeOpen(open); if (!open) resetPolishTypeForm(); }}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-amber-400">Új polírozás típus létrehozása</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-slate-300">Név</Label>
-              <Input value={polishTypeForm.name} onChange={e => setPolishTypeForm({...polishTypeForm, name: e.target.value})}
-                className="bg-slate-950 border-slate-700 text-white" placeholder="pl. 2-lépéses polírozás" />
-            </div>
-            <div>
-              <Label className="text-slate-300">Leírás (opcionális)</Label>
-              <Input value={polishTypeForm.description} onChange={e => setPolishTypeForm({...polishTypeForm, description: e.target.value})}
-                className="bg-slate-950 border-slate-700 text-white" placeholder="Rövid leírás" />
-            </div>
-            <div>
-              <Label className="text-slate-300">Időtartam felirat (pl. "2–4 óra")</Label>
-              <Input value={polishTypeForm.duration_label} onChange={e => setPolishTypeForm({...polishTypeForm, duration_label: e.target.value})}
-                className="bg-slate-950 border-slate-700 text-white" placeholder="pl. 2–4 óra" />
-            </div>
-            <div>
-              <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető ennél a méretnél</Label>
-              <div className="grid grid-cols-5 gap-2">
-                {["S","M","L","XL","XXL"].map(sz => (
-                  <div key={sz}>
-                    <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
-                    <Input type="number" value={polishTypeForm.prices[sz] || 0}
-                      onChange={e => setPolishTypeForm({...polishTypeForm, prices: {...polishTypeForm.prices, [sz]: parseInt(e.target.value) || 0}})}
-                      className="bg-slate-950 border-slate-700 text-white text-center px-1" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label className="text-slate-300">Telephely</Label>
-              <select value={polishTypeForm.location || ""} onChange={e => setPolishTypeForm({...polishTypeForm, location: e.target.value || null})}
-                className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2">
-                <option value="">Összes telephely</option>
-                <option value="Debrecen">Debrecen</option>
-                <option value="Budapest">Budapest</option>
-              </select>
-            </div>
-          </div>
-          <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setIsNewPolishTypeOpen(false)} className="border-slate-700">Mégse</Button>
-            <Button onClick={handleCreatePolishType} disabled={polishTypeSaving} className="bg-amber-600 hover:bg-amber-500">
-              {polishTypeSaving ? "Mentés..." : "Létrehozás"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Polírozás Type Dialog */}
-      <Dialog open={isEditPolishTypeOpen} onOpenChange={(open) => { setIsEditPolishTypeOpen(open); if (!open) { setEditingPolishType(null); resetPolishTypeForm(); } }}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-amber-400">
-              Polírozás típus szerkesztése
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-slate-300">Név</Label>
-              <Input value={polishTypeForm.name} onChange={e => setPolishTypeForm({...polishTypeForm, name: e.target.value})}
-                className="bg-slate-950 border-slate-700 text-white" />
-            </div>
-            <div>
-              <Label className="text-slate-300">Leírás (opcionális)</Label>
-              <Input value={polishTypeForm.description} onChange={e => setPolishTypeForm({...polishTypeForm, description: e.target.value})}
-                className="bg-slate-950 border-slate-700 text-white" />
-            </div>
-            <div>
-              <Label className="text-slate-300">Időtartam felirat</Label>
-              <Input value={polishTypeForm.duration_label} onChange={e => setPolishTypeForm({...polishTypeForm, duration_label: e.target.value})}
-                className="bg-slate-950 border-slate-700 text-white" />
-            </div>
-            <div>
-              <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető</Label>
-              <div className="grid grid-cols-5 gap-2">
-                {["S","M","L","XL","XXL"].map(sz => (
-                  <div key={sz}>
-                    <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
-                    <Input type="number" value={polishTypeForm.prices[sz] || 0}
-                      onChange={e => setPolishTypeForm({...polishTypeForm, prices: {...polishTypeForm.prices, [sz]: parseInt(e.target.value) || 0}})}
-                      className="bg-slate-950 border-slate-700 text-white text-center px-1" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label className="text-slate-300">Telephely</Label>
-              <select value={polishTypeForm.location || ""} onChange={e => setPolishTypeForm({...polishTypeForm, location: e.target.value || null})}
-                className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2">
-                <option value="">Összes telephely</option>
-                <option value="Debrecen">Debrecen</option>
-                <option value="Budapest">Budapest</option>
-              </select>
-            </div>
-          </div>
-          <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setIsEditPolishTypeOpen(false)} className="border-slate-700">Mégse</Button>
-            <Button onClick={handleUpdatePolishType} disabled={polishTypeSaving} className="bg-amber-600 hover:bg-amber-500">
-              {polishTypeSaving ? "Mentés..." : "Mentés"}
             </Button>
           </DialogFooter>
         </DialogContent>
