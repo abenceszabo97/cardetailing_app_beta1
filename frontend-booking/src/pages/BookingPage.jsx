@@ -115,6 +115,7 @@ const BookingPage = () => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [bookingResult, setBookingResult] = useState(null);
   
   // Selection state
   const [selectedSize, setSelectedSize] = useState(null);
@@ -388,7 +389,8 @@ const BookingPage = () => {
         } : {})
       };
       
-      await axios.post(`${API}/bookings`, bookingData);
+      const res = await axios.post(`${API}/bookings`, bookingData);
+      setBookingResult(res.data || null);
       setSuccess(true);
       toast.success("Foglalás sikeresen rögzítve!");
     } catch (error) {
@@ -399,6 +401,7 @@ const BookingPage = () => {
 
   const resetForm = () => {
     setSuccess(false);
+    setBookingResult(null);
     setStep(1);
     setSelectedSize(null);
     setSelectedCategory(null);
@@ -433,6 +436,9 @@ const BookingPage = () => {
   }
 
   if (success) {
+    const serviceSummary = selectedCategory === "poliroz"
+      ? (pricingData?.polishing?.types?.[selectedPolishingType]?.name || "Polírozás")
+      : `${selectedSize} – ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} ${selectedPackage}`;
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-slate-900/90 border-slate-800 backdrop-blur-xl">
@@ -441,27 +447,34 @@ const BookingPage = () => {
             <div className="w-20 h-20 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10 text-green-400" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Foglalás sikeres!</h2>
-            <p className="text-slate-400 mb-4">
-              Időpont: <strong className="text-white">{form.date}</strong> - <strong className="text-green-400">{form.time_slot}</strong>
+            <h2 className="text-2xl font-bold text-white mb-1">Foglalás sikeres!</h2>
+            <p className="text-slate-400 text-sm mb-4">
+              Visszaigazoló e-mailt küldtünk.
             </p>
-            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-800">
-              <div className="text-left space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Csomag:</span>
-                  <span className="text-white">{selectedSize} - {selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} {selectedPackage}</span>
+            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-800 text-left space-y-2.5">
+              {bookingResult?.booking_id && (
+                <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                  <span className="text-slate-500 text-xs">Foglalási azonosító</span>
+                  <span className="text-green-400 font-mono text-xs font-bold">{bookingResult.booking_id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Rendszám:</span>
-                  <span className="text-white font-mono">{form.plate_number}</span>
-                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Időpont:</span>
+                <span className="text-white text-sm font-medium">{form.date} {form.time_slot}</span>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
-                <span className="text-slate-400">Fizetendő:</span>
-                <span className="text-green-400 text-2xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Szolgáltatás:</span>
+                <span className="text-white text-sm text-right max-w-[55%]">{serviceSummary}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Rendszám:</span>
+                <span className="text-white font-mono text-sm">{form.plate_number}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-800">
+                <span className="text-slate-400 text-sm">Fizetendő:</span>
+                <span className="text-green-400 text-xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
               </div>
             </div>
-            <p className="text-slate-500 text-sm mb-4">Visszaigazoló e-mailt küldtünk.</p>
             <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600" onClick={resetForm}>
               <Sparkles className="w-4 h-4 mr-2" /> Új foglalás
             </Button>

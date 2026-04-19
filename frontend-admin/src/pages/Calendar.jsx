@@ -9,10 +9,10 @@ import { Badge } from "../components/ui/badge";
 import { getStatusConfig } from "../lib/statusColors";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { 
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Car, MapPin, 
+import {
+  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Car, MapPin,
   Phone, Mail, X, Check, AlertTriangle, Edit, Trash2, Ban, Save, UserX, Upload, Image,
-  Users, Columns3, Grid3X3
+  Users, Columns3, Grid3X3, Search
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -78,6 +78,7 @@ const Calendar = () => {
   const [draggedBooking, setDraggedBooking] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // { date, hour }
   const [showBlacklistDialog, setShowBlacklistDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [blacklistReason, setBlacklistReason] = useState("");
   const [blacklistImages, setBlacklistImages] = useState([]);
   const [uploadingBlacklistImage, setUploadingBlacklistImage] = useState(false);
@@ -732,6 +733,25 @@ const Calendar = () => {
           Foglalási naptár
         </h1>
         
+        {/* Search box */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Keresés: ügyfél neve vagy rendszám..."
+            className="pl-10 bg-slate-900 border-slate-700 text-white w-full sm:w-80"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
         {/* Controls */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
           {/* Location filter */}
@@ -818,16 +838,67 @@ const Calendar = () => {
         ))}
       </div>
 
-      {/* Calendar content */}
-      {loading ? (
-        <div className="text-center py-20 text-slate-500">Betöltés...</div>
+      {/* Search results (replaces calendar when active) */}
+      {searchTerm.trim() ? (
+        (() => {
+          const q = searchTerm.trim().toLowerCase();
+          const results = bookings.filter(b =>
+            b.customer_name?.toLowerCase().includes(q) ||
+            b.plate_number?.toLowerCase().replace(/\s/g, "").includes(q.replace(/\s/g, ""))
+          );
+          return (
+            <div className="space-y-2">
+              <p className="text-slate-400 text-sm">
+                {results.length === 0
+                  ? "Nincs találat"
+                  : `${results.length} találat: „${searchTerm}"`}
+              </p>
+              {results.map(booking => {
+                const sc = getStatusConfig(booking.status);
+                return (
+                  <div
+                    key={booking.booking_id}
+                    className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-green-500/30 transition-colors cursor-pointer"
+                    onClick={() => openBookingDetails(booking)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                        <Car className="w-4 h-4 text-green-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white font-semibold truncate">{booking.customer_name}</p>
+                        <p className="text-slate-400 text-xs flex items-center gap-2">
+                          <span className="font-mono">{booking.plate_number}</span>
+                          <span>·</span>
+                          <span>{booking.service_name}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right text-xs text-slate-400">
+                        <p>{booking.date} {booking.time_slot}</p>
+                        <p>{booking.location}</p>
+                      </div>
+                      <Badge className={`${sc.bg} ${sc.text} text-xs`}>{sc.label}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
       ) : (
-        <>
-          {view === "day" && viewMode === "standard" && renderDayView()}
-          {view === "day" && viewMode === "workers" && renderWorkersDayView()}
-          {view === "week" && renderWeekView()}
-          {view === "month" && renderMonthView()}
-        </>
+        /* Calendar content */
+        loading ? (
+          <div className="text-center py-20 text-slate-500">Betöltés...</div>
+        ) : (
+          <>
+            {view === "day" && viewMode === "standard" && renderDayView()}
+            {view === "day" && viewMode === "workers" && renderWorkersDayView()}
+            {view === "week" && renderWeekView()}
+            {view === "month" && renderMonthView()}
+          </>
+        )
       )}
 
       {/* Booking Details Dialog */}

@@ -129,29 +129,35 @@ async def get_pricing_data(location: Optional[str] = None):
         if not db_extras:
             db_extras = EXTRA_SERVICES
 
-    # Auto-seed polishing types from POLISHING_PRICES if DB has none at all
-    all_poliroz_count = await db.services.count_documents({"category": "poliroz"})
-    if all_poliroz_count == 0:
-        for type_key, type_data in POLISHING_PRICES.items():
-            prices = type_data.get("prices", {})
-            non_zero = [v for v in prices.values() if v > 0]
-            if not non_zero:
-                continue
-            min_price = min(non_zero)
-            service = Service(
-                name=type_data["name"],
-                category="poliroz",
-                service_type="poliroz",
-                price=min_price,
-                duration=120,
-                duration_label=type_data.get("duration_label", ""),
-                description=type_data.get("description", ""),
-                size_prices=prices,
-                active=True
-            )
-            doc = service.model_dump()
-            doc["created_at"] = doc["created_at"].isoformat()
-            await db.services.insert_one(doc)
+    # Auto-seed each polishing type from POLISHING_PRICES if not yet in DB (by name).
+    # Name-based check ensures missing types (e.g. lamp polishing) are added even if
+    # other poliroz records already exist from a previous seeding run.
+    for type_key, type_data in POLISHING_PRICES.items():
+        prices = type_data.get("prices", {})
+        non_zero = [v for v in prices.values() if v > 0]
+        if not non_zero:
+            continue
+        existing = await db.services.find_one(
+            {"category": "poliroz", "name": type_data["name"]},
+            {"_id": 0, "service_id": 1}
+        )
+        if existing:
+            continue
+        min_price = min(non_zero)
+        service = Service(
+            name=type_data["name"],
+            category="poliroz",
+            service_type="poliroz",
+            price=min_price,
+            duration=120,
+            duration_label=type_data.get("duration_label", ""),
+            description=type_data.get("description", ""),
+            size_prices=prices,
+            active=True
+        )
+        doc = service.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        await db.services.insert_one(doc)
 
     # Get polishing services from DB, filtered by location
     polishing_query = {"category": "poliroz", "active": {"$ne": False}}
