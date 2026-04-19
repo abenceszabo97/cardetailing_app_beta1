@@ -105,6 +105,25 @@ const CAR_SIZE_INFO = {
   XXL: { name: "XXL - Nagy SUV", description: "Terepjáró, kisbusz", examples: "Range Rover, Ford Transit" }
 };
 
+// Hungarian phone number formatter + validator
+const formatHunPhone = (raw) => {
+  // Strip everything except digits and leading +
+  let digits = raw.replace(/[^\d]/g, "");
+  // Normalize: remove country code prefix (36 or 06)
+  if (digits.startsWith("36") && digits.length > 9) digits = digits.slice(2);
+  else if (digits.startsWith("06")) digits = digits.slice(2);
+  else if (digits.startsWith("0") && digits.length === 10) digits = digits.slice(1);
+  // Limit to 9 digits (after country code)
+  digits = digits.slice(0, 9);
+  // Build formatted string
+  let out = "+36";
+  if (digits.length > 0) out += " " + digits.slice(0, 2);
+  if (digits.length > 2) out += " " + digits.slice(2, 5);
+  if (digits.length > 5) out += " " + digits.slice(5, 9);
+  return out;
+};
+const isValidHunPhone = (phone) => /^\+36\s?\d{2}\s?\d{3}\s?\d{4}$/.test(phone.trim());
+
 const BookingPage = () => {
   const [step, setStep] = useState(1);
   const [stepDir, setStepDir] = useState("forward");
@@ -348,7 +367,7 @@ const BookingPage = () => {
       return selectedPromotion || (selectedSize && selectedCategory === "poliroz" && selectedPolishingType) || (selectedSize && selectedCategory && selectedPackage && selectedCategory !== "poliroz");
     }
     if (step === 2) return form.date && form.time_slot;
-    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && !isBlacklisted;
+    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && isValidHunPhone(form.phone) && !isBlacklisted;
     return true;
   };
 
@@ -1262,8 +1281,18 @@ const BookingPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input placeholder="E-mail *" type="email" value={form.email} onChange={e => set("email", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white" />
-                <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white" />
+                <div>
+                  <Input
+                    placeholder="Telefonszám * (+36 XX XXX XXXX)"
+                    value={form.phone}
+                    onChange={e => set("phone", formatHunPhone(e.target.value))}
+                    className={`bg-slate-800/50 border-slate-700 text-white ${form.phone && !isValidHunPhone(form.phone) ? "border-red-500/60" : ""}`}
+                    maxLength={16}
+                  />
+                  {form.phone && !isValidHunPhone(form.phone) && (
+                    <p className="text-red-400 text-xs mt-1 ml-1">Érvényes formátum: +36 XX XXX XXXX</p>
+                  )}
+                </div>
               </div>
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
                 className="bg-slate-800/50 border-slate-700 text-white" />

@@ -99,6 +99,11 @@ export const Workers = () => {
   const [attendanceReport, setAttendanceReport] = useState(null);
   const [leaveStats, setLeaveStats] = useState([]);
 
+  // Absence management state
+  const [absences, setAbsences] = useState([]);
+  const [absenceForm, setAbsenceForm] = useState({ worker_id: "", date: "", reason: "Hiányzás" });
+  const [addingAbsence, setAddingAbsence] = useState(false);
+
   const generateWorkerPDF = () => {
     const doc = new jsPDF();
     const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
@@ -351,7 +356,47 @@ export const Workers = () => {
     if (viewMode === "stats") {
       fetchWorkerStats(statsLocation);
     }
+    if (viewMode === "absences") {
+      fetchAbsences();
+    }
   }, [viewMode, statsMonth, statsLocation]);
+
+  const fetchAbsences = async () => {
+    try {
+      const res = await axios.get(`${API}/workers/absences/all`, { withCredentials: true });
+      setAbsences(res.data);
+    } catch (e) {
+      console.error("Absences fetch error:", e);
+    }
+  };
+
+  const handleAddAbsence = async () => {
+    if (!absenceForm.worker_id || !absenceForm.date) return;
+    setAddingAbsence(true);
+    try {
+      await axios.post(`${API}/workers/${absenceForm.worker_id}/absences`, {
+        date: absenceForm.date,
+        reason: absenceForm.reason || "Hiányzás"
+      }, { withCredentials: true });
+      toast.success("Hiányzás rögzítve");
+      setAbsenceForm({ worker_id: "", date: "", reason: "Hiányzás" });
+      fetchAbsences();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Hiba a rögzítés során");
+    } finally {
+      setAddingAbsence(false);
+    }
+  };
+
+  const handleDeleteAbsence = async (workerId, absenceId) => {
+    try {
+      await axios.delete(`${API}/workers/${workerId}/absences/${absenceId}`, { withCredentials: true });
+      toast.success("Hiányzás törölve");
+      fetchAbsences();
+    } catch (e) {
+      toast.error("Hiba a törlés során");
+    }
+  };
 
   const handleCreateShift = async () => {
     try {
@@ -544,6 +589,11 @@ export const Workers = () => {
             <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Statisztika</span>
             <span className="sm:hidden">Stat</span>
+          </TabsTrigger>
+          <TabsTrigger value="absences" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400 text-xs sm:text-sm px-2 sm:px-3">
+            <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Hiányzások</span>
+            <span className="sm:hidden">Hiányzás</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1574,6 +1624,128 @@ export const Workers = () => {
                 </div>
               </CardContent>
             </Card>
+          )}
+        </TabsContent>
+
+        {/* Absence Management Tab */}
+        <TabsContent value="absences" className="mt-6 space-y-6">
+          {/* Add absence form */}
+          <Card className="bg-slate-900/80 border-slate-800">
+            <CardHeader>
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <X className="w-4 h-4 text-red-400" />
+                Hiányzás rögzítése
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-slate-400 text-sm mb-1 block">Dolgozó</Label>
+                  <Select value={absenceForm.worker_id} onValueChange={(v) => setAbsenceForm({...absenceForm, worker_id: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                      <SelectValue placeholder="Válassz..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      {workers.map(w => (
+                        <SelectItem key={w.worker_id} value={w.worker_id} className="text-white">
+                          {w.name} <span className="text-slate-500 text-xs ml-1">({w.location})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-sm mb-1 block">Dátum</Label>
+                  <Input
+                    type="date"
+                    value={absenceForm.date}
+                    onChange={(e) => setAbsenceForm({...absenceForm, date: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-sm mb-1 block">Ok</Label>
+                  <Select value={absenceForm.reason} onValueChange={(v) => setAbsenceForm({...absenceForm, reason: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="Hiányzás" className="text-white">Hiányzás</SelectItem>
+                      <SelectItem value="Betegszabadság" className="text-red-400">Betegszabadság</SelectItem>
+                      <SelectItem value="Szabadság" className="text-yellow-400">Szabadság</SelectItem>
+                      <SelectItem value="Egyéb" className="text-slate-400">Egyéb</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleAddAbsence}
+                  disabled={!absenceForm.worker_id || !absenceForm.date || addingAbsence}
+                  className="bg-red-600 hover:bg-red-500 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Rögzítés
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Absences list grouped by worker */}
+          {absences.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>Nincsenek rögzített hiányzások</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Group by worker */}
+              {workers
+                .filter(w => absences.some(a => a.worker_id === w.worker_id))
+                .map(worker => {
+                  const workerAbsences = absences
+                    .filter(a => a.worker_id === worker.worker_id)
+                    .sort((a, b) => b.date.localeCompare(a.date));
+                  return (
+                    <Card key={worker.worker_id} className="bg-slate-900/60 border-slate-800">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-red-400" />
+                            <span className="text-white font-medium">{worker.name}</span>
+                            <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                              <MapPin className="w-3 h-3 mr-1" />{worker.location}
+                            </Badge>
+                          </div>
+                          <Badge className="bg-red-500/20 text-red-400 text-xs">
+                            {workerAbsences.length} hiányzás
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {workerAbsences.map(abs => (
+                            <div
+                              key={abs.absence_id}
+                              className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-1.5 text-sm"
+                            >
+                              <span className="text-white">{abs.date}</span>
+                              <span className={`text-xs ${
+                                abs.reason === "Betegszabadság" ? "text-red-400" :
+                                abs.reason === "Szabadság" ? "text-yellow-400" :
+                                "text-slate-400"
+                              }`}>{abs.reason}</span>
+                              <button
+                                onClick={() => handleDeleteAbsence(worker.worker_id, abs.absence_id)}
+                                className="text-slate-600 hover:text-red-400 transition-colors"
+                                title="Törlés"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+            </div>
           )}
         </TabsContent>
       </Tabs>

@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 // Pages
 import BookingPage from "./pages/BookingPage";
 import ModifyBooking from "./pages/ModifyBooking";
+import ReviewPage from "./pages/ReviewPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -16,6 +17,7 @@ function AppRouter() {
       <Route path="/" element={<BookingPage />} />
       <Route path="/booking" element={<BookingPage />} />
       <Route path="/modify/:token" element={<ModifyBooking />} />
+      <Route path="/review/:token" element={<ReviewPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -25,9 +27,9 @@ function App() {
   return (
     <BrowserRouter>
       <AppRouter />
-      <Toaster 
-        position="top-right" 
-        richColors 
+      <Toaster
+        position="top-right"
+        richColors
         theme="dark"
         toastOptions={{
           style: {

@@ -18,6 +18,7 @@ import { Settings } from "./pages/Settings";
 import { Invoices } from "./pages/Invoices";
 import BookingPage from "./pages/BookingPage";
 import Calendar from "./pages/Calendar";
+import { Reviews } from "./pages/Reviews";
 import { Sidebar } from "./components/Sidebar";
 import { NotificationBell } from "./components/NotificationBell";
 
@@ -211,6 +212,11 @@ function AppRouter() {
       <Route path="/settings" element={
         <ProtectedRoute>
           <MainLayout><Settings /></MainLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/reviews" element={
+        <ProtectedRoute>
+          <MainLayout><Reviews /></MainLayout>
         </ProtectedRoute>
       } />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

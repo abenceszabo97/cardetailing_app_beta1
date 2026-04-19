@@ -4,7 +4,10 @@ Clean Fleet Hub - Car Wash Management System
 """
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
+from collections import defaultdict
+from datetime import datetime, timedelta
 import logging
 
 from config import CORS_ORIGINS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, RESEND_API_KEY
@@ -69,26 +72,73 @@ async def reminder_loop():
             }, {"_id": 0}).to_list(100)
             
             if bookings:
-                logger.info(f"Sending {len(bookings)} reminder emails for {tomorrow_date}")
+                logger.info(f"Sending {len(bookings)} reminders for {tomorrow_date}")
                 for booking in bookings:
+                    reminder_ok = False
+                    # Email reminder
                     email = booking.get("email")
-                    if not email:
-                        continue
-                    try:
-                        from services.email_service import send_booking_reminder
-                        result = await send_booking_reminder(booking)
-                        if result.get("status") == "success":
-                            await db.bookings.update_one(
-                                {"booking_id": booking["booking_id"]},
-                                {"$set": {"reminder_sent": True}}
-                            )
-                    except Exception as e:
-                        logger.error(f"Reminder error: {e}")
+                    if email:
+                        try:
+                            from services.email_service import send_booking_reminder
+                            result = await send_booking_reminder(booking)
+                            if result.get("status") == "success":
+                                reminder_ok = True
+                        except Exception as e:
+                            logger.error(f"Reminder email error: {e}")
+                    # SMS reminder
+                    phone = booking.get("phone")
+                    if phone:
+                        try:
+                            from services.sms_service import send_booking_reminder_sms
+                            sms_result = await send_booking_reminder_sms(booking)
+                            if sms_result.get("status") == "success":
+                                reminder_ok = True
+                            logger.info(f"Reminder SMS: {sms_result.get('status')}")
+                        except Exception as e:
+                            logger.error(f"Reminder SMS error: {e}")
+                    if reminder_ok:
+                        await db.bookings.update_one(
+                            {"booking_id": booking["booking_id"]},
+                            {"$set": {"reminder_sent": True}}
+                        )
         except asyncio.CancelledError:
             break
         except Exception as e:
             logger.error(f"Reminder loop error: {e}")
             await asyncio.sleep(60)
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple in-memory rate limiter for public write endpoints."""
+    def __init__(self, app, max_requests: int = 15, window_seconds: int = 60):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._store: dict = defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        method = request.method
+        # Protect: POST /api/bookings (create booking) and GET available-slots
+        limited = (
+            (method == "POST" and path == "/api/bookings") or
+            (method == "GET" and "/api/bookings/available-slots" in path) or
+            (method == "PUT" and "/api/bookings/by-token/" in path)
+        )
+        if limited:
+            ip = request.client.host if request.client else "unknown"
+            now = datetime.utcnow()
+            cutoff = now - timedelta(seconds=self.window_seconds)
+            self._store[ip] = [t for t in self._store[ip] if t > cutoff]
+            if len(self._store[ip]) >= self.max_requests:
+                return Response(
+                    content='{"detail":"Túl sok kérés. Kérjük várjon egy percet."}',
+                    status_code=429,
+                    media_type="application/json",
+                    headers={"Retry-After": "60"},
+                )
+            self._store[ip].append(now)
+        return await call_next(request)
+
 
 app = FastAPI(
     title="X-CLEAN API",
@@ -119,6 +169,9 @@ else:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Rate limiting (before CORS so it fires early)
+app.add_middleware(RateLimitMiddleware, max_requests=15, window_seconds=60)
 
 # Add explicit OPTIONS handler for preflight with credentials support
 @app.options("/{rest_of_path:path}")

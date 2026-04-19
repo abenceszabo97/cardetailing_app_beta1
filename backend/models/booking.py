@@ -37,6 +37,9 @@ class Booking(BaseModel):
     # Self-service modification/cancellation tokens
     modify_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
     cancel_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    # Review token — set when status → kesz, used for review email
+    review_token: Optional[str] = None
+    review_sent: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BookingCreate(BaseModel):

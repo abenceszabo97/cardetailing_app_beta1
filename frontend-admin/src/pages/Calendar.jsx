@@ -61,7 +61,7 @@ const WORKER_COLORS = [
 
 const Calendar = () => {
   const { selectedLocation: globalLocation } = useLocation2();
-  const [view, setView] = useState("week"); // week, month, day
+  const [view, setView] = useState("week"); // week, month, day, list
   const [viewMode, setViewMode] = useState("standard"); // standard, workers (per-worker columns)
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookings, setBookings] = useState([]);
@@ -785,10 +785,15 @@ const Calendar = () => {
 
           {/* Time period view selector */}
           <div className="flex bg-slate-900 rounded-lg border border-slate-700 p-1">
-            {[{ id: "day", label: "Nap" }, { id: "week", label: "Hét" }, { id: "month", label: "Hónap" }].map(v => (
-              <button 
-                key={v.id} 
-                onClick={() => { setView(v.id); if (v.id === "month") setViewMode("standard"); }}
+            {[
+              { id: "day", label: "Nap" },
+              { id: "week", label: "Hét" },
+              { id: "month", label: "Hónap" },
+              { id: "list", label: "Lista" },
+            ].map(v => (
+              <button
+                key={v.id}
+                onClick={() => { setView(v.id); if (v.id !== "day") setViewMode("standard"); }}
                 className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${view === v.id ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 {v.label}
@@ -891,6 +896,73 @@ const Calendar = () => {
         /* Calendar content */
         loading ? (
           <div className="text-center py-20 text-slate-500">Betöltés...</div>
+        ) : view === "list" ? (
+          /* List view — mobile-friendly chronological cards grouped by date */
+          (() => {
+            const sorted = [...bookings]
+              .filter(b => b.status !== "lemondta" && b.status !== "lemondva" && b.status !== "torolt")
+              .sort((a, b) => {
+                const dt = (x) => `${x.date}T${x.time_slot || "00:00"}`;
+                return dt(a) < dt(b) ? -1 : 1;
+              });
+            const byDate = sorted.reduce((acc, b) => {
+              (acc[b.date] = acc[b.date] || []).push(b);
+              return acc;
+            }, {});
+            if (sorted.length === 0) return (
+              <div className="text-center py-20 text-slate-500">
+                <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>Nincs foglalás ebben az időszakban</p>
+              </div>
+            );
+            return (
+              <div className="space-y-4">
+                {Object.entries(byDate).map(([date, dayBookings]) => {
+                  const d = new Date(date + "T00:00:00");
+                  const dayLabel = format(d, "EEEE, MMMM d.", { locale: hu });
+                  return (
+                    <div key={date}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-px flex-1 bg-slate-800" />
+                        <span className="text-slate-400 text-xs font-medium px-2 capitalize">{dayLabel}</span>
+                        <span className="text-slate-600 text-xs">{dayBookings.length} db</span>
+                        <div className="h-px flex-1 bg-slate-800" />
+                      </div>
+                      <div className="space-y-2">
+                        {dayBookings.map(booking => {
+                          const sc = getStatusConfig(booking.status);
+                          return (
+                            <div
+                              key={booking.booking_id}
+                              className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3 hover:border-green-500/30 transition-colors cursor-pointer"
+                              onClick={() => openBookingDetails(booking)}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="text-center w-12 flex-shrink-0">
+                                  <p className="text-green-400 font-bold text-sm">{booking.time_slot}</p>
+                                  <p className="text-slate-600 text-[10px]">{booking.location?.slice(0,3)}</p>
+                                </div>
+                                <div className="w-px h-8 bg-slate-700 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-white font-medium text-sm truncate">{booking.customer_name}</p>
+                                  <p className="text-slate-400 text-xs truncate">
+                                    <span className="font-mono">{booking.plate_number}</span>
+                                    <span className="mx-1">·</span>
+                                    <span>{booking.service_name}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge className={`${sc.bg} ${sc.text} text-xs flex-shrink-0`}>{sc.label}</Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
         ) : (
           <>
             {view === "day" && viewMode === "standard" && renderDayView()}

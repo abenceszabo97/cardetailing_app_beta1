@@ -69,7 +69,14 @@ async def get_available_slots(
     Takes into account worker availability based on booking duration.
     """
     workers_list = await db.workers.find({"location": location, "active": True}, {"_id": 0}).to_list(100)
-    
+
+    # Remove workers who are absent on this date
+    absences = await db.worker_absences.find(
+        {"date": date}, {"_id": 0, "worker_id": 1}
+    ).to_list(50)
+    absent_ids = {a["worker_id"] for a in absences}
+    workers_list = [w for w in workers_list if w["worker_id"] not in absent_ids]
+
     # Get all bookings for the date (excluding cancelled/no-show)
     existing = await db.bookings.find({
         "location": location, 
@@ -138,6 +145,17 @@ async def get_available_slots(
             })
     
     return all_slots
+
+@router.get("/bookings/by-review-token/{token}")
+async def get_booking_by_review_token(token: str):
+    """Return minimal booking info for the review page (public)"""
+    booking = await db.bookings.find_one(
+        {"review_token": token},
+        {"_id": 0, "service_name": 1, "date": 1, "location": 1, "customer_name": 1}
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Érvénytelen értékelési token")
+    return booking
 
 @router.get("/bookings/public-services")
 async def get_public_services():
@@ -270,7 +288,16 @@ async def create_booking(data: BookingCreate):
             logging.info(f"Booking confirmation email: {email_result}")
         except Exception as e:
             logging.warning(f"Booking email failed: {e}")
-    
+
+    # Send confirmation SMS (fire-and-forget; never block booking creation)
+    if data.phone:
+        try:
+            from services.sms_service import send_booking_confirmation_sms
+            sms_result = await send_booking_confirmation_sms(doc)
+            logging.info(f"Booking confirmation SMS: {sms_result.get('status')}")
+        except Exception as e:
+            logging.warning(f"Booking SMS failed: {e}")
+
     # Create notification for management system
     notification = {
         "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
@@ -459,6 +486,28 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"cancel_count": 1}})
     elif data.status == "kesz" and booking:
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
+        # Generate review token if not already set
+        if not booking.get("review_token"):
+            review_token = uuid.uuid4().hex
+            await db.bookings.update_one(
+                {"booking_id": booking_id},
+                {"$set": {"review_token": review_token, "review_sent": False}}
+            )
+            booking["review_token"] = review_token
+            booking["review_sent"] = False
+        # Send review request email if not already sent
+        if not booking.get("review_sent") and booking.get("email"):
+            try:
+                from services.email_service import send_review_request
+                email_result = await send_review_request(booking)
+                logging.info(f"Review request email: {email_result}")
+                if email_result.get("status") == "success":
+                    await db.bookings.update_one(
+                        {"booking_id": booking_id},
+                        {"$set": {"review_sent": True}}
+                    )
+            except Exception as e:
+                logging.warning(f"Review email failed: {e}")
     publish_event("refresh", {"reason": "booking_updated"})
     return {"message": "Foglalás frissítve"}
 

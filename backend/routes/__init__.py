@@ -20,6 +20,7 @@ from routes.misc import router as misc_router
 from routes.files import router as files_router
 from routes.invoices import router as invoices_router
 from routes.events import router as events_router
+from routes.reviews import router as reviews_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -42,3 +43,4 @@ api_router.include_router(misc_router, tags=["Misc"])
 api_router.include_router(files_router, tags=["Files"])
 api_router.include_router(invoices_router, tags=["Invoices"])
 api_router.include_router(events_router, tags=["Events"])
+api_router.include_router(reviews_router, tags=["Reviews"])

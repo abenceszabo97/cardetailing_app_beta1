@@ -20,6 +20,7 @@ import {
   FileText,
   Search,
   User,
+  Star,
 } from "lucide-react";
 import {
   Select,
@@ -98,6 +99,7 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
     { path: "/services", label: "Szolgáltatások", icon: Sparkles },
     { path: "/invoices", label: "Számlák", icon: FileText },
     { path: "/day-management", label: "Napnyitás/Zárás", icon: Sun },
+    { path: "/reviews", label: "Értékelések", icon: Star },
     { path: "/settings", label: "Beállítások", icon: Settings },
   ];
 
