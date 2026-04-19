@@ -338,7 +338,14 @@ const BookingPage = () => {
   };
 
   const canGoNext = () => {
-    if (step === 1) return form.location && (selectedPromotion || (selectedSize && selectedCategory === "poliroz" && selectedPolishingType) || (selectedSize && selectedCategory && selectedPackage && selectedCategory !== "poliroz"));
+    if (step === 1) {
+      if (!form.location) return false;
+      // Budapest: only promotions are available — must select one
+      if (form.location === "Budapest" && pricingData?.promotions?.length > 0) {
+        return !!selectedPromotion;
+      }
+      return selectedPromotion || (selectedSize && selectedCategory === "poliroz" && selectedPolishingType) || (selectedSize && selectedCategory && selectedPackage && selectedCategory !== "poliroz");
+    }
     if (step === 2) return form.date && form.time_slot;
     if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && !isBlacklisted;
     return true;
@@ -539,6 +546,14 @@ const BookingPage = () => {
                 </div>
               </div>
 
+              {/* Budapest info banner */}
+              {form.location === "Budapest" && pricingData?.promotions?.length > 0 && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/40 text-indigo-300 text-sm">
+                  <span className="text-base leading-none mt-0.5">ℹ️</span>
+                  <span>Budapesten kizárólag kiszállásos autóápolás érhető el. Válassz az alábbi akciós csomagok közül!</span>
+                </div>
+              )}
+
               {/* Active Promotions Banner */}
               {pricingData?.promotions?.length > 0 && !selectedPromotion && (
                 <div className="space-y-3">
@@ -617,6 +632,11 @@ const BookingPage = () => {
                 </div>
               )}
 
+              {/* Regular service sections (greyed out for Budapest when promotions exist) */}
+              {!selectedPromotion && form.location === "Budapest" && pricingData?.promotions?.length > 0 && (
+                <p className="text-slate-500 text-xs text-center italic">Az alábbi csomagok Budapesten nem elérhetők</p>
+              )}
+              <div className={!selectedPromotion && form.location === "Budapest" && pricingData?.promotions?.length > 0 ? "opacity-50 pointer-events-none select-none space-y-6" : "space-y-6"}>
               {/* Car Size Selection - only show if no promotion selected */}
               {!selectedPromotion && (
               <div>
@@ -811,6 +831,7 @@ const BookingPage = () => {
                   </div>
                 </div>
               )}
+              </div>{/* end regular-service wrapper */}
 
               {/* Extra Services - show for promotion, package, or poliroz type selection */}
               {(selectedPromotion || selectedPackage || (selectedCategory === "poliroz" && selectedPolishingType)) && extras.length > 0 && (
@@ -818,7 +839,49 @@ const BookingPage = () => {
                   <label className="text-sm text-slate-400 mb-3 block font-medium">
                     {selectedPromotion ? 'Extra szolgáltatások' : '4. Extra szolgáltatások (opcionális)'}
                   </label>
-                  {selectedPromotion ? (
+                  {selectedPromotion && form.location === "Budapest" ? (
+                    /* Budapest promotion: show extras, grey out ones included in package */
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {extras.map(extra => {
+                        const extraKey = extra.service_id || extra.name;
+                        const isSelected = selectedExtras.includes(extraKey);
+                        const isBudapestIncluded = selectedPromotion?.features?.some(f =>
+                          f.toLowerCase().replace(/\s+/g, "").includes(
+                            (extra.name || "").toLowerCase().replace(/\s+/g, "").split(/[\s(]/)[0]
+                          )
+                        ) || (extra.name || "").toLowerCase().includes("liquid kerámia");
+                        return (
+                          <div
+                            key={extraKey}
+                            onClick={() => !isBudapestIncluded && !isExtraDisabled(extraKey) && toggleExtra(extraKey)}
+                            className={`p-3 rounded-lg border transition-all ${
+                              isBudapestIncluded
+                                ? 'border-slate-800 bg-slate-900/30 opacity-40 cursor-not-allowed'
+                                : isSelected
+                                  ? 'border-green-500 bg-green-500/10 cursor-pointer'
+                                  : 'border-slate-700 hover:border-slate-600 bg-slate-800/30 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {isBudapestIncluded ? (
+                                  <span className="text-xs text-green-500 font-medium whitespace-nowrap">✓ Tartalmazza</span>
+                                ) : (
+                                  <Checkbox checked={isSelected} disabled={isBudapestIncluded || isExtraDisabled(extraKey)} className="border-slate-600" />
+                                )}
+                                <span className="text-sm font-medium text-white">{extra.name}</span>
+                              </div>
+                              {!isBudapestIncluded && (
+                                <span className="font-medium text-sm whitespace-nowrap text-green-400">
+                                  {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : selectedPromotion ? (
                     <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
                       <p className="text-amber-400 text-sm flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4" />

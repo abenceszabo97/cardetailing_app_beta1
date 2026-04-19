@@ -82,6 +82,20 @@ export const Services = () => {
   const [polishEditMode, setPolishEditMode] = useState(false);
   const [polishSaving, setPolishSaving] = useState(false);
 
+  // Polírozás type management states
+  const [polishTypes, setPolishTypes] = useState({});
+  const [isNewPolishTypeOpen, setIsNewPolishTypeOpen] = useState(false);
+  const [editingPolishType, setEditingPolishType] = useState(null); // { typeKey, data }
+  const [isEditPolishTypeOpen, setIsEditPolishTypeOpen] = useState(false);
+  const [polishTypeForm, setPolishTypeForm] = useState({
+    name: "",
+    description: "",
+    duration_label: "",
+    location: null,
+    prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 }
+  });
+  const [polishTypeSaving, setPolishTypeSaving] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     category: "komplett",
@@ -119,14 +133,11 @@ export const Services = () => {
 
   const fetchServices = async (loc) => {
     try {
-      // Use strict=true so admin only sees services explicitly assigned to this location
-      const params = new URLSearchParams();
-      if (loc && loc !== "all") {
-        params.append("location", loc);
-        params.append("strict", "true");
-      }
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      const response = await axios.get(`${API}/services${qs}`, { withCredentials: true });
+      // Show location-specific + global (null-location) services for the selected location.
+      // Global services (location=null) are shared across all locations intentionally.
+      // New services created while a location is selected inherit that location.
+      const locParam = (loc && loc !== "all") ? `?location=${loc}` : "";
+      const response = await axios.get(`${API}/services${locParam}`, { withCredentials: true });
       setServices(response.data);
     } catch (error) {
       toast.error("Hiba a szolgáltatások betöltésekor");
@@ -157,6 +168,17 @@ export const Services = () => {
     }
   };
 
+  const fetchPolishTypes = async () => {
+    try {
+      const response = await axios.get(`${API}/services/pricing-data`, { withCredentials: true });
+      if (response.data?.polishing?.types) {
+        setPolishTypes(response.data.polishing.types);
+      }
+    } catch (error) {
+      console.warn("Could not fetch polishing types:", error);
+    }
+  };
+
   // Sync servicesLoc with the global location when it changes
   useEffect(() => {
     setServicesLoc(locationForApi || "all");
@@ -167,6 +189,7 @@ export const Services = () => {
     fetchPromotions(servicesLoc);
     fetchExtras();
     fetchPolishPrices();
+    fetchPolishTypes();
   }, [servicesLoc]);
 
   const fetchExtras = async () => {
@@ -207,6 +230,95 @@ export const Services = () => {
     } catch (error) {
       toast.error("Hiba az extra törlésekor");
     }
+  };
+
+  const resetPolishTypeForm = () => {
+    setPolishTypeForm({
+      name: "",
+      description: "",
+      duration_label: "",
+      location: null,
+      prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 }
+    });
+  };
+
+  const handleCreatePolishType = async () => {
+    setPolishTypeSaving(true);
+    try {
+      const prices = polishTypeForm.prices;
+      const minPrice = Math.min(...Object.values(prices).map(Number));
+      await axios.post(`${API}/services`, {
+        name: polishTypeForm.name,
+        description: polishTypeForm.description,
+        category: "poliroz",
+        service_type: "poliroz",
+        price: minPrice,
+        duration: 120,
+        duration_label: polishTypeForm.duration_label,
+        size_prices: prices,
+        location: polishTypeForm.location
+      }, { withCredentials: true });
+      toast.success("Polírozás típus létrehozva!");
+      setIsNewPolishTypeOpen(false);
+      resetPolishTypeForm();
+      fetchPolishTypes();
+      fetchServices(servicesLoc);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a létrehozáskor");
+    }
+    setPolishTypeSaving(false);
+  };
+
+  const handleUpdatePolishType = async () => {
+    if (!editingPolishType) return;
+    setPolishTypeSaving(true);
+    try {
+      const prices = polishTypeForm.prices;
+      const minPrice = Math.min(...Object.values(prices).map(Number));
+      await axios.put(`${API}/services/${editingPolishType.service_id}`, {
+        name: polishTypeForm.name,
+        description: polishTypeForm.description,
+        category: "poliroz",
+        service_type: "poliroz",
+        price: minPrice,
+        duration: 120,
+        duration_label: polishTypeForm.duration_label,
+        size_prices: prices,
+        location: polishTypeForm.location
+      }, { withCredentials: true });
+      toast.success("Polírozás típus frissítve!");
+      setIsEditPolishTypeOpen(false);
+      setEditingPolishType(null);
+      resetPolishTypeForm();
+      fetchPolishTypes();
+      fetchServices(servicesLoc);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a mentéskor");
+    }
+    setPolishTypeSaving(false);
+  };
+
+  const handleDeletePolishType = async (serviceId) => {
+    try {
+      await axios.delete(`${API}/services/${serviceId}`, { withCredentials: true });
+      toast.success("Polírozás típus törölve!");
+      fetchPolishTypes();
+      fetchServices(servicesLoc);
+    } catch (error) {
+      toast.error("Hiba a törlés során");
+    }
+  };
+
+  const openEditPolishType = (typeKey, typeData) => {
+    setEditingPolishType({ typeKey, ...typeData });
+    setPolishTypeForm({
+      name: typeData.name || "",
+      description: typeData.description || "",
+      duration_label: typeData.duration_label || "",
+      location: typeData.location || null,
+      prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0, ...(typeData.prices || {}) }
+    });
+    setIsEditPolishTypeOpen(true);
   };
 
   const handleSubmit = async () => {
@@ -475,7 +587,7 @@ export const Services = () => {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-slate-300">Időtartam (perc)</Label>
                     <Input
@@ -1058,7 +1170,7 @@ export const Services = () => {
                 </h2>
                 <p className="text-slate-400 text-sm mt-1">
                   A polírozási árak automatikusan szinkronizálva vannak a Debreceni booking oldallal.
-                  Egyéni polírozási szolgáltatásokat az alábbi gombbal hozhatsz létre.
+                  Új polírozás típust az alábbi gombbal hozhatsz létre.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 shrink-0">
@@ -1092,34 +1204,93 @@ export const Services = () => {
                 )}
                 <Button
                   className="bg-amber-600 hover:bg-amber-500"
-                  onClick={async () => {
-                    // Seed default polishing services
-                    const POLISHING_DEFAULTS = [
-                      { name: "1-lépéses polírozás (S)", price: 37990, duration: 90, description: "1–3 óra | Kis autó" },
-                      { name: "1-lépéses polírozás (M)", price: 43990, duration: 100, description: "1–3 óra | Közepes autó" },
-                      { name: "1-lépéses polírozás (L)", price: 50990, duration: 120, description: "1–3 óra | Nagy autó" },
-                      { name: "1-lépéses polírozás (XL)", price: 56990, duration: 140, description: "1–3 óra | SUV" },
-                      { name: "1-lépéses polírozás (XXL)", price: 63990, duration: 160, description: "1–3 óra | Nagy SUV" },
-                      { name: "Többlépéses polírozás (S)", price: 50990, duration: 150, description: "2–5 óra | Kis autó" },
-                      { name: "Többlépéses polírozás (M)", price: 56990, duration: 180, description: "2–5 óra | Közepes autó" },
-                      { name: "Többlépéses polírozás (L)", price: 63990, duration: 210, description: "2–5 óra | Nagy autó" },
-                      { name: "Többlépéses polírozás (XL)", price: 69990, duration: 240, description: "2–5 óra | SUV" },
-                      { name: "Többlépéses polírozás (XXL)", price: 75990, duration: 270, description: "2–5 óra | Nagy SUV" },
-                    ];
-                    let created = 0;
-                    for (const p of POLISHING_DEFAULTS) {
-                      try {
-                        await axios.post(`${API}/services`, { ...p, category: "poliroz", location: "Debrecen" }, { withCredentials: true });
-                        created++;
-                      } catch { /* skip existing */ }
-                    }
-                    toast.success(`${created} polírozási szolgáltatás létrehozva!`);
-                    fetchServices(servicesLoc);
+                  onClick={() => {
+                    resetPolishTypeForm();
+                    setIsNewPolishTypeOpen(true);
                   }}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Alapértelmezések betöltése
+                  Új polírozás típus
                 </Button>
+              </div>
+            </div>
+
+            {/* Polishing type card grid */}
+            <div>
+              <h3 className="text-white font-medium mb-3 text-sm text-slate-300">Polírozás típusok</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(polishTypes).map(([typeKey, typeData]) => {
+                  const prices = typeData.prices || {};
+                  const priceValues = Object.values(prices).map(Number).filter(v => v > 0);
+                  const minP = priceValues.length ? Math.min(...priceValues) : 0;
+                  const maxP = priceValues.length ? Math.max(...priceValues) : 0;
+                  const isDbRecord = !!typeData._db && !!typeData.service_id;
+                  return (
+                    <Card
+                      key={typeKey}
+                      className="bg-slate-900/80 border-slate-800 rounded-xl hover:border-amber-500/30 transition-colors overflow-hidden"
+                    >
+                      <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-400" />
+                      <CardContent className="p-5">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold truncate">{typeData.name}</h3>
+                            {typeData.description && (
+                              <p className="text-slate-400 text-xs mt-0.5">{typeData.description}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1 ml-2 flex-shrink-0">
+                            {isDbRecord && (
+                              <>
+                                <button
+                                  className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                                  onClick={() => openEditPolishType(typeKey, typeData)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                                  onClick={() => handleDeletePolishType(typeData.service_id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          {typeData.duration_label && (
+                            <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                              <Clock className="w-3 h-3 mr-1" />{typeData.duration_label}
+                            </Badge>
+                          )}
+                          {typeData.location && (
+                            <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs">
+                              <MapPin className="w-3 h-3 mr-1" />{typeData.location}
+                            </Badge>
+                          )}
+                          {!isDbRecord && (
+                            <Badge className="bg-slate-700/50 text-slate-400 text-xs">Beépített</Badge>
+                          )}
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
+                          {minP > 0 && (
+                            <span className="text-amber-400 font-bold text-lg">
+                              {minP === maxP
+                                ? `${minP.toLocaleString()} Ft`
+                                : `${minP.toLocaleString()} – ${maxP.toLocaleString()} Ft`}
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {Object.keys(polishTypes).length === 0 && (
+                  <div className="col-span-full text-center py-8 text-slate-500 text-sm">
+                    Nincsenek polírozás típusok betöltve
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1127,7 +1298,7 @@ export const Services = () => {
             <Card className="glass-card">
               <CardHeader className="p-4">
                 <CardTitle className="text-base text-white font-medium">
-                  Polírozás árak {polishEditMode && <span className="text-amber-400 text-sm font-normal ml-2">(szerkesztési mód)</span>}
+                  Beépített polírozás árak {polishEditMode && <span className="text-amber-400 text-sm font-normal ml-2">(szerkesztési mód)</span>}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 overflow-x-auto">
@@ -1179,34 +1350,6 @@ export const Services = () => {
                 </table>
               </CardContent>
             </Card>
-
-            {/* Custom polishing services from DB */}
-            {services.filter(s => s.category === "poliroz").length > 0 && (
-              <div>
-                <h3 className="text-white font-medium mb-3">Egyéni polírozási tételek az adatbázisban</h3>
-                <div className="space-y-2">
-                  {services.filter(s => s.category === "poliroz").map(service => (
-                    <Card key={service.service_id} className="glass-card">
-                      <CardContent className="p-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-white font-medium">{service.name}</p>
-                          <p className="text-slate-500 text-xs">{service.description} · {service.duration} perc</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-green-400 font-bold">{service.price?.toLocaleString()} Ft</span>
-                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(service)} className="text-slate-400 hover:text-white h-7 w-7 p-0">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteServiceId(service.service_id)} className="text-red-400 hover:text-red-300 h-7 w-7 p-0">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </TabsContent>
       </Tabs>

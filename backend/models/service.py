@@ -6,7 +6,7 @@ import uuid
 class Service(BaseModel):
     service_id: str = Field(default_factory=lambda: f"srv_{uuid.uuid4().hex[:12]}")
     name: str
-    category: str  # kulso, belso, komplett, extra
+    category: str  # kulso, belso, komplett, extra, poliroz
     price: float
     duration: int  # minutes
     description: Optional[str] = None
@@ -18,6 +18,9 @@ class Service(BaseModel):
     location: Optional[str] = None  # Debrecen, Budapest, or None for all
     active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Polishing-specific fields
+    size_prices: Optional[dict] = None  # {"S": 37990, "M": 43990, ...}
+    duration_label: Optional[str] = None  # e.g. "3-5 óra"
 
 class ServiceCreate(BaseModel):
     name: str
@@ -31,6 +34,9 @@ class ServiceCreate(BaseModel):
     service_type: Optional[str] = None
     min_price: Optional[float] = None
     location: Optional[str] = None
+    # Polishing-specific fields
+    size_prices: Optional[dict] = None  # {"S": 37990, "M": 43990, ...}
+    duration_label: Optional[str] = None  # e.g. "3-5 óra"
 
 # Package feature definitions based on X-CLEAN price list
 PACKAGE_FEATURES = {
@@ -194,6 +200,14 @@ POLISHING_PRICES = {
         "duration_label": "2–5 óra",
         "prices": {
             "S": 50990, "M": 56990, "L": 63990, "XL": 69990, "XXL": 75990
+        }
+    },
+    "lampapolir": {
+        "name": "Lámpapolírozás (pár)",
+        "duration_label": "30–60 perc",
+        "description": "S/M/L méretű autókhoz 21.990 Ft, XL/XXL (terepjáró) 23.990 Ft — páronként",
+        "prices": {
+            "S": 21990, "M": 21990, "L": 21990, "XL": 23990, "XXL": 23990
         }
     }
 }

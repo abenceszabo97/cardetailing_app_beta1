@@ -710,7 +710,7 @@ export const Statistics = () => {
       {/* Advanced Analytics */}
       {advancedStats && (
         <div className="space-y-4 sm:space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
             <Card className="glass-card" data-testid="avg-revenue-card">
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
@@ -738,12 +738,12 @@ export const Statistics = () => {
               </CardContent>
             </Card>
             <Card className="glass-card" data-testid="month-cars-change-card">
-              <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-slate-400">Autók vs. előző hónap</p>
+                    <p className="text-[10px] sm:text-xs text-slate-400">Autók vs. előző hónap</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-white">{advancedStats.month_comparison?.current_month?.cars || 0}</p>
+                      <p className="text-lg sm:text-2xl font-bold text-white">{advancedStats.month_comparison?.current_month?.cars || 0}</p>
                       {advancedStats.month_comparison?.cars_change_percent !== 0 && (
                         <span className={`flex items-center text-sm ${advancedStats.month_comparison?.cars_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {advancedStats.month_comparison?.cars_change_percent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
@@ -752,19 +752,19 @@ export const Statistics = () => {
                       )}
                     </div>
                   </div>
-                  <div className="w-10 h-10 bg-violet-500/20 rounded-xl flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-violet-400" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-violet-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
             <Card className="glass-card" data-testid="month-revenue-change-card">
-              <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-slate-400">Bevétel vs. előző hónap</p>
+                    <p className="text-[10px] sm:text-xs text-slate-400">Bevétel vs. előző hónap</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-white">{(advancedStats.month_comparison?.current_month?.revenue || 0).toLocaleString()} Ft</p>
+                      <p className="text-base sm:text-2xl font-bold text-white">{(advancedStats.month_comparison?.current_month?.revenue || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
                       {advancedStats.month_comparison?.revenue_change_percent !== 0 && (
                         <span className={`flex items-center text-sm ${advancedStats.month_comparison?.revenue_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {advancedStats.month_comparison?.revenue_change_percent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
@@ -773,8 +773,8 @@ export const Statistics = () => {
                       )}
                     </div>
                   </div>
-                  <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
-                    <Wallet className="w-5 h-5 text-amber-400" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                    <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                   </div>
                 </div>
               </CardContent>

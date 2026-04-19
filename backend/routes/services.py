@@ -141,6 +141,24 @@ async def get_pricing_data(location: Optional[str] = None):
     else:
         merged_polishing = POLISHING_PRICES
 
+    # Merge DB polishing services (with size_prices) into the types dict
+    # DB polishing types are identified by category=="poliroz" and having a service_id
+    merged_polishing_with_db = dict(merged_polishing)
+    for db_pol in db_polishing:
+        if db_pol.get("size_prices"):
+            # This is a full polishing type record, expose it in types by service_id key
+            type_key = db_pol["service_id"]
+            prices = db_pol["size_prices"]
+            merged_polishing_with_db[type_key] = {
+                "name": db_pol["name"],
+                "duration_label": db_pol.get("duration_label", ""),
+                "description": db_pol.get("description", ""),
+                "location": db_pol.get("location"),
+                "service_id": db_pol["service_id"],
+                "prices": prices,
+                "_db": True
+            }
+
     return {
         "package_features": PACKAGE_FEATURES,
         "price_matrix": PRICE_MATRIX,
@@ -151,7 +169,7 @@ async def get_pricing_data(location: Optional[str] = None):
         "promotions": db_promotions,
         "extras": db_extras,
         "polishing": {
-            "types": merged_polishing,
+            "types": merged_polishing_with_db,
             "addons": POLISHING_ADDONS,
             "custom": db_polishing
         }
