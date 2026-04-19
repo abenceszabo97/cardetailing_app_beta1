@@ -8,6 +8,7 @@ import cloudinary.utils
 import os
 import time
 import logging
+import uuid
 from typing import Optional
 
 # Initialize Cloudinary
@@ -68,20 +69,20 @@ def upload_image(file_bytes: bytes, folder: str = "uploads", filename: str = Non
         folder = "uploads/" + folder
     
     try:
-        # Build public_id if filename provided
-        public_id = None
+        # Build public_id with UUID suffix to guarantee uniqueness and prevent overwrites
+        unique_suffix = uuid.uuid4().hex[:10]
         if filename:
-            # Remove extension for public_id
             name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
-            public_id = f"{folder}/{name_without_ext}"
-        
+            public_id = f"{folder}/{name_without_ext}_{unique_suffix}"
+        else:
+            public_id = f"{folder}/img_{unique_suffix}"
+
         # Upload with smart compression and optimization
         result = cloudinary.uploader.upload(
             file_bytes,
-            folder=folder if not public_id else None,
             public_id=public_id,
             resource_type="image",
-            overwrite=True,
+            overwrite=False,
             invalidate=True,
             # Compression & optimization settings
             transformation=[
