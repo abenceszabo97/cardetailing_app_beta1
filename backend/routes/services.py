@@ -194,11 +194,15 @@ async def get_promotions_admin(location: Optional[str] = None, user: User = Depe
     """Get all promotions for admin (including inactive), optionally filtered by location.
     Also merges hardcoded PROMOTIONS that are not yet in DB so they can be managed."""
     query = {}
-    if location and location != "all":
+    if location == "Budapest":
+        # Budapest admin: strict — only explicitly Budapest-tagged promos
+        query["location"] = "Budapest"
+    elif location and location != "all":
+        # Other locations: inclusive (location-specific + global/null)
         query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     promotions = await db.promotions.find(query, {"_id": 0}).to_list(100)
 
-    # Include hardcoded promotions not yet saved to DB (read-only preview, marked _hardcoded=True)
+    # Include hardcoded promotions not yet saved to DB (marked _hardcoded=True)
     db_promo_ids = {p.get("id") for p in promotions}
     db_promo_names = {p.get("name", "").strip().lower() for p in promotions}
     for p in PROMOTIONS:
@@ -206,13 +210,17 @@ async def get_promotions_admin(location: Optional[str] = None, user: User = Depe
             continue
         if p.get("name", "").strip().lower() in db_promo_names:
             continue
-        if location and location != "all":
-            p_loc = p.get("location")
-            # Include if location matches OR if promo has no location (global)
+        p_loc = p.get("location")
+        if location == "Budapest":
+            # Strict: only Budapest-tagged hardcoded promos
+            if p_loc != "Budapest":
+                continue
+        elif location and location != "all":
+            # Inclusive: skip only if explicitly tagged to a DIFFERENT location
             if p_loc and p_loc != location:
                 continue
         merged = dict(p)
-        merged["_hardcoded"] = True  # flag so admin can seed it to DB
+        merged["_hardcoded"] = True
         promotions.append(merged)
 
     return promotions

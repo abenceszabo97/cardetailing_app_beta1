@@ -292,6 +292,7 @@ PROMOTIONS = [
         "duration": 70,
         "badge": "🌸 AKCIÓ",
         "valid_until": "2025-04-30",
-        "active": True
+        "active": True,
+        "location": "Debrecen"
     }
 ]
