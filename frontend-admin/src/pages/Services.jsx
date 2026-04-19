@@ -965,6 +965,28 @@ export const Services = () => {
 
         {categories.map(cat => (
           <TabsContent key={cat.value} value={cat.value} className="mt-6">
+            <div className="flex justify-end mb-4">
+              <Button
+                className="bg-green-600 hover:bg-green-500"
+                onClick={() => {
+                  setEditingService(null);
+                  setFormData({
+                    name: "",
+                    category: cat.value,
+                    price: 0,
+                    duration: 60,
+                    description: "",
+                    car_size: "",
+                    package: "",
+                    location: servicesLoc !== "all" ? servicesLoc : null
+                  });
+                  setIsNewServiceOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Új {cat.label.toLowerCase()} szolgáltatás
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(groupedServices[cat.value] || []).map(service => (
                 <Card 
@@ -1325,6 +1347,114 @@ export const Services = () => {
             <Button variant="outline" onClick={() => setIsNewExtraOpen(false)} className="border-slate-700">Mégse</Button>
             <Button onClick={handleExtraSubmit} className="bg-blue-600 hover:bg-blue-500">
               {editingExtra ? "Mentés" : "Létrehozás"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Polírozás Type Dialog */}
+      <Dialog open={isNewPolishTypeOpen} onOpenChange={(open) => { setIsNewPolishTypeOpen(open); if (!open) resetPolishTypeForm(); }}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400">Új polírozás típus létrehozása</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-slate-300">Név</Label>
+              <Input value={polishTypeForm.name} onChange={e => setPolishTypeForm({...polishTypeForm, name: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white" placeholder="pl. 2-lépéses polírozás" />
+            </div>
+            <div>
+              <Label className="text-slate-300">Leírás (opcionális)</Label>
+              <Input value={polishTypeForm.description} onChange={e => setPolishTypeForm({...polishTypeForm, description: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white" placeholder="Rövid leírás" />
+            </div>
+            <div>
+              <Label className="text-slate-300">Időtartam felirat (pl. "2–4 óra")</Label>
+              <Input value={polishTypeForm.duration_label} onChange={e => setPolishTypeForm({...polishTypeForm, duration_label: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white" placeholder="pl. 2–4 óra" />
+            </div>
+            <div>
+              <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető ennél a méretnél</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {["S","M","L","XL","XXL"].map(sz => (
+                  <div key={sz}>
+                    <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
+                    <Input type="number" value={polishTypeForm.prices[sz] || 0}
+                      onChange={e => setPolishTypeForm({...polishTypeForm, prices: {...polishTypeForm.prices, [sz]: parseInt(e.target.value) || 0}})}
+                      className="bg-slate-950 border-slate-700 text-white text-center px-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-slate-300">Telephely</Label>
+              <select value={polishTypeForm.location || ""} onChange={e => setPolishTypeForm({...polishTypeForm, location: e.target.value || null})}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2">
+                <option value="">Mindenhol (Debrecen)</option>
+                <option value="Debrecen">Debrecen</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="mt-4 gap-2">
+            <Button variant="outline" onClick={() => setIsNewPolishTypeOpen(false)} className="border-slate-700">Mégse</Button>
+            <Button onClick={handleCreatePolishType} disabled={polishTypeSaving} className="bg-amber-600 hover:bg-amber-500">
+              {polishTypeSaving ? "Mentés..." : "Létrehozás"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Polírozás Type Dialog */}
+      <Dialog open={isEditPolishTypeOpen} onOpenChange={(open) => { setIsEditPolishTypeOpen(open); if (!open) { setEditingPolishType(null); resetPolishTypeForm(); } }}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400">
+              {editingPolishType?.service_id ? "Polírozás típus szerkesztése" : "Beépített típus mentése DB-be"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-slate-300">Név</Label>
+              <Input value={polishTypeForm.name} onChange={e => setPolishTypeForm({...polishTypeForm, name: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white" />
+            </div>
+            <div>
+              <Label className="text-slate-300">Leírás (opcionális)</Label>
+              <Input value={polishTypeForm.description} onChange={e => setPolishTypeForm({...polishTypeForm, description: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white" />
+            </div>
+            <div>
+              <Label className="text-slate-300">Időtartam felirat</Label>
+              <Input value={polishTypeForm.duration_label} onChange={e => setPolishTypeForm({...polishTypeForm, duration_label: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white" />
+            </div>
+            <div>
+              <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {["S","M","L","XL","XXL"].map(sz => (
+                  <div key={sz}>
+                    <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
+                    <Input type="number" value={polishTypeForm.prices[sz] || 0}
+                      onChange={e => setPolishTypeForm({...polishTypeForm, prices: {...polishTypeForm.prices, [sz]: parseInt(e.target.value) || 0}})}
+                      className="bg-slate-950 border-slate-700 text-white text-center px-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-slate-300">Telephely</Label>
+              <select value={polishTypeForm.location || ""} onChange={e => setPolishTypeForm({...polishTypeForm, location: e.target.value || null})}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-md px-3 py-2">
+                <option value="">Mindenhol (Debrecen)</option>
+                <option value="Debrecen">Debrecen</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="mt-4 gap-2">
+            <Button variant="outline" onClick={() => setIsEditPolishTypeOpen(false)} className="border-slate-700">Mégse</Button>
+            <Button onClick={handleUpdatePolishType} disabled={polishTypeSaving} className="bg-amber-600 hover:bg-amber-500">
+              {polishTypeSaving ? "Mentés..." : editingPolishType?.service_id ? "Mentés" : "Mentés DB-be"}
             </Button>
           </DialogFooter>
         </DialogContent>

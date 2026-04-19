@@ -7,8 +7,8 @@ import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
 import { 
-  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
-  ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
+  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2,
+  ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Star, Loader2, Sparkles,
   Calendar, Users, Timer, AlertTriangle, Plus, X, Check
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
@@ -707,39 +707,94 @@ const BookingPage = () => {
 
               {/* Polishing Type Selection - only for Debrecen poliroz category */}
               {!selectedPromotion && selectedSize && selectedCategory === "poliroz" && (
-                <div>
-                  <label className="text-sm text-slate-400 mb-3 block font-medium">3. Polírozás típusa</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {pricingData?.polishing?.types && Object.entries(pricingData.polishing.types).filter(([_, typeData]) => (typeData.prices?.[selectedSize] || 0) > 0).map(([typeId, typeData]) => {
-                      const price = typeData.prices?.[selectedSize] || 0;
-                      const isSelected = selectedPolishingType === typeId;
-                      return (
-                        <button
-                          key={typeId}
-                          onClick={() => setSelectedPolishingType(typeId)}
-                          className={`p-4 rounded-xl border-2 transition-all text-left ${
-                            isSelected
-                              ? 'border-amber-500 bg-amber-500/10'
-                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
-                          }`}
-                          data-testid={`polishing-${typeId}`}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <span className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-                              {typeData.name}
-                            </span>
-                            {isSelected && <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />}
-                          </div>
-                          <div className={`text-2xl font-bold mb-2 ${isSelected ? 'text-amber-400' : 'text-slate-400'}`}>
-                            {price.toLocaleString()} Ft
-                          </div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1">
-                            <Timer className="w-3 h-3" /> {typeData.duration_label}
-                          </div>
-                        </button>
-                      );
-                    })}
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-3 block font-medium">3. Polírozás típusa</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {pricingData?.polishing?.types && Object.entries(pricingData.polishing.types).filter(([_, typeData]) => (typeData.prices?.[selectedSize] || 0) > 0).map(([typeId, typeData]) => {
+                        const price = typeData.prices?.[selectedSize] || 0;
+                        const isSelected = selectedPolishingType === typeId;
+                        return (
+                          <button
+                            key={typeId}
+                            onClick={() => setSelectedPolishingType(typeId)}
+                            className={`p-4 rounded-xl border-2 transition-all text-left ${
+                              isSelected
+                                ? 'border-amber-500 bg-amber-500/10'
+                                : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                            }`}
+                            data-testid={`polishing-${typeId}`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <span className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                                {typeData.name}
+                              </span>
+                              {isSelected && <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />}
+                            </div>
+                            <div className={`text-2xl font-bold mb-2 ${isSelected ? 'text-amber-400' : 'text-slate-400'}`}>
+                              {price.toLocaleString()} Ft
+                            </div>
+                            <div className="text-xs text-slate-500 flex items-center gap-1">
+                              <Timer className="w-3 h-3" /> {typeData.duration_label}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {/* Cleaning Addon - visible immediately after selecting a polishing type */}
+                  {selectedPolishingType && (
+                    <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
+                      <label className="text-sm text-green-400 mb-3 block font-medium flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        4. Kiegészítő mosás / takarítás <span className="text-slate-500 font-normal">(opcionális)</span>
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { id: null, label: "Nincs" },
+                          { id: "kulso", label: "Külső mosás" },
+                          { id: "belso", label: "Belső takarítás" },
+                          { id: "komplett", label: "Komplett (K+B)" }
+                        ].map(opt => (
+                          <button
+                            key={String(opt.id)}
+                            onClick={() => setCleaningAddon(opt.id)}
+                            className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                              cleaningAddon === opt.id
+                                ? 'border-green-500 bg-green-500/10 text-white'
+                                : 'border-slate-700 hover:border-green-500/40 bg-slate-800/50 text-slate-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                      {cleaningAddon && (
+                        <div className="mt-3 space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {["Eco", "Pro", "VIP"].map(pkg => {
+                              const addonPrice = pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[pkg] ?? 0;
+                              return (
+                                <button
+                                  key={pkg}
+                                  onClick={() => setCleaningPackage(pkg)}
+                                  className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                                    cleaningPackage === pkg
+                                      ? 'border-green-500 bg-green-500/10 text-white'
+                                      : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
+                                  }`}
+                                >
+                                  <span className="block">{pkg}</span>
+                                  <span className="text-xs text-green-400 font-bold">+{addonPrice.toLocaleString()} Ft</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1242,8 +1297,18 @@ const BookingPage = () => {
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
                 className="bg-slate-800/50 border-slate-700 text-white" />
               
-              <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-2">
-                <FileText className="w-4 h-4" /> {showInvoice ? "Számla adatok elrejtése" : "Számlát kérek (ÁFÁ-s)"}
+              <button
+                onClick={() => setShowInvoice(!showInvoice)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 border-dashed border-slate-600 hover:border-green-500/50 hover:bg-green-500/5 transition-all text-sm"
+              >
+                <span className="flex items-center gap-2 text-slate-300 font-medium">
+                  <FileText className="w-4 h-4 text-green-400" />
+                  Számlát kérek (ÁFÁ-s számla)
+                </span>
+                {showInvoice
+                  ? <ChevronUp className="w-4 h-4 text-green-400" />
+                  : <ChevronDown className="w-4 h-4 text-slate-500" />
+                }
               </button>
               {showInvoice && (
                 <div className="space-y-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700">
@@ -1351,60 +1416,14 @@ const BookingPage = () => {
                   </div>
                 )}
                 
-                {/* Cleaning Addon (poliroz only) - inside summary card */}
-                {selectedCategory === "poliroz" && (
-                  <div className="pt-3 border-t border-slate-700 space-y-3">
-                    <span className="text-slate-400 text-sm font-medium flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-green-400" />
-                      Kiegészítő mosás / takarítás
+                {/* Cleaning Addon summary line (read-only in summary) */}
+                {selectedCategory === "poliroz" && cleaningAddon && (
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-slate-400 flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-green-400" />
+                      {cleaningAddon === "kulso" ? "Külső mosás" : cleaningAddon === "belso" ? "Belső takarítás" : "Komplett (K+B)"} – {cleaningPackage}
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {[
-                        { id: null, label: "Nincs" },
-                        { id: "kulso", label: "Külső mosás" },
-                        { id: "belso", label: "Belső takarítás" },
-                        { id: "komplett", label: "Komplett (K+B)" }
-                      ].map(opt => (
-                        <button
-                          key={String(opt.id)}
-                          onClick={() => setCleaningAddon(opt.id)}
-                          className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                            cleaningAddon === opt.id
-                              ? 'border-green-500 bg-green-500/10 text-white'
-                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    {cleaningAddon && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-3 gap-2">
-                          {["Eco", "Pro", "VIP"].map(pkg => {
-                            const addonPrice = pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[pkg] ?? 0;
-                            return (
-                              <button
-                                key={pkg}
-                                onClick={() => setCleaningPackage(pkg)}
-                                className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                                  cleaningPackage === pkg
-                                    ? 'border-green-500 bg-green-500/10 text-white'
-                                    : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
-                                }`}
-                              >
-                                <span className="block">{pkg}</span>
-                                <span className="text-xs text-green-400 font-bold">{addonPrice.toLocaleString()} Ft</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-400">Kiegészítő ára:</span>
-                          <span className="text-green-400 font-bold">+{getCleaningAddonPrice().toLocaleString()} Ft</span>
-                        </div>
-                      </div>
-                    )}
+                    <span className="text-green-400">+{getCleaningAddonPrice().toLocaleString()} Ft</span>
                   </div>
                 )}
 
