@@ -14,7 +14,11 @@ logger = logging.getLogger(__name__)
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
-BOOKING_FRONTEND_URL = os.environ.get("BOOKING_FRONTEND_URL", "https://xclean.hu/foglalas")
+# Root URL of the deployed frontend-booking app (no trailing slash, no path suffix).
+# Example: https://foglalas.xclean.hu  OR  https://frontend-booking-xxx.up.railway.app
+# Must be set in Railway env vars — links in confirmation emails will be broken without it.
+_raw_booking_url = os.environ.get("BOOKING_FRONTEND_URL", "").rstrip("/")
+BOOKING_FRONTEND_URL = _raw_booking_url or None
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -27,8 +31,9 @@ def generate_booking_confirmation_html(booking: dict) -> str:
     """Generate HTML email for booking confirmation"""
     modify_token = booking.get("modify_token", "")
     cancel_token = booking.get("cancel_token", "")
-    modify_url = f"{BOOKING_FRONTEND_URL}/modify/{modify_token}" if modify_token else ""
-    cancel_url = f"{BOOKING_FRONTEND_URL}/modify/{cancel_token}?action=cancel" if cancel_token else ""
+    # Only generate links when BOOKING_FRONTEND_URL is configured
+    modify_url = f"{BOOKING_FRONTEND_URL}/modify/{modify_token}" if (BOOKING_FRONTEND_URL and modify_token) else ""
+    cancel_url = f"{BOOKING_FRONTEND_URL}/modify/{cancel_token}?action=cancel" if (BOOKING_FRONTEND_URL and cancel_token) else ""
     self_service_section = ""
     if modify_url:
         self_service_section = f"""
@@ -247,8 +252,8 @@ async def send_review_request(booking: dict) -> dict:
     if not review_token or not booking.get("email"):
         return {"status": "skipped"}
 
-    BOOKING_FRONTEND_URL_local = os.environ.get("BOOKING_FRONTEND_URL", "https://xclean.hu/foglalas")
-    review_base = f"{BOOKING_FRONTEND_URL_local}/review/{review_token}"
+    review_base_url = BOOKING_FRONTEND_URL or "https://xclean.hu"
+    review_base = f"{review_base_url}/review/{review_token}"
 
     # Build individual numbered star links
     stars_row = ""
