@@ -76,6 +76,19 @@ async def lifespan(app: FastAPI):
         )
         # Reviews
         await db.reviews.create_index("booking_id", unique=True, sparse=True)
+        # Performance: compound indexes for common query patterns
+        await db.jobs.create_index("status")
+        await db.jobs.create_index([("location", 1), ("status", 1), ("date", 1)])
+        await db.bookings.create_index([("location", 1), ("date", 1), ("status", 1)])
+        await db.workers.create_index("user_id")
+        await db.worker_absences.create_index("date")
+        await db.worker_absences.create_index([("worker_id", 1), ("date", 1)])
+        await db.blacklist.create_index("plate_number", unique=True, sparse=True)
+        await db.day_records.create_index([("location", 1), ("date", 1), ("status", 1)])
+        await db.shifts.create_index([("worker_id", 1), ("start_time", 1)])
+        await db.shifts.create_index("location")
+        await db.notifications.create_index("read")
+        await db.notifications.create_index([("location", 1), ("read", 1)])
         logger.info("MongoDB indexes created/verified")
     except Exception as e:
         logger.warning(f"Index creation warning: {e}")

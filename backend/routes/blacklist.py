@@ -69,5 +69,5 @@ async def check_blacklist(plate_number: str):
     plate = plate_number.upper().strip()
     entry = await db.blacklist.find_one({"plate_number": plate}, {"_id": 0})
     if entry:
-        return {"blacklisted": True, "reason": entry.get("reason")}
+        return {"blacklisted": True}
     return {"blacklisted": False}

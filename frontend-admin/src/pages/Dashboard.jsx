@@ -176,7 +176,7 @@ export const Dashboard = () => {
     try {
       const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       
-      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, lowStockRes] = await Promise.all([
+      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, lowStockRes] = await Promise.allSettled([
         axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/jobs/today${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
@@ -186,13 +186,13 @@ export const Dashboard = () => {
         axios.get(`${API}/notifications/low-stock`, { withCredentials: true })
       ]);
 
-      setStats(statsRes.data);
-      setTodayJobs(jobsRes.data);
-      setDailyStats(dailyRes.data);
-      setCustomers(customersRes.data);
-      setServices(servicesRes.data);
-      setWorkers(workersRes.data);
-      setLowStockItems(lowStockRes.data);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
+      if (jobsRes.status === 'fulfilled') setTodayJobs(Array.isArray(jobsRes.value.data) ? jobsRes.value.data : []);
+      if (dailyRes.status === 'fulfilled') setDailyStats(Array.isArray(dailyRes.value.data) ? dailyRes.value.data : []);
+      if (customersRes.status === 'fulfilled') setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
+      if (servicesRes.status === 'fulfilled') setServices(Array.isArray(servicesRes.value.data) ? servicesRes.value.data : []);
+      if (workersRes.status === 'fulfilled') setWorkers(Array.isArray(workersRes.value.data) ? workersRes.value.data : []);
+      if (lowStockRes.status === 'fulfilled') setLowStockItems(Array.isArray(lowStockRes.value.data) ? lowStockRes.value.data : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Hiba az adatok betöltésekor");

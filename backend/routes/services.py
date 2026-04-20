@@ -109,21 +109,23 @@ async def get_pricing_data(location: Optional[str] = None):
     # Auto-seed and fallback if DB extras are empty
     if not db_extras:
         for extra in EXTRA_SERVICES:
-            existing = await db.services.find_one({"name": extra["name"], "service_type": "extra"})
-            if not existing:
-                service = Service(
-                    name=extra["name"],
-                    category=extra.get("category", "extra_kulso"),
-                    price=extra.get("price", extra.get("min_price", 0)),
-                    min_price=extra.get("min_price"),
-                    duration=30,
-                    description=extra.get("description", ""),
-                    service_type="extra",
-                    active=True
-                )
-                doc = service.model_dump()
-                doc["created_at"] = doc["created_at"].isoformat()
-                await db.services.insert_one(doc)
+            service = Service(
+                name=extra["name"],
+                category=extra.get("category", "extra_kulso"),
+                price=extra.get("price", extra.get("min_price", 0)),
+                min_price=extra.get("min_price"),
+                duration=30,
+                description=extra.get("description", ""),
+                service_type="extra",
+                active=True
+            )
+            doc = service.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.services.update_one(
+                {"service_id": doc["service_id"]},
+                {"$setOnInsert": doc},
+                upsert=True
+            )
         db_extras = await db.services.find(extras_query, {"_id": 0}).to_list(100)
         if not db_extras:
             db_extras = EXTRA_SERVICES
@@ -135,12 +137,6 @@ async def get_pricing_data(location: Optional[str] = None):
         prices = type_data.get("prices", {})
         non_zero = [v for v in prices.values() if v > 0]
         if not non_zero:
-            continue
-        existing = await db.services.find_one(
-            {"category": "poliroz", "name": type_data["name"]},
-            {"_id": 0, "service_id": 1}
-        )
-        if existing:
             continue
         min_price = min(non_zero)
         service = Service(
@@ -156,7 +152,11 @@ async def get_pricing_data(location: Optional[str] = None):
         )
         doc = service.model_dump()
         doc["created_at"] = doc["created_at"].isoformat()
-        await db.services.insert_one(doc)
+        await db.services.update_one(
+            {"category": "poliroz", "name": type_data["name"]},
+            {"$setOnInsert": doc},
+            upsert=True
+        )
 
     # Get polishing services from DB, filtered by location
     polishing_query = {"category": "poliroz", "active": {"$ne": False}}
@@ -485,21 +485,24 @@ async def seed_extras(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
     created = 0
     for extra in EXTRA_SERVICES:
-        existing = await db.services.find_one({"name": extra["name"], "service_type": "extra"})
-        if not existing:
-            service = Service(
-                name=extra["name"],
-                category=extra.get("category", "extra_kulso"),
-                price=extra.get("price", extra.get("min_price", 0)),
-                min_price=extra.get("min_price"),
-                duration=30,
-                description=extra.get("description", ""),
-                service_type="extra",
-                active=True
-            )
-            doc = service.model_dump()
-            doc["created_at"] = doc["created_at"].isoformat()
-            await db.services.insert_one(doc)
+        service = Service(
+            name=extra["name"],
+            category=extra.get("category", "extra_kulso"),
+            price=extra.get("price", extra.get("min_price", 0)),
+            min_price=extra.get("min_price"),
+            duration=30,
+            description=extra.get("description", ""),
+            service_type="extra",
+            active=True
+        )
+        doc = service.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        result = await db.services.update_one(
+            {"service_id": doc["service_id"]},
+            {"$setOnInsert": doc},
+            upsert=True
+        )
+        if result.upserted_id:
             created += 1
     return {"created": created, "message": f"{created} alapértelmezett extra hozzáadva az adatbázishoz"}
 

@@ -221,11 +221,16 @@ async def create_booking(data: BookingCreate):
         if worker:
             worker_name = worker["name"]
     
-    # Calculate extras price
+    # Calculate extras price — batch lookup instead of N+1 queries
     extras_price = 0
     if data.extras:
+        extra_docs = await db.services.find(
+            {"service_id": {"$in": data.extras}, "service_type": "extra"},
+            {"_id": 0, "service_id": 1, "price": 1, "min_price": 1}
+        ).to_list(len(data.extras))
+        extras_map = {e["service_id"]: e for e in extra_docs}
         for extra_id in data.extras:
-            extra = await db.services.find_one({"service_id": extra_id, "service_type": "extra"}, {"_id": 0})
+            extra = extras_map.get(extra_id)
             if extra:
                 extras_price += extra.get("price") or extra.get("min_price", 0)
     

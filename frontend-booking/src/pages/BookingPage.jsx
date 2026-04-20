@@ -197,6 +197,18 @@ const BookingPage = () => {
     }
   }, [form.location, form.date, selectedSize, selectedCategory, selectedPackage, selectedPromotion]);
 
+  // Debounced plate lookup — properly cleans up the timeout on every change
+  useEffect(() => {
+    const plate = form.plate_number;
+    if (!plate || plate.length < 5) {
+      setCustomerFound(null);
+      setIsBlacklisted(false);
+      return;
+    }
+    const timeoutId = setTimeout(() => lookupPlate(plate), 500);
+    return () => clearTimeout(timeoutId);
+  }, [form.plate_number, lookupPlate]);
+
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   // Calculate price - supports promotions
@@ -314,10 +326,6 @@ const BookingPage = () => {
   const handlePlateChange = (value) => {
     const plate = value.toUpperCase();
     set("plate_number", plate);
-    if (plate.length >= 5) {
-      const timeoutId = setTimeout(() => lookupPlate(plate), 500);
-      return () => clearTimeout(timeoutId);
-    }
   };
 
   // Resolve extra name from its ID (service_id or name)

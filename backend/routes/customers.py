@@ -3,6 +3,7 @@ Customers Routes
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
+import re
 from dependencies import get_current_user
 from database import db
 from models.user import User
@@ -28,7 +29,7 @@ async def get_customers(
             {"location": ""}
         ]
     if search and search.strip():
-        q = search.strip()
+        q = re.escape(search.strip())
         search_cond = {"$or": [
             {"name": {"$regex": q, "$options": "i"}},
             {"plate_number": {"$regex": q, "$options": "i"}},

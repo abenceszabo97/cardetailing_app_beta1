@@ -72,8 +72,7 @@ import {
   isSameMonth
 } from "date-fns";
 import { hu } from "date-fns/locale";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// jsPDF and autoTable are loaded dynamically inside generateWorkerPDF / generateAttendancePDF
 
 export const Workers = () => {
   const { user } = useAuth();
@@ -104,7 +103,9 @@ export const Workers = () => {
   const [absenceForm, setAbsenceForm] = useState({ worker_id: "", date: "", reason: "Hiányzás" });
   const [addingAbsence, setAddingAbsence] = useState(false);
 
-  const generateWorkerPDF = () => {
+  const generateWorkerPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    await import("jspdf-autotable");
     return new Promise((resolve) => {
       const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
       const totals = workerStats.reduce((acc, w) => ({
@@ -213,6 +214,8 @@ export const Workers = () => {
   };
 
   const generateAttendancePDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    await import("jspdf-autotable");
     try {
       const res = await axios.get(`${API}/shifts/attendance-report?month=${statsMonth}`, { withCredentials: true });
       const report = res.data;
