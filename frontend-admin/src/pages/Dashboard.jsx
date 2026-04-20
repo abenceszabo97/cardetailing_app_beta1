@@ -646,11 +646,11 @@ export const Dashboard = () => {
                   
                   {newJob.isNewCustomer ? (
                     <div className="space-y-3 p-3 bg-slate-950/50 rounded-lg border border-slate-700">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label className="text-xs text-slate-400">Név *</Label>
-                          <Input 
-                            value={newJob.newCustomerName || ""} 
+                          <Input
+                            value={newJob.newCustomerName || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerName: e.target.value})}
                             className="bg-slate-950 border-slate-700 text-white h-9"
                             placeholder="Ügyfél neve"
@@ -658,19 +658,19 @@ export const Dashboard = () => {
                         </div>
                         <div>
                           <Label className="text-xs text-slate-400">Rendszám *</Label>
-                          <Input 
-                            value={newJob.newCustomerPlate || ""} 
+                          <Input
+                            value={newJob.newCustomerPlate || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerPlate: e.target.value.toUpperCase()})}
                             className="bg-slate-950 border-slate-700 text-white h-9 uppercase font-mono"
                             placeholder="ABC-123"
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label className="text-xs text-slate-400">Telefon</Label>
-                          <Input 
-                            value={newJob.newCustomerPhone || ""} 
+                          <Input
+                            value={newJob.newCustomerPhone || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerPhone: e.target.value})}
                             className="bg-slate-950 border-slate-700 text-white h-9"
                             placeholder="+36 30 123 4567"
@@ -678,8 +678,8 @@ export const Dashboard = () => {
                         </div>
                         <div>
                           <Label className="text-xs text-slate-400">Email</Label>
-                          <Input 
-                            value={newJob.newCustomerEmail || ""} 
+                          <Input
+                            value={newJob.newCustomerEmail || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerEmail: e.target.value})}
                             className="bg-slate-950 border-slate-700 text-white h-9"
                             placeholder="email@example.com"
@@ -754,7 +754,7 @@ export const Dashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300">Ár (Ft)</Label>
                     <Input type="number" value={newJob.price} onChange={(e) => setNewJob({...newJob, price: parseInt(e.target.value) || 0})} className="bg-slate-950 border-slate-700 text-white" />
