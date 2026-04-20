@@ -1011,7 +1011,7 @@ export const Workers = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-slate-300">Kezdés</Label>
                         <Input
@@ -1054,7 +1054,7 @@ export const Workers = () => {
                           <Clock className="w-4 h-4" />
                           Ebédszünet (opcionális)
                         </Label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-slate-400 text-sm">Kezdete</Label>
                             <Input
@@ -1095,19 +1095,22 @@ export const Workers = () => {
           <Card className="glass-card">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => navigate('prev')} className="text-slate-400 hover:text-white">
-                  <ChevronLeft className="w-5 h-5 mr-1" />
-                  {calendarView === "month" ? "Előző hónap" : "Előző hét"}
+                <Button variant="ghost" onClick={() => navigate('prev')} className="text-slate-400 hover:text-white px-2">
+                  <ChevronLeft className="w-5 h-5" />
+                  <span className="hidden sm:inline ml-1">{calendarView === "month" ? "Előző hónap" : "Előző hét"}</span>
                 </Button>
-                <h2 className="text-lg font-semibold text-white">
-                  {calendarView === "month" 
+                <h2 className="text-sm sm:text-lg font-semibold text-white text-center truncate px-1 min-w-0">
+                  {calendarView === "month"
                     ? format(currentDate, 'yyyy. MMMM', { locale: hu })
-                    : `${format(weekStart, 'yyyy. MMMM d.', { locale: hu })} - ${format(weekEnd, 'MMMM d.', { locale: hu })}`
+                    : <>
+                        <span className="hidden sm:inline">{format(weekStart, 'yyyy. MMMM d.', { locale: hu })} – {format(weekEnd, 'MMMM d.', { locale: hu })}</span>
+                        <span className="sm:hidden">{format(weekStart, 'MMM d.', { locale: hu })} – {format(weekEnd, 'MMM d.', { locale: hu })}</span>
+                      </>
                   }
                 </h2>
-                <Button variant="ghost" onClick={() => navigate('next')} className="text-slate-400 hover:text-white">
-                  {calendarView === "month" ? "Következő hónap" : "Következő hét"}
-                  <ChevronRight className="w-5 h-5 ml-1" />
+                <Button variant="ghost" onClick={() => navigate('next')} className="text-slate-400 hover:text-white px-2">
+                  <span className="hidden sm:inline mr-1">{calendarView === "month" ? "Következő hónap" : "Következő hét"}</span>
+                  <ChevronRight className="w-5 h-5" />
                 </Button>
               </div>
             </CardContent>

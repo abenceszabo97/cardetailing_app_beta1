@@ -455,7 +455,7 @@ export const Services = () => {
                     placeholder="Szolgáltatás neve"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300">Kategória</Label>
                     <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
@@ -489,7 +489,7 @@ export const Services = () => {
                   <>
                     <div>
                       <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető ennél a méretnél</Label>
-                      <div className="grid grid-cols-5 gap-2">
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                         {["S","M","L","XL","XXL"].map(sz => (
                           <div key={sz}>
                             <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
@@ -592,33 +592,33 @@ export const Services = () => {
 
       {/* Services by Category */}
       <Tabs defaultValue="promotions" className="w-full">
-        <TabsList className="bg-slate-900 border border-slate-800 p-1 flex overflow-x-auto gap-1 w-full sm:w-auto h-auto flex-nowrap">
-          <TabsTrigger 
+        <TabsList className="bg-slate-900 border border-slate-800 p-1 flex overflow-x-auto gap-1 w-full h-auto flex-nowrap scrollbar-none">
+          <TabsTrigger
             value="promotions"
-            className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400"
+            className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
           >
-            <Tag className="w-4 h-4 mr-2" />
+            <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             Akciók
           </TabsTrigger>
           {categories.map(cat => (
-            <TabsTrigger 
-              key={cat.value} 
+            <TabsTrigger
+              key={cat.value}
               value={cat.value}
-              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400"
+              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
             >
               {cat.label}
             </TabsTrigger>
           ))}
           <TabsTrigger
             value="extras"
-            className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
+            className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
           >
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             Extrák
           </TabsTrigger>
           <TabsTrigger
             value="poliroz"
-            className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400"
+            className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
           >
             ✨ Polírozás
           </TabsTrigger>
@@ -669,7 +669,7 @@ export const Services = () => {
                       placeholder="pl. Komplett külső+belső tisztítás M méretig"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Akciós ár (Ft)</Label>
                       <Input
@@ -689,7 +689,7 @@ export const Services = () => {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Kategória</Label>
                       <Select value={promoForm.category} onValueChange={(v) => setPromoForm({...promoForm, category: v})}>
@@ -736,7 +736,7 @@ export const Services = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Időtartam (perc)</Label>
                       <Input
@@ -1247,7 +1247,7 @@ export const Services = () => {
                 placeholder="pl. Bőrápolás"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-slate-300">Ár (Ft)</Label>
                 <Input
