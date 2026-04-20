@@ -131,7 +131,17 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
     if location and location != "all":
         job_query["location"] = location
     all_jobs = await db.jobs.find(job_query, {"_id": 0}).to_list(5000)
-    
+
+    # For jobs without extras (older records), fall back to the linked booking's extras
+    booking_ids_needed = [j["booking_id"] for j in all_jobs if j.get("booking_id") and not j.get("extras")]
+    booking_extras_map = {}
+    if booking_ids_needed:
+        linked_bookings = await db.bookings.find(
+            {"booking_id": {"$in": booking_ids_needed}},
+            {"_id": 0, "booking_id": 1, "extras": 1}
+        ).to_list(5000)
+        booking_extras_map = {b["booking_id"]: b.get("extras") or [] for b in linked_bookings}
+
     result = []
     for worker in all_workers:
         wid = worker["worker_id"]
@@ -152,10 +162,14 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
         worker_jobs = [j for j in all_jobs if j.get("worker_id") == wid]
         cars_count = len(worker_jobs)
         # Count total services: each job = 1 main service + number of extras
-        services_count = sum(
-            1 + len(j.get("extras", []) if isinstance(j.get("extras"), list) else [])
-            for j in worker_jobs
-        )
+        # Fall back to linked booking's extras for older job records that lack the field
+        def _extras_count(j):
+            extras = j.get("extras")
+            if not extras and j.get("booking_id"):
+                extras = booking_extras_map.get(j["booking_id"], [])
+            return len(extras) if isinstance(extras, list) else 0
+
+        services_count = sum(1 + _extras_count(j) for j in worker_jobs)
         revenue = sum(j.get("price", 0) for j in worker_jobs)
         cash = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") == "keszpenz")
         card = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") in ("kartya", "utalas"))

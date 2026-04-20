@@ -335,7 +335,7 @@ export const Dashboard = () => {
       }
 
       // Auto-open invoice dialog when marking job as done with payment
-      if (status === "kesz" && paymentMethod && invoiceConfigured && job && !job.invoice_number) {
+      if (status === "kesz" && paymentMethod && job && !job.invoice_number) {
         const jobWithPayment = { ...job, payment_method: paymentMethod };
         // Small delay so fetchData can start, then open dialog
         setTimeout(() => openInvoiceDialog(jobWithPayment), 300);
