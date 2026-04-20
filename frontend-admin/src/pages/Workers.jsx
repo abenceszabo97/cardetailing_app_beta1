@@ -105,122 +105,236 @@ export const Workers = () => {
   const [addingAbsence, setAddingAbsence] = useState(false);
 
   const generateWorkerPDF = () => {
-    const doc = new jsPDF();
-    const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
-    
-    doc.setFontSize(20);
-    doc.text("X-CLEAN Dolgozoi Havi Riport", 14, 22);
-    doc.setFontSize(12);
-    doc.text(`Honap: ${monthLabel}`, 14, 32);
-    
-    const totals = workerStats.reduce((acc, w) => ({
-      days: acc.days + w.days_worked,
-      hours: acc.hours + w.hours_worked,
-      cars: acc.cars + w.cars_completed,
-      revenue: acc.revenue + w.revenue
-    }), { days: 0, hours: 0, cars: 0, revenue: 0 });
-    
-    autoTable(doc, {
-      startY: 40,
-      head: [["Megnevezes", "Ertek"]],
-      body: [
-        ["Osszes ledolgozott nap", `${totals.days} nap`],
-        ["Osszes ledolgozott ora", `${totals.hours.toFixed(1)} ora`],
-        ["Osszes elkeszitett auto", `${totals.cars} db`],
-        ["Osszes bevetel", `${totals.revenue.toLocaleString()} Ft`],
-      ],
-      theme: "grid",
-      headStyles: { fillColor: [30, 41, 59] },
-    });
-    
-    if (workerStats.length > 0) {
-      const finalY = doc.lastAutoTable?.finalY || 100;
-      autoTable(doc, {
-        startY: finalY + 14,
-        head: [["Dolgozo", "Telephely", "Napok", "Orak", "Autok", "Bevetel"]],
-        body: workerStats.map(w => [
-          w.name,
-          w.location,
-          `${w.days_worked} nap`,
-          `${w.hours_worked} ora`,
-          `${w.cars_completed} db`,
-          `${w.revenue.toLocaleString()} Ft`
-        ]),
-        theme: "grid",
-        headStyles: { fillColor: [30, 41, 59] },
+    return new Promise((resolve) => {
+      const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
+      const totals = workerStats.reduce((acc, w) => ({
+        days: acc.days + w.days_worked,
+        hours: acc.hours + w.hours_worked,
+        cars: acc.cars + w.cars_completed,
+        services: acc.services + (w.services_completed || w.cars_completed),
+        revenue: acc.revenue + w.revenue,
+        cash: acc.cash + (w.cash || 0),
+        card: acc.card + (w.card || 0),
+      }), { days: 0, hours: 0, cars: 0, services: 0, revenue: 0, cash: 0, card: 0 });
+
+      const workerRows = workerStats.map(w => `
+        <tr>
+          <td>${w.name}</td>
+          <td>${w.location}</td>
+          <td style="text-align:center">${w.days_worked}</td>
+          <td style="text-align:center">${w.hours_worked} ó</td>
+          <td style="text-align:center">${w.cars_completed}</td>
+          <td style="text-align:center">${w.services_completed || w.cars_completed}</td>
+          <td style="text-align:right">${(w.revenue || 0).toLocaleString('hu-HU')} Ft</td>
+          <td style="text-align:right">${(w.cash || 0).toLocaleString('hu-HU')} Ft</td>
+          <td style="text-align:right">${(w.card || 0).toLocaleString('hu-HU')} Ft</td>
+        </tr>
+      `).join("");
+
+      const html = `
+        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1e293b; padding: 8px; width: 780px;">
+          <div style="background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px;">X-CLEAN Autókozmetika</div>
+            <div style="font-size: 14px; margin-top: 4px; opacity: 0.9;">Havi Dolgozói Riport — ${monthLabel}</div>
+            <div style="font-size: 10px; margin-top: 2px; opacity: 0.7;">Generálva: ${new Date().toLocaleDateString('hu-HU')}</div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+            ${[
+              { label: 'Ledolgozott napok', value: totals.days + ' nap' },
+              { label: 'Ledolgozott órák', value: totals.hours.toFixed(1) + ' óra' },
+              { label: 'Elvégzett autók', value: totals.cars + ' db' },
+              { label: 'Összes szolgáltatás', value: totals.services + ' db' },
+              { label: 'Összes bevétel', value: totals.revenue.toLocaleString('hu-HU') + ' Ft' },
+              { label: 'Ebből készpénz', value: totals.cash.toLocaleString('hu-HU') + ' Ft' },
+              { label: 'Ebből kártya', value: totals.card.toLocaleString('hu-HU') + ' Ft' },
+            ].map(s => `
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 12px; min-width: 100px; flex: 1;">
+                <div style="font-size: 9px; color: #16a34a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${s.label}</div>
+                <div style="font-size: 14px; font-weight: bold; color: #15803d; margin-top: 2px;">${s.value}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead>
+              <tr style="background: #1e293b; color: white;">
+                <th style="padding: 7px 8px; text-align: left; border: 1px solid #334155;">Dolgozó</th>
+                <th style="padding: 7px 8px; text-align: left; border: 1px solid #334155;">Telephely</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Napok</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Órák</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Autók</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Szolg.</th>
+                <th style="padding: 7px 8px; text-align: right; border: 1px solid #334155;">Bevétel</th>
+                <th style="padding: 7px 8px; text-align: right; border: 1px solid #334155;">Készpénz</th>
+                <th style="padding: 7px 8px; text-align: right; border: 1px solid #334155;">Kártya</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${workerRows}
+              <tr style="background: #f0fdf4; font-weight: bold; border-top: 2px solid #16a34a;">
+                <td colspan="2" style="padding: 7px 8px; border: 1px solid #bbf7d0;">ÖSSZESEN</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.days}</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.hours.toFixed(1)} ó</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.cars}</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.services}</td>
+                <td style="padding: 7px 8px; text-align: right; border: 1px solid #bbf7d0;">${totals.revenue.toLocaleString('hu-HU')} Ft</td>
+                <td style="padding: 7px 8px; text-align: right; border: 1px solid #bbf7d0;">${totals.cash.toLocaleString('hu-HU')} Ft</td>
+                <td style="padding: 7px 8px; text-align: right; border: 1px solid #bbf7d0;">${totals.card.toLocaleString('hu-HU')} Ft</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 16px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px;">
+            X-CLEAN Autókozmetika | Debrecen, Vágóhíd u. 2. | Tel: 06 (20) 473 9638 | www.xclean.hu
+          </div>
+        </div>
+      `;
+
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      doc.html(container, {
+        callback: (doc) => {
+          document.body.removeChild(container);
+          resolve(doc);
+        },
+        x: 5,
+        y: 5,
+        width: 287,
+        windowWidth: 800,
       });
-    }
-    
-    return doc;
+    });
   };
 
   const generateAttendancePDF = async () => {
     try {
       const res = await axios.get(`${API}/shifts/attendance-report?month=${statsMonth}`, { withCredentials: true });
       const report = res.data;
-      
-      const doc = new jsPDF();
       const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
-      
-      doc.setFontSize(20);
-      doc.text("X-CLEAN Jelenléti Ív", 14, 22);
-      doc.setFontSize(12);
-      doc.text(`Honap: ${monthLabel}`, 14, 32);
-      
-      let currentY = 42;
-      
-      for (const worker of report.workers) {
-        // Check if we need a new page
-        if (currentY > 240) {
-          doc.addPage();
-          currentY = 20;
-        }
-        
-        doc.setFontSize(14);
-        doc.setTextColor(34, 197, 94); // Green
-        doc.text(worker.worker_name, 14, currentY);
-        doc.setTextColor(0, 0, 0);
-        currentY += 6;
-        
-        doc.setFontSize(10);
-        const absLine = worker.absence_days > 0 ? ` | Hianyzes: ${worker.absence_days}` : "";
-        doc.text(`Osszes ora: ${worker.total_hours} | Munkanapok: ${worker.normal_days} | Szabadsag: ${worker.vacation_days} | Betegszabadsag: ${worker.sick_days}${absLine}`, 14, currentY);
-        currentY += 6;
 
-        const shiftTypeLabel = (t) => {
-          if (t === "normal") return "Munka";
-          if (t === "vacation") return "Szabadsag";
-          if (t === "sick_leave") return "Betegszab.";
-          if (t === "absence") return "Hianyzes";
-          return t;
-        };
+      const shiftTypeLabel = (t) => {
+        if (t === "normal") return "Munka";
+        if (t === "vacation") return "Szabadság";
+        if (t === "sick_leave") return "Betegszabadság";
+        if (t === "absence") return "Hiányzás";
+        return t;
+      };
 
-        if (worker.shifts.length > 0) {
-          autoTable(doc, {
-            startY: currentY,
-            head: [["Datum", "Nap", "Kezdes", "Befejezes", "Orak", "Tipus"]],
-            body: worker.shifts.map(s => [
-              s.date,
-              s.day_name.substring(0, 3),
-              s.start_time,
-              s.end_time,
-              s.shift_type === "absence" ? "–" : `${s.hours} ora`,
-              shiftTypeLabel(s.shift_type)
-            ]),
-            theme: "grid",
-            headStyles: { fillColor: [30, 41, 59], fontSize: 8 },
-            styles: { fontSize: 8 },
-            margin: { left: 14 }
-          });
-          currentY = doc.lastAutoTable?.finalY + 10 || currentY + 50;
-        } else {
-          currentY += 10;
-        }
-      }
-      
-      return doc;
+      const shiftTypeColor = (t) => {
+        if (t === "normal") return "#16a34a";
+        if (t === "vacation") return "#2563eb";
+        if (t === "sick_leave") return "#dc2626";
+        if (t === "absence") return "#d97706";
+        return "#64748b";
+      };
+
+      const dayNames = { Monday: "Hétfő", Tuesday: "Kedd", Wednesday: "Szerda", Thursday: "Csütörtök", Friday: "Péntek", Saturday: "Szombat", Sunday: "Vasárnap" };
+
+      const workerSections = report.workers.map(worker => {
+        const shiftRows = worker.shifts.map(s => `
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0;">${s.date}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0;">${dayNames[s.day_name] || s.day_name}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type !== 'absence' ? s.start_time : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type !== 'absence' ? s.end_time : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.lunch || '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type === 'normal' ? s.hours + ' ó' : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center; color: ${shiftTypeColor(s.shift_type)}; font-weight: bold;">${shiftTypeLabel(s.shift_type)}</td>
+          </tr>
+        `).join('');
+
+        return `
+          <div style="margin-bottom: 24px; page-break-inside: avoid;">
+            <div style="background: #1e293b; color: white; padding: 10px 14px; border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 14px; font-weight: bold;">${worker.worker_name}</span>
+              <span style="font-size: 11px; opacity: 0.8;">${monthLabel}</span>
+            </div>
+            <div style="display: flex; gap: 0; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; overflow: hidden;">
+              ${[
+                { label: 'Munkanapok', value: worker.normal_days + ' nap', color: '#16a34a' },
+                { label: 'Ledolg. órák', value: worker.total_hours + ' óra', color: '#15803d' },
+                { label: 'Szabadság', value: worker.vacation_days + ' nap', color: '#2563eb' },
+                { label: 'Betegszabadság', value: worker.sick_days + ' nap', color: '#dc2626' },
+                { label: 'Hiányzás', value: (worker.absence_days || 0) + ' nap', color: '#d97706' },
+              ].map(s => `
+                <div style="flex: 1; padding: 8px 10px; border-right: 1px solid #e2e8f0; background: #f8fafc;">
+                  <div style="font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">${s.label}</div>
+                  <div style="font-size: 15px; font-weight: bold; color: ${s.color}; margin-top: 2px;">${s.value}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            ${worker.shifts.length > 0 ? `
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 8px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: left;">Dátum</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: left;">Nap</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Kezdés</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Befejezés</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Ebéd</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Órák</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Típus</th>
+                </tr>
+              </thead>
+              <tbody>${shiftRows}</tbody>
+            </table>` : '<p style="color: #94a3b8; font-size: 11px; margin-top: 8px; padding: 8px;">Nincs rögzített műszak ebben a hónapban.</p>'}
+
+            <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+              <span>Dolgozó aláírása: _______________________________</span>
+              <span>Vezető aláírása: _______________________________</span>
+            </div>
+          </div>
+        `;
+      }).join('<div style="page-break-after: always;"></div>');
+
+      const fullHtml = `
+        <div style="font-family: Arial, Helvetica, sans-serif; color: #1e293b; padding: 10px; width: 740px;">
+          <div style="background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 20px; font-weight: bold;">X-CLEAN Autókozmetika</div>
+              <div style="font-size: 13px; margin-top: 3px; opacity: 0.9;">Jelenléti Ív — ${monthLabel}</div>
+            </div>
+            <div style="font-size: 10px; opacity: 0.75; text-align: right;">
+              Generálva: ${new Date().toLocaleDateString('hu-HU')}<br/>
+              Debrecen, Vágóhíd u. 2.
+            </div>
+          </div>
+          ${workerSections}
+          <div style="font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+            X-CLEAN Autókozmetika | Tel: 06 (20) 473 9638 | rendeles@xclean.hu
+          </div>
+        </div>
+      `;
+
+      return new Promise((resolve) => {
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.innerHTML = fullHtml;
+        document.body.appendChild(container);
+
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        doc.html(container, {
+          callback: (doc) => {
+            document.body.removeChild(container);
+            resolve(doc);
+          },
+          x: 5,
+          y: 5,
+          width: 200,
+          windowWidth: 760,
+        });
+      });
     } catch (error) {
-      toast.error("Hiba a jelenleti iv generalasanal");
+      toast.error("Hiba a jelenléti ív generálásakor");
       return null;
     }
   };
@@ -260,8 +374,8 @@ export const Workers = () => {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
-  const handleDownloadWorkerPDF = () => {
-    const doc = generateWorkerPDF();
+  const handleDownloadWorkerPDF = async () => {
+    const doc = await generateWorkerPDF();
     savePDF(doc, `xclean_dolgozoi_riport_${statsMonth}.pdf`);
   };
 

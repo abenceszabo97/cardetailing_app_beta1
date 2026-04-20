@@ -44,7 +44,8 @@ import {
   AlertTriangle,
   Package,
   FileText,
-  Receipt
+  Receipt,
+  Search
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
@@ -113,8 +114,9 @@ export const Dashboard = () => {
   // Invoice state
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceJob, setInvoiceJob] = useState(null);
-  const [invoiceForm, setInvoiceForm] = useState({ buyer_name: "", buyer_email: "", buyer_address: "", buyer_tax_number: "", comment: "" });
+  const [invoiceForm, setInvoiceForm] = useState({ buyer_name: "", buyer_email: "", buyer_address: "", buyer_tax_number: "", comment: "", billing_entity: "auto" });
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [jobSearch, setJobSearch] = useState("");
   const [invoiceConfigured, setInvoiceConfigured] = useState(false);
 
   useEffect(() => {
@@ -130,7 +132,8 @@ export const Dashboard = () => {
       buyer_email: job.email || "",
       buyer_address: "",
       buyer_tax_number: "",
-      comment: `${job.plate_number} – ${job.service_name || "Autókozmetikai szolgáltatás"}`
+      comment: `${job.plate_number} – ${job.service_name || "Autókozmetikai szolgáltatás"}`,
+      billing_entity: "auto"
     });
     setInvoiceDialogOpen(true);
   };
@@ -147,6 +150,7 @@ export const Dashboard = () => {
         buyer_tax_number: invoiceForm.buyer_tax_number || undefined,
         payment_method: invoiceJob.payment_method || "keszpenz",
         comment: invoiceForm.comment || undefined,
+        billing_entity: invoiceForm.billing_entity !== "auto" ? invoiceForm.billing_entity : undefined,
       }, { withCredentials: true });
       toast.success(res.data.message || "Számla kiállítva!");
       setInvoiceDialogOpen(false);
@@ -605,6 +609,13 @@ export const Dashboard = () => {
     );
   }
 
+  const filteredTodayJobs = jobSearch.trim()
+    ? todayJobs.filter(j => {
+        const q = jobSearch.toLowerCase();
+        return j.plate_number?.toLowerCase().includes(q) || j.customer_name?.toLowerCase().includes(q);
+      })
+    : todayJobs;
+
   return (
     <div className="space-y-4 sm:space-y-6" data-testid="dashboard">
       {/* Header */}
@@ -618,7 +629,26 @@ export const Dashboard = () => {
             <MapPin className="w-4 h-4 text-green-400" />
             <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
           </div>
-          
+
+          {/* Search bar */}
+          <div className="relative flex-1 sm:flex-none sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Input
+              placeholder="Rendszám, ügyfél..."
+              value={jobSearch}
+              onChange={e => setJobSearch(e.target.value)}
+              className="pl-9 pr-8 bg-slate-900 border-slate-700 text-white h-9 text-sm"
+            />
+            {jobSearch && (
+              <button
+                onClick={() => setJobSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
             <DialogTrigger asChild>
               <Button className="bg-green-600 hover:bg-green-500" data-testid="new-job-btn">
@@ -989,8 +1019,8 @@ export const Dashboard = () => {
                 /* Worker-based view - responsive columns */
                 <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
                   {workers.slice(0, 2).map((worker) => {
-                    const workerJobs = todayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
-                    const unassignedJobs = todayJobs.filter(j => !j.worker_id && !j.worker_name);
+                    const workerJobs = filteredTodayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
+                    const unassignedJobs = filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name);
                     
                     return (
                       <div key={worker.worker_id} className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
@@ -1147,7 +1177,7 @@ export const Dashboard = () => {
                   })}
 
                   {/* Unassigned jobs section - if there are any */}
-                  {todayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
+                  {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
                     <div className="md:col-span-2 bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden">
                       <div className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-b border-orange-500/30 px-4 py-3">
                         <div className="flex items-center justify-between">
@@ -1158,12 +1188,12 @@ export const Dashboard = () => {
                             <span className="text-white font-semibold">Hozzárendelésre vár</span>
                           </div>
                           <Badge className="bg-orange-500/20 text-orange-300 text-xs">
-                            {todayJobs.filter(j => !j.worker_id && !j.worker_name).length} munka
+                            {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length} munka
                           </Badge>
                         </div>
                       </div>
                       <div className="p-2 sm:p-3 space-y-2">
-                        {todayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
+                        {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
                           <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-orange-500/30 transition-colors">
                             {/* Mobile-optimized layout */}
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
@@ -1671,6 +1701,30 @@ export const Dashboard = () => {
               <div>
                 <Label className="text-slate-300">Cím <span className="text-slate-500 font-normal">(opcionális)</span></Label>
                 <Input value={invoiceForm.buyer_address} onChange={e => setInvoiceForm(f => ({...f, buyer_address: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Irányítószám, város, utca" />
+              </div>
+              <div>
+                <Label className="text-slate-300 mb-2 block">Számlázási fiók</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "auto", label: "🤖 Automatikus" },
+                    { value: "budapest", label: "🏙️ Budapest" },
+                    { value: "debrecen_private", label: "👤 Debrecen – Magánszemély" },
+                    { value: "debrecen_company", label: "🏢 Debrecen – Céges" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setInvoiceForm(f => ({...f, billing_entity: opt.value}))}
+                      className={`p-2 rounded-lg border text-xs text-left transition-all ${
+                        invoiceForm.billing_entity === opt.value
+                          ? 'border-amber-500 bg-amber-500/10 text-white'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
                 <Label className="text-slate-300">Megjegyzés</Label>

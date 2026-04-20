@@ -254,7 +254,6 @@ const BookingPage = () => {
   // Select a promotion
   const selectPromotion = (promo) => {
     setSelectedPromotion(promo);
-    setSelectedExtras([]); // Clear extras when promotion selected
     // Auto-select size and category based on promotion
     if (promo.car_sizes?.length > 0) {
       setSelectedSize(promo.car_sizes[promo.car_sizes.length - 1]); // Largest allowed
@@ -339,6 +338,15 @@ const BookingPage = () => {
     const kompBorapKey = (() => { const e = extras.find(ex => ex.name === "Komplett 3 fázisú bőrápolás"); return e ? (e.service_id || e.name) : "Komplett 3 fázisú bőrápolás"; })();
     if (name === "3 fázisú bőrápolás/ülés" && selectedExtras.includes(kompBorapKey)) return true;
     return false;
+  };
+
+  // Returns true if the extra is already included in the selected promotion
+  const isExtraIncludedInPromo = (extraId) => {
+    if (!selectedPromotion?.features) return false;
+    const name = resolveExtraName(extraId);
+    return selectedPromotion.features.some(f =>
+      f.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(f.toLowerCase())
+    );
   };
 
   const toggleExtra = (extraId) => {
@@ -930,64 +938,60 @@ const BookingPage = () => {
                   <label className="text-sm text-slate-400 mb-3 block font-medium">
                     {selectedPromotion ? 'Extra szolgáltatások' : '4. Extra szolgáltatások (opcionális)'}
                   </label>
-                  {selectedPromotion ? (
-                    <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                      <p className="text-amber-400 text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Az akciós csomag már tartalmazza az összes szolgáltatást!
-                      </p>
-                      <p className="text-slate-500 text-xs mt-1">Az akciós árak fix csomagokat tartalmaznak, extra szolgáltatás nem adható hozzá.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {extras.map(extra => {
-                        const extraKey = extra.service_id || extra.name;
-                        const isSelected = selectedExtras.includes(extraKey);
-                        const disabled = isExtraDisabled(extraKey);
-                        const isExclusive = extra.name === "Eladásra felkészítés";
-                        return (
-                          <div
-                            key={extraKey}
-                            onClick={() => !disabled && toggleExtra(extraKey)}
-                            className={`p-3 rounded-lg border transition-all ${
-                              disabled && !isSelected
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {extras.map(extra => {
+                      const extraKey = extra.service_id || extra.name;
+                      const isSelected = selectedExtras.includes(extraKey);
+                      const includedInPromo = isExtraIncludedInPromo(extraKey);
+                      const disabled = includedInPromo || isExtraDisabled(extraKey);
+                      const isExclusive = extra.name === "Eladásra felkészítés";
+                      return (
+                        <div
+                          key={extraKey}
+                          onClick={() => !disabled && toggleExtra(extraKey)}
+                          className={`p-3 rounded-lg border transition-all ${
+                            includedInPromo
+                              ? 'border-slate-800 bg-slate-900/30 cursor-not-allowed opacity-50'
+                              : disabled && !isSelected
                                 ? 'border-slate-800 bg-slate-900/30 cursor-not-allowed opacity-40'
                                 : isSelected
                                   ? isExclusive
                                     ? 'border-orange-500 bg-orange-500/10 cursor-pointer'
                                     : 'border-green-500 bg-green-500/10 cursor-pointer'
                                   : 'border-slate-700 hover:border-slate-600 bg-slate-800/30 cursor-pointer'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <Checkbox
-                                  checked={isSelected}
-                                  disabled={disabled && !isSelected}
-                                  className={isSelected && isExclusive ? "border-orange-500" : "border-slate-600"}
-                                />
-                                <div className="min-w-0">
-                                  <span className={`text-sm font-medium ${isExclusive ? 'text-orange-300' : 'text-white'}`}>
-                                    {extra.name}
-                                    {isExclusive && <span className="ml-2 text-xs bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">FULL SERVICE</span>}
-                                  </span>
-                                  {extra.description && (
-                                    <p className="text-xs text-slate-500 truncate">{extra.description}</p>
-                                  )}
-                                  {disabled && !isSelected && (
-                                    <p className="text-xs text-slate-600 italic">Más szolgáltatással nem kombinálható</p>
-                                  )}
-                                </div>
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Checkbox
+                                checked={isSelected}
+                                disabled={disabled && !isSelected}
+                                className={isSelected && isExclusive ? "border-orange-500" : "border-slate-600"}
+                              />
+                              <div className="min-w-0">
+                                <span className={`text-sm font-medium ${isExclusive ? 'text-orange-300' : 'text-white'}`}>
+                                  {extra.name}
+                                  {isExclusive && <span className="ml-2 text-xs bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">FULL SERVICE</span>}
+                                </span>
+                                {extra.description && (
+                                  <p className="text-xs text-slate-500 truncate">{extra.description}</p>
+                                )}
+                                {includedInPromo && (
+                                  <p className="text-xs text-amber-500 italic">✓ Akció tartalmazza</p>
+                                )}
+                                {!includedInPromo && disabled && !isSelected && (
+                                  <p className="text-xs text-slate-600 italic">Más szolgáltatással nem kombinálható</p>
+                                )}
                               </div>
-                              <span className={`font-medium text-sm whitespace-nowrap ${isExclusive ? 'text-orange-400' : 'text-green-400'}`}>
-                                {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
-                              </span>
                             </div>
+                            <span className={`font-medium text-sm whitespace-nowrap ${isExclusive ? 'text-orange-400' : 'text-green-400'}`}>
+                              {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

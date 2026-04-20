@@ -69,6 +69,7 @@ class InvoiceCreate(BaseModel):
     payment_method: str = "keszpenz"
     comment: Optional[str] = None
     extra_items: Optional[List[dict]] = None  # [{name, price}]
+    billing_entity: Optional[str] = None  # "budapest" | "debrecen_private" | "debrecen_company" | None = auto
 
 
 class ApiKeyUpdate(BaseModel):
@@ -292,12 +293,14 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
     is_company = detect_company(data.buyer_name) or bool(data.buyer_tax_number)
     is_receipt = not data.want_invoice or (not data.buyer_tax_number and not is_company)
 
-    api_key = await resolve_api_key(location, is_company)
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="Számlázz.hu API kulcs nincs beállítva ehhez a telephely/ügyfél kombinációhoz. Menj a Beállítások oldalra."
-        )
+    if data.billing_entity:
+        api_key = await get_setting(f"szamlazz_{data.billing_entity}")
+        if not api_key:
+            raise HTTPException(status_code=400, detail=f"Nincs beállítva API kulcs ehhez a fiókhoz ({data.billing_entity}). Menj a Beállítások oldalra.")
+    else:
+        api_key = await resolve_api_key(location, is_company)
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Számlázz.hu API kulcs nincs beállítva ehhez a telephely/ügyfél kombinációhoz. Menj a Beállítások oldalra.")
 
     xml_payload = _build_invoice_xml(api_key, job, data, is_receipt)
 
