@@ -109,7 +109,8 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
     
     total_cars = len(jobs)
     cash_total = sum(j["price"] for j in jobs if j.get("payment_method") == "keszpenz")
-    card_total = sum(j["price"] for j in jobs if j.get("payment_method") == "kartya")
+    card_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("kartya", "bankkartya"))
+    transfer_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("utalas", "atutalas"))
     
     withdrawals = record.get("withdrawals", [])
     total_withdrawals = sum(w.get("amount", 0) for w in withdrawals)
@@ -125,6 +126,7 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
             "total_cars": total_cars,
             "cash_total": cash_total,
             "card_total": card_total,
+            "transfer_total": transfer_total,
             "closing_balance": actual_closing,
             "expected_closing": expected_closing,
             "discrepancy": discrepancy,
@@ -139,7 +141,7 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
         "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
         "type": "day_closed",
         "title": "Nap lezárva",
-        "message": f"{data.location} - {total_cars} autó - {cash_total + card_total:,.0f} Ft bevétel",
+        "message": f"{data.location} - {total_cars} autó - {cash_total + card_total + transfer_total:,.0f} Ft bevétel",
         "location": data.location,
         "read": False,
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -149,10 +151,11 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
     await db.notifications.insert_one(notification)
     
     return {
-        "message": "Nap lezárva", 
-        "total_cars": total_cars, 
-        "cash_total": cash_total, 
+        "message": "Nap lezárva",
+        "total_cars": total_cars,
+        "cash_total": cash_total,
         "card_total": card_total,
+        "transfer_total": transfer_total,
         "expected_closing": expected_closing,
         "actual_closing": actual_closing,
         "discrepancy": discrepancy

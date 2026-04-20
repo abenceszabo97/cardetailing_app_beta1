@@ -300,8 +300,8 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     {"$set": booking_sync}
                 )
                 
-                if update_data.get("status") == "kesz" and update_data.get("payment_method"):
-                    # Update customer total_spent with the actual updated price
+                if update_data.get("status") == "kesz" and update_data.get("payment_method") and existing_job.get("status") != "kesz":
+                    # Update customer total_spent with the actual updated price (only if not already done)
                     final_price = update_data.get("price", existing_job.get("price", 0))
                     await db.customers.update_one(
                         {"plate_number": booking["plate_number"]},
@@ -408,7 +408,8 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
     if not job:
         raise HTTPException(status_code=404, detail="Munka nem található")
     
-    if update_data.get("status") == "kesz":
+    if update_data.get("status") == "kesz" and job.get("status") != "kesz":
+        # Only increment total_spent once (guard against re-marking as kesz)
         await db.customers.update_one(
             {"customer_id": job["customer_id"]},
             {"$inc": {"total_spent": job["price"]}}

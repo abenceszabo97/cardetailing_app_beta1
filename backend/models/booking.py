@@ -14,6 +14,7 @@ class Booking(BaseModel):
     invoice_name: Optional[str] = None
     invoice_tax_number: Optional[str] = None
     invoice_address: Optional[str] = None
+    customer_id: Optional[str] = None  # linked customer record
     service_id: str
     service_name: str
     worker_id: Optional[str] = None

@@ -275,6 +275,19 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
     if not job:
         raise HTTPException(status_code=404, detail="Munka nem található")
 
+    # Auto-populate extra_items from job extras if not explicitly provided
+    if not data.extra_items and job.get("extras"):
+        auto_extras = []
+        for extra_id in job["extras"]:
+            extra_svc = await db.services.find_one({"service_id": extra_id}, {"_id": 0, "name": 1, "price": 1, "min_price": 1})
+            if extra_svc:
+                auto_extras.append({
+                    "name": extra_svc.get("name", "Extra"),
+                    "price": extra_svc.get("price") or extra_svc.get("min_price", 0)
+                })
+        if auto_extras:
+            data = data.model_copy(update={"extra_items": auto_extras})
+
     location = job.get("location", "Debrecen")
     is_company = detect_company(data.buyer_name) or bool(data.buyer_tax_number)
     is_receipt = not data.want_invoice or (not data.buyer_tax_number and not is_company)

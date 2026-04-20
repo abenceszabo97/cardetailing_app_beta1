@@ -274,10 +274,19 @@ async def create_booking(data: BookingCreate):
         cdoc["cancel_count"] = 0
         cdoc["blacklisted"] = False
         await db.customers.insert_one(cdoc)
+        customer_id = cust.customer_id
     else:
         await db.customers.update_one(
             {"plate_number": data.plate_number.upper()},
             {"$inc": {"booking_count": 1}, "$set": {"email": data.email, "phone": data.phone}}
+        )
+        customer_id = existing_cust.get("customer_id", "")
+
+    # Link customer_id to the booking
+    if customer_id:
+        await db.bookings.update_one(
+            {"booking_id": booking.booking_id},
+            {"$set": {"customer_id": customer_id}}
         )
     
     # Send confirmation email if configured
@@ -485,8 +494,12 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"no_show_count": 1}})
     elif data.status == "lemondta" and booking:
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"cancel_count": 1}})
-    elif data.status == "kesz" and booking:
-        await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
+    elif data.status == "kesz" and booking and original_booking.get("status") != "kesz":
+        # Only increment total_spent if it wasn't already "kesz" (prevent double-count)
+        # Also skip if a completed job already exists for this booking (jobs.py handles it)
+        existing_done_job = await db.jobs.find_one({"booking_id": booking_id, "status": "kesz"}, {"_id": 0, "job_id": 1})
+        if not existing_done_job:
+            await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
         # Generate review token if not already set
         if not booking.get("review_token"):
             review_token = uuid.uuid4().hex
