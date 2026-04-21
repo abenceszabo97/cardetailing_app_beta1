@@ -381,7 +381,7 @@ export const Statistics = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <Select value={reportPeriod} onValueChange={setReportPeriod}>
-                <SelectTrigger className="w-[120px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="report-period-select">
+                <SelectTrigger className="w-full sm:w-[120px] bg-slate-900 border-slate-700 text-white text-sm" data-testid="report-period-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-700">
@@ -395,7 +395,7 @@ export const Statistics = () => {
                 value={reportDate}
                 onChange={(e) => setReportDate(e.target.value)}
                 max={format(new Date(), "yyyy-MM-dd")}
-                className="bg-slate-900 border-slate-700 text-white w-40 h-9 text-sm"
+                className="bg-slate-900 border-slate-700 text-white w-full sm:w-40 h-9 text-sm"
                 data-testid="report-date-input"
               />
               <Button
@@ -424,7 +424,7 @@ export const Statistics = () => {
           <Card className="glass-card">
             <CardContent className="p-3 sm:p-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
                   <CalendarDays className="w-5 h-5 text-green-400" />
                   <span className="text-white font-medium">Napi statisztika</span>
                 </div>
@@ -442,7 +442,7 @@ export const Statistics = () => {
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                     max={format(new Date(), "yyyy-MM-dd")}
-                    className="bg-slate-900 border-slate-700 text-white w-40 h-8 text-sm"
+                    className="bg-slate-900 border-slate-700 text-white w-full sm:w-40 h-8 text-sm"
                   />
                   <Button 
                     variant="outline" 
@@ -570,13 +570,13 @@ export const Statistics = () => {
                 </div>
               </CardContent>
             </Card>
-            <Card className="glass-card" data-testid="month-cars-change-card">
-              <CardContent className="p-4">
+              <Card className="glass-card" data-testid="month-cars-change-card">
+                <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-slate-400">Autók vs. előző hónap</p>
+                    <p className="text-[10px] sm:text-xs text-slate-400">Autók vs. előző hónap</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-white">{advancedStats.month_comparison?.current_month?.cars || 0}</p>
+                      <p className="text-lg sm:text-2xl font-bold text-white">{advancedStats.month_comparison?.current_month?.cars || 0}</p>
                       {advancedStats.month_comparison?.cars_change_percent !== 0 && (
                         <span className={`flex items-center text-sm ${advancedStats.month_comparison?.cars_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {advancedStats.month_comparison?.cars_change_percent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
@@ -591,13 +591,13 @@ export const Statistics = () => {
                 </div>
               </CardContent>
             </Card>
-            <Card className="glass-card" data-testid="month-revenue-change-card">
-              <CardContent className="p-4">
+              <Card className="glass-card" data-testid="month-revenue-change-card">
+                <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-slate-400">Bevétel vs. előző hónap</p>
+                    <p className="text-[10px] sm:text-xs text-slate-400">Bevétel vs. előző hónap</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-white">{(advancedStats.month_comparison?.current_month?.revenue || 0).toLocaleString()} Ft</p>
+                      <p className="text-sm sm:text-2xl font-bold text-white break-words">{(advancedStats.month_comparison?.current_month?.revenue || 0).toLocaleString()} Ft</p>
                       {advancedStats.month_comparison?.revenue_change_percent !== 0 && (
                         <span className={`flex items-center text-sm ${advancedStats.month_comparison?.revenue_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {advancedStats.month_comparison?.revenue_change_percent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}

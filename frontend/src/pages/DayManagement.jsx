@@ -539,7 +539,7 @@ export const DayManagement = () => {
           <div className="flex flex-wrap gap-2 sm:gap-3" data-testid="day-export-buttons">
             <Button 
               onClick={handleDownloadPDF}
-              className="bg-slate-800 hover:bg-slate-700 text-white"
+              className="bg-slate-800 hover:bg-slate-700 text-white w-full sm:w-auto"
               data-testid="download-day-pdf-btn"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -548,7 +548,7 @@ export const DayManagement = () => {
             <Button 
               onClick={handleEmailPDF}
               variant="outline"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800 w-full sm:w-auto"
               data-testid="email-day-pdf-btn"
             >
               <Mail className="w-4 h-4 mr-2" />
@@ -572,9 +572,9 @@ export const DayManagement = () => {
                   {todayJobs.filter(j => j.status === "kesz").map(job => (
                     <div 
                       key={job.job_id}
-                      className="flex items-center justify-between p-3 bg-slate-950/50 rounded-lg"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-slate-950/50 rounded-lg"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 self-end sm:self-auto">
                         <span className="font-mono font-bold text-white">{job.plate_number}</span>
                         <span className="text-slate-400">{job.service_name}</span>
                       </div>
@@ -603,7 +603,7 @@ export const DayManagement = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-950/50 rounded-lg">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-950/50 rounded-lg">
                   <div>
                     <p className="text-sm text-slate-400">Nyitó egyenleg</p>
                     <p className="text-xl font-semibold text-white">{todayRecord.opening_balance.toLocaleString()} Ft</p>
@@ -741,7 +741,7 @@ export const DayManagement = () => {
 
       {/* Close Day Confirmation Dialog */}
       <Dialog open={showCloseDayConfirm} onOpenChange={setShowCloseDayConfirm}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-[95vw] sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-blue-400">Nap lezárása</DialogTitle>
           </DialogHeader>
@@ -761,7 +761,7 @@ export const DayManagement = () => {
 
       {/* Withdrawal Dialog */}
       <Dialog open={showWithdrawalDialog} onOpenChange={setShowWithdrawalDialog}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-[95vw] sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-orange-400 flex items-center gap-2">
               <Banknote className="w-5 h-5" />

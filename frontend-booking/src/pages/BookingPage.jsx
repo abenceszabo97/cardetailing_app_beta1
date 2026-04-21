@@ -15,7 +15,12 @@ import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date
 import { hu } from "date-fns/locale";
 import { AIChatbot, AIUpsellSuggestions } from "../components/AIComponents";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const backendBaseUrl = (
+  process.env.REACT_APP_BACKEND_URL ||
+  process.env.REACT_APP_API_URL ||
+  window.location.origin
+).replace(/\/$/, "");
+const API = `${backendBaseUrl}/api`;
 
 // Car size icons - inline SVG components matching reference image style
 const CarIcons = {
@@ -108,6 +113,7 @@ const CAR_SIZE_INFO = {
 const BookingPage = () => {
   const [step, setStep] = useState(1);
   const [pricingData, setPricingData] = useState(null);
+  const [pricingError, setPricingError] = useState("");
   const [extras, setExtras] = useState([]);
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -138,13 +144,17 @@ const BookingPage = () => {
   // Load pricing data and extras
   // Load pricing data when location changes
   useEffect(() => {
+    setPricingError("");
     const locParam = form.location ? `?location=${form.location}` : "";
     axios.get(`${API}/services/pricing-data${locParam}`)
       .then(r => {
         setPricingData(r.data);
         if (r.data.extras) setExtras(r.data.extras);
       })
-      .catch(err => console.error("Pricing data error:", err));
+      .catch(err => {
+        console.error("Pricing data error:", err);
+        setPricingError("Nem sikerült betölteni a booking adatokat. Ellenőrizd a backend URL beállítást és próbáld újra.");
+      });
     
     if (!form.location) {
       axios.get(`${API}/services/extras`)
@@ -343,7 +353,22 @@ const BookingPage = () => {
   if (!pricingData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+        {pricingError ? (
+          <Card className="w-full max-w-xl bg-slate-900/90 border-red-500/40 mx-4">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-red-400 mt-0.5" />
+                <div>
+                  <p className="text-red-300 font-medium mb-2">Booking oldal nem tud kapcsolodni a backendhez</p>
+                  <p className="text-slate-300 text-sm mb-3">{pricingError}</p>
+                  <p className="text-slate-500 text-xs">Aktualis API vegpont: {API}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+        )}
       </div>
     );
   }

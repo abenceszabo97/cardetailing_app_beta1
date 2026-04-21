@@ -5,8 +5,12 @@ import { Toaster } from "sonner";
 // Pages
 import BookingPage from "./pages/BookingPage";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const API = `${BACKEND_URL}/api`;
+const backendBaseUrl = (
+  process.env.REACT_APP_BACKEND_URL ||
+  process.env.REACT_APP_API_URL ||
+  window.location.origin
+).replace(/\/$/, "");
+export const API = `${backendBaseUrl}/api`;
 
 // App Router - Public Booking Only
 function AppRouter() {

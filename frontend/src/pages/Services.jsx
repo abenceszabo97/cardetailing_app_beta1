@@ -351,7 +351,7 @@ export const Services = () => {
                 Új szolgáltatás
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+            <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-[95vw] sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle className="text-xl font-['Manrope']">
                   {editingService ? "Szolgáltatás szerkesztése" : "Új szolgáltatás"}
@@ -367,7 +367,7 @@ export const Services = () => {
                     placeholder="Szolgáltatás neve"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300">Kategória</Label>
                     <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
@@ -393,7 +393,7 @@ export const Services = () => {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-slate-300">Időtartam (perc)</Label>
                     <Input
@@ -455,7 +455,8 @@ export const Services = () => {
 
       {/* Services by Category */}
       <Tabs defaultValue="promotions" className="w-full">
-        <TabsList className="bg-slate-900 border border-slate-800 p-1">
+        <div className="overflow-x-auto pb-1">
+        <TabsList className="bg-slate-900 border border-slate-800 p-1 min-w-max">
           <TabsTrigger 
             value="promotions"
             className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400"
@@ -480,10 +481,11 @@ export const Services = () => {
             Extrák
           </TabsTrigger>
         </TabsList>
+        </div>
 
         {/* Promotions Tab */}
         <TabsContent value="promotions" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
             <h2 className="text-lg text-white font-semibold flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-pink-400" />
               Aktuális akciók
@@ -501,7 +503,7 @@ export const Services = () => {
                   Új akció
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-['Manrope']">
                     {editingPromo ? "Akció szerkesztése" : "Új akció létrehozása"}
@@ -526,7 +528,7 @@ export const Services = () => {
                       placeholder="pl. Komplett külső+belső tisztítás M méretig"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Akciós ár (Ft)</Label>
                       <Input
@@ -546,7 +548,7 @@ export const Services = () => {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Kategória</Label>
                       <Select value={promoForm.category} onValueChange={(v) => setPromoForm({...promoForm, category: v})}>
@@ -576,7 +578,7 @@ export const Services = () => {
                   </div>
                   <div>
                     <Label className="text-slate-300">Autó méretek (max)</Label>
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-2">
                       {carSizes.map(size => (
                         <button
                           key={size}
@@ -593,7 +595,7 @@ export const Services = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Időtartam (perc)</Label>
                       <Input
@@ -824,7 +826,7 @@ export const Services = () => {
 
         {/* Extras Tab */}
         <TabsContent value="extras" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
             <h2 className="text-lg text-white font-semibold flex items-center gap-2">
               <Plus className="w-5 h-5 text-blue-400" />
               Extra szolgáltatások
@@ -846,7 +848,7 @@ export const Services = () => {
           <div className="space-y-3">
             {extras.map(extra => (
               <Card key={extra.service_id} className="glass-card">
-                <CardContent className="p-4 flex items-center justify-between">
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-white font-medium">{extra.name}</h3>
@@ -856,7 +858,7 @@ export const Services = () => {
                     </div>
                     <p className="text-sm text-slate-400">{extra.description || extra.category}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 self-end sm:self-auto">
                     <span className="text-green-400 font-bold">
                       {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
                     </span>
@@ -902,7 +904,7 @@ export const Services = () => {
 
       {/* New/Edit Extra Dialog */}
       <Dialog open={isNewExtraOpen} onOpenChange={setIsNewExtraOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-blue-400">
               {editingExtra ? "Extra szerkesztése" : "Új extra szolgáltatás"}
@@ -918,7 +920,7 @@ export const Services = () => {
                 placeholder="pl. Bőrápolás"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-slate-300">Ár (Ft)</Label>
                 <Input

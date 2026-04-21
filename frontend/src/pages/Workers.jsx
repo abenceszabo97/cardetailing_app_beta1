@@ -550,7 +550,7 @@ export const Workers = () => {
                       Új dolgozó
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                  <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-[95vw] sm:max-w-lg">
                     <DialogHeader>
                       <DialogTitle className="text-xl font-['Manrope']">Új dolgozó hozzáadása</DialogTitle>
                     </DialogHeader>
@@ -564,7 +564,7 @@ export const Workers = () => {
                           placeholder="Teljes név"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-slate-300">Telefonszám</Label>
                           <Input
@@ -584,7 +584,7 @@ export const Workers = () => {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-slate-300">Beosztás</Label>
                           <Input
@@ -815,7 +815,7 @@ export const Workers = () => {
         {/* Schedule Tab */}
         <TabsContent value="schedule" className="mt-6 space-y-4">
           {/* Schedule Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <Tabs value={calendarView} onValueChange={setCalendarView}>
               <TabsList className="bg-slate-900 border border-slate-800">
                 <TabsTrigger value="week" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400">
@@ -834,7 +834,7 @@ export const Workers = () => {
                     Új műszak
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-[95vw] sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-['Manrope']">Új műszak létrehozása</DialogTitle>
                   </DialogHeader>
@@ -865,7 +865,7 @@ export const Workers = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-slate-300">Kezdés</Label>
                         <Input
@@ -908,7 +908,7 @@ export const Workers = () => {
                           <Clock className="w-4 h-4" />
                           Ebédszünet (opcionális)
                         </Label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-slate-400 text-sm">Kezdete</Label>
                             <Input
@@ -953,7 +953,7 @@ export const Workers = () => {
                   <ChevronLeft className="w-5 h-5 mr-1" />
                   {calendarView === "month" ? "Előző hónap" : "Előző hét"}
                 </Button>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-sm sm:text-lg font-semibold text-white text-center min-w-0">
                   {calendarView === "month" 
                     ? format(currentDate, 'yyyy. MMMM', { locale: hu })
                     : `${format(weekStart, 'yyyy. MMMM d.', { locale: hu })} - ${format(weekEnd, 'MMMM d.', { locale: hu })}`
@@ -1281,10 +1281,10 @@ export const Workers = () => {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex gap-2 ml-auto flex-wrap">
+            <div className="flex gap-2 sm:ml-auto flex-wrap w-full sm:w-auto">
               <Button 
                 onClick={handleDownloadWorkerPDF}
-                className="bg-slate-800 hover:bg-slate-700 text-white"
+                className="bg-slate-800 hover:bg-slate-700 text-white w-full sm:w-auto"
                 data-testid="download-worker-pdf-btn"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -1293,7 +1293,7 @@ export const Workers = () => {
               </Button>
               <Button 
                 onClick={handleDownloadAttendancePDF}
-                className="bg-green-600 hover:bg-green-500 text-white"
+                className="bg-green-600 hover:bg-green-500 text-white w-full sm:w-auto"
                 data-testid="download-attendance-pdf-btn"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -1461,7 +1461,7 @@ export const Workers = () => {
 
       {/* Edit Shift Dialog */}
       <Dialog open={!!editingShift} onOpenChange={() => setEditingShift(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-400">
               <CalendarDays className="w-5 h-5" />
@@ -1494,7 +1494,7 @@ export const Workers = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Műszak kezdete</label>
                   <Input
@@ -1527,7 +1527,7 @@ export const Workers = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Ebédszünet kezdete</label>
                   <Input

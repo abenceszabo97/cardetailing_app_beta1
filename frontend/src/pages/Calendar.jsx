@@ -19,7 +19,12 @@ import {
   notifyNewBooking 
 } from "../services/notificationService";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const backendBaseUrl = (
+  process.env.REACT_APP_BACKEND_URL ||
+  process.env.REACT_APP_API_URL ||
+  window.location.origin
+).replace(/\/$/, "");
+const API = `${backendBaseUrl}/api`;
 
 const LOCATIONS = ["all", "Debrecen"];
 const STATUS_COLORS = {
@@ -343,7 +348,7 @@ const Calendar = () => {
           {displayWorkers.map((worker, idx) => (
             <div 
               key={worker.worker_id} 
-              className={`min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
+              className={`min-w-[140px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
             >
               <div className="flex items-center justify-center gap-1">
                 <User className="w-3 h-3 text-slate-400" />
@@ -352,7 +357,7 @@ const Calendar = () => {
             </div>
           ))}
           {hasUnassigned && (
-            <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
+            <div className="min-w-[140px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
               <div className="flex items-center justify-center gap-1">
                 <User className="w-3 h-3 text-orange-400" />
                 <span className="text-orange-300 font-medium text-sm">Nincs hozzárendelve</span>
@@ -371,7 +376,7 @@ const Calendar = () => {
               {displayWorkers.map((worker) => {
                 const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
                 return (
-                  <div key={worker.worker_id} className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                  <div key={worker.worker_id} className="min-w-[140px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
                     {workerBookings.map(booking => (
                       <div
                         key={booking.booking_id}
@@ -386,7 +391,7 @@ const Calendar = () => {
                 );
               })}
               {hasUnassigned && (
-                <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                <div className="min-w-[140px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
                   {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
                     <div
                       key={booking.booking_id}
@@ -694,11 +699,11 @@ const Calendar = () => {
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Button variant="outline" size="sm" onClick={() => navigate("prev")} className="border-slate-700 text-white px-2 sm:px-3">
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <h2 className="text-sm sm:text-lg font-semibold text-white capitalize">{renderTitle()}</h2>
+        <h2 className="text-sm sm:text-lg font-semibold text-white capitalize text-center min-w-0 break-words">{renderTitle()}</h2>
         <Button variant="outline" size="sm" onClick={() => navigate("next")} className="border-slate-700 text-white px-2 sm:px-3">
           <ChevronRight className="w-4 h-4" />
         </Button>
@@ -725,7 +730,7 @@ const Calendar = () => {
 
       {/* Booking Details Dialog */}
       <Dialog open={!!selectedBooking} onOpenChange={() => { setSelectedBooking(null); setEditMode(false); }}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
@@ -744,7 +749,7 @@ const Calendar = () => {
           
           {selectedBooking && !editMode && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div><label className="text-slate-500">Ügyfél</label><p className="font-medium">{selectedBooking.customer_name}</p></div>
                 <div><label className="text-slate-500">Rendszám</label><p className="font-mono font-medium">{selectedBooking.plate_number}</p></div>
                 <div><label className="text-slate-500">Autó</label><p>{selectedBooking.car_type}</p></div>
@@ -800,7 +805,7 @@ const Calendar = () => {
 
           {selectedBooking && editMode && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-slate-500 text-sm">Ügyfél neve</label>
                   <Input value={editForm.customer_name || ""} onChange={e => setEditForm({...editForm, customer_name: e.target.value})} className="bg-slate-950 border-slate-700 text-white mt-1" />

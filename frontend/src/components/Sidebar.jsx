@@ -10,7 +10,6 @@ import {
   LogOut, 
   Sparkles,
   Sun,
-  Moon,
   MapPin,
   X,
   Car,
@@ -23,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-
 export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -93,11 +91,11 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
               data-testid="location-select"
             >
               <MapPin className="w-4 h-4 mr-2 text-green-400" />
-              <SelectValue placeholder="Válassz telephelyet" />
+              <SelectValue placeholder="Valassz telephelyet" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
               <SelectItem value="all" className="text-white hover:bg-slate-800">
-                Összes telephely
+                Osszes telephely
               </SelectItem>
               <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">
                 Debrecen

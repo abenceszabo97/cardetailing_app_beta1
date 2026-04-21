@@ -11,7 +11,12 @@ import {
   MessageCircle, Send, Bot, User
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const backendBaseUrl = (
+  process.env.REACT_APP_BACKEND_URL ||
+  process.env.REACT_APP_API_URL ||
+  window.location.origin
+).replace(/\/$/, "");
+const API = `${backendBaseUrl}/api`;
 
 // AI Chatbot Component
 export const AIChatbot = () => {

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, createContext, useContext } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
+import { Search } from "lucide-react";
 
 // Pages
 import { Login } from "./pages/Login";
@@ -92,7 +93,11 @@ const ProtectedRoute = ({ children }) => {
 // Main Layout
 const MainLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // Admin sees all by default and can switch; workers are locked to their location
   const isAdmin = user?.role === "admin";
@@ -104,6 +109,45 @@ const MainLayout = ({ children }) => {
   // Lock non-admin to their location
   const effectiveLocation = isAdmin ? selectedLocation : (user?.location || "Debrecen");
   const locationForApi = effectiveLocation === "all" ? null : effectiveLocation;
+
+  const debouncedSearch = useMemo(() => {
+    let timeoutId;
+    return (value) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(async () => {
+        const query = value.trim().toLowerCase();
+        if (query.length < 2) {
+          setSearchResults([]);
+          return;
+        }
+        try {
+          const response = await axios.get(`${API}/customers`, { withCredentials: true });
+          const customers = Array.isArray(response.data) ? response.data : [];
+          const matches = customers
+            .filter((c) =>
+              (c.name || "").toLowerCase().includes(query) ||
+              (c.plate_number || "").toLowerCase().includes(query)
+            )
+            .slice(0, 8);
+          setSearchResults(matches);
+          setSearchOpen(true);
+        } catch (error) {
+          setSearchResults([]);
+        }
+      }, 250);
+    };
+  }, []);
+
+  useEffect(() => {
+    debouncedSearch(customerSearch);
+  }, [customerSearch, debouncedSearch]);
+
+  const goToCustomer = (customerId) => {
+    navigate(`/customers/${customerId}`);
+    setCustomerSearch("");
+    setSearchOpen(false);
+    setSidebarOpen(false);
+  };
 
   return (
     <LocationContext.Provider value={{ 
@@ -121,7 +165,8 @@ const MainLayout = ({ children }) => {
           setSelectedLocation={isAdmin ? setSelectedLocation : () => {}}
         />
         <div className="flex-1 lg:ml-64">
-          <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+          <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden text-white p-2 hover:bg-white/10 rounded-lg"
@@ -131,7 +176,7 @@ const MainLayout = ({ children }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {isAdmin && (
                 <select
                   value={effectiveLocation}
@@ -150,7 +195,66 @@ const MainLayout = ({ children }) => {
                 </span>
               )}
             </div>
-            <NotificationBell />
+            <div className="hidden md:block w-full max-w-xl justify-self-center relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                onFocus={() => customerSearch.trim().length >= 2 && setSearchOpen(true)}
+                placeholder="Rendszam vagy ugyfelnev keresese..."
+                className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-green-500"
+                data-testid="top-customer-search"
+              />
+              {searchOpen && searchResults.length > 0 && (
+                <div className="absolute top-11 left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden z-50">
+                  {searchResults.map((customer) => (
+                    <button
+                      key={customer.customer_id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => goToCustomer(customer.customer_id)}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-800 border-b border-slate-800 last:border-b-0"
+                    >
+                      <div className="text-white text-sm font-medium">{customer.name}</div>
+                      <div className="text-slate-400 text-xs">{customer.plate_number} • {(customer.total_spent || 0).toLocaleString()} Ft</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="justify-self-end">
+              <NotificationBell />
+            </div>
+            </div>
+            <div className="md:hidden mt-3 relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                onFocus={() => customerSearch.trim().length >= 2 && setSearchOpen(true)}
+                placeholder="Rendszam vagy ugyfelnev..."
+                className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                data-testid="top-customer-search-mobile"
+              />
+              {searchOpen && searchResults.length > 0 && (
+                <div className="absolute top-11 left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden z-50">
+                  {searchResults.map((customer) => (
+                    <button
+                      key={customer.customer_id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => goToCustomer(customer.customer_id)}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-800 border-b border-slate-800 last:border-b-0"
+                    >
+                      <div className="text-white text-sm font-medium">{customer.name}</div>
+                      <div className="text-slate-400 text-xs">{customer.plate_number}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </header>
           <main className="p-4 lg:p-8">
             {children}
