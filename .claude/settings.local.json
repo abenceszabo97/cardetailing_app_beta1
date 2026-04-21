@@ -24,7 +24,8 @@
       "Bash(findstr -i env)",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-booking\\\\public\")",
-      "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-admin\\\\public\")"
+      "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-admin\\\\public\")",
+      "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-booking\" /b)"
     ]
   }
 }
