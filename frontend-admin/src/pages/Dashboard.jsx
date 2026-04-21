@@ -47,7 +47,7 @@ import {
   Receipt,
   Search
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
 import { 
@@ -906,6 +906,49 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Weekly Revenue Sparkline */}
+      {dailyStats.length > 0 && (() => {
+        // Last 7 days from dailyStats
+        const last7 = [...dailyStats]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(-7)
+          .map(d => ({
+            ...d,
+            label: d.date.slice(5), // MM-DD
+          }));
+        const totalWeek = last7.reduce((s, d) => s + (d.revenue || 0), 0);
+        return (
+          <Card className="glass-card border-indigo-500/20">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs text-slate-400">Elmúlt 7 nap bevétel</p>
+                  <p className="text-lg font-bold text-indigo-400">{totalWeek.toLocaleString('hu-HU')} Ft</p>
+                </div>
+                <TrendingUp className="w-5 h-5 text-indigo-400 opacity-60" />
+              </div>
+              <ResponsiveContainer width="100%" height={80}>
+                <AreaChart data={last7} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <Tooltip
+                    formatter={(v) => [`${v.toLocaleString('hu-HU')} Ft`, 'Bevétel']}
+                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fill="url(#revenueGrad)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Revenue Forecast */}
       {(() => {

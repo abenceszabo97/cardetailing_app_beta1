@@ -159,6 +159,7 @@ const BookingPage = () => {
   const [customerFound, setCustomerFound] = useState(null);
   const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState("");
+  const [plateError, setPlateError] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   // Load pricing data and extras
@@ -323,9 +324,17 @@ const BookingPage = () => {
     setLookingUp(false);
   }, []);
 
+  // Accepts: ABC-123 (3 letters + 3 digits) or AB-CD-123 (2+2 letters + 3 digits)
+  const PLATE_REGEX = /^([A-ZÁÉÍÓÖŐÚÜŰ]{3}-\d{3}|[A-ZÁÉÍÓÖŐÚÜŰ]{2}-[A-ZÁÉÍÓÖŐÚÜŰ]{2}-\d{3})$/i;
+
   const handlePlateChange = (value) => {
     const plate = value.toUpperCase();
     set("plate_number", plate);
+    if (plate.length > 2 && !PLATE_REGEX.test(plate)) {
+      setPlateError("Érvénytelen rendszám formátum (pl.: ABC-123 vagy AB-CD-123)");
+    } else {
+      setPlateError("");
+    }
   };
 
   // Resolve extra name from its ID (service_id or name)
@@ -396,6 +405,7 @@ const BookingPage = () => {
   };
 
   const handleSubmit = async () => {
+    if (plateError) return;
     setSubmitting(true);
     try {
       // Create service name from selection or promotion
@@ -1278,6 +1288,9 @@ const BookingPage = () => {
                     <Loader2 className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />
                   )}
                 </div>
+                {plateError && (
+                  <p className="mt-1 text-xs text-red-400">{plateError}</p>
+                )}
                 {customerFound && (
                   <div className="mt-3 flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-green-400" />

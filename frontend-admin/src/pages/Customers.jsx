@@ -65,6 +65,25 @@ export const Customers = () => {
   const [deleteCustomerId, setDeleteCustomerId] = useState(null);
   const [viewEvidenceEntry, setViewEvidenceEntry] = useState(null);
   const [fullscreenImage, setFullscreenImage] = useState(null);
+
+  // Customer history panel
+  const [historyCustomer, setHistoryCustomer] = useState(null);
+  const [historyJobs, setHistoryJobs] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openCustomerHistory = async (customer) => {
+    setHistoryCustomer(customer);
+    setHistoryJobs([]);
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get(`${API}/customers/${customer.customer_id}`, { withCredentials: true });
+      setHistoryJobs(res.data.jobs || []);
+    } catch {
+      setHistoryJobs([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
   
   const [newCustomer, setNewCustomer] = useState({
     name: "",
@@ -365,10 +384,11 @@ export const Customers = () => {
                       </TableHeader>
                       <TableBody>
                         {filteredCustomers.map((customer) => (
-                          <TableRow 
+                          <TableRow
                             key={customer.customer_id}
                             className="border-slate-800 hover:bg-white/5 cursor-pointer"
                             data-testid={`customer-row-${customer.customer_id}`}
+                            onClick={() => openCustomerHistory(customer)}
                           >
                             <TableCell className="text-white font-medium">
                               <span className="flex items-center gap-2">
@@ -401,7 +421,7 @@ export const Customers = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                <Link to={`/customers/${customer.customer_id}`}>
+                                <Link to={`/customers/${customer.customer_id}`} onClick={(e) => e.stopPropagation()}>
                                   <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" title="Részletek">
                                     <ChevronRight className="w-5 h-5" />
                                   </Button>
@@ -605,6 +625,86 @@ export const Customers = () => {
             className="max-w-full max-h-full object-contain" 
             onClick={(e) => e.stopPropagation()} 
           />
+        </div>
+      )}
+
+      {/* Customer History Panel */}
+      {historyCustomer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setHistoryCustomer(null)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <div>
+                <h2 className="text-lg font-bold text-white font-['Manrope']">{historyCustomer.name}</h2>
+                <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
+                  <span className="font-mono text-white">{historyCustomer.plate_number}</span>
+                  {historyCustomer.car_type && <span>· {historyCustomer.car_type}</span>}
+                  {historyCustomer.phone && <span>· {historyCustomer.phone}</span>}
+                </div>
+              </div>
+              <button
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                onClick={() => setHistoryCustomer(null)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 p-5 border-b border-slate-800">
+              <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Összes költés</p>
+                <p className="text-base font-bold text-green-400">{(historyCustomer.total_spent || 0).toLocaleString('hu-HU')} Ft</p>
+              </div>
+              <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Munkák száma</p>
+                <p className="text-base font-bold text-white">{historyJobs.length}</p>
+              </div>
+              <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Utolsó látogatás</p>
+                <p className="text-base font-bold text-white text-sm">
+                  {historyJobs.length > 0
+                    ? historyJobs.slice().sort((a, b) => b.date?.localeCompare(a.date)).slice(0,1)[0]?.date?.slice(0,10) || '—'
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Job list */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-2">
+              {historyLoading ? (
+                <div className="text-center py-8 text-slate-400">Betöltés...</div>
+              ) : historyJobs.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">Nincs korábbi munka</div>
+              ) : (
+                [...historyJobs]
+                  .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+                  .map((job) => (
+                    <div key={job.job_id} className="flex items-center justify-between bg-slate-800/50 rounded-lg px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{job.service_name || 'Ismeretlen szolgáltatás'}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {job.date?.slice(0,10)} · {job.location || ''}
+                          {job.worker_name ? ` · ${job.worker_name}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right ml-4 flex-shrink-0">
+                        <p className="text-sm font-bold text-green-400">{(job.price || 0).toLocaleString('hu-HU')} Ft</p>
+                        <p className="text-xs text-slate-500">
+                          {job.payment_method === 'keszpenz' ? 'Készpénz' : job.payment_method === 'kartya' ? 'Kártya' : job.payment_method || ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

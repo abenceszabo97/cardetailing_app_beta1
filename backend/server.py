@@ -9,6 +9,9 @@ from contextlib import asynccontextmanager
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import logging
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from limiter import limiter
 
 from config import CORS_ORIGINS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, RESEND_API_KEY
 from database import db, close_db
@@ -198,6 +201,8 @@ app = FastAPI(
     description="Clean Fleet Hub - Car Wash Management System",
     lifespan=lifespan
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Determine if we should use wildcard or specific origins
 # When credentials are True, we can't use "*" directly, so we echo the origin

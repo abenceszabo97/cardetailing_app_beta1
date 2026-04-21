@@ -15,11 +15,15 @@ from pydantic import BaseModel
 from typing import Optional, List
 import httpx
 import re
+import asyncio
+import logging
 from datetime import datetime, timezone, timedelta
 from dependencies import get_current_user
 from database import db
 from models.user import User
 import uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -306,66 +310,93 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
 
     action_field = "action-xmlagentxmlfile" if not is_receipt else "action-szamla_agent_nyugta_create"
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                SZAMLAZZ_API_URL,
-                data={action_field: xml_payload},
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
+    # Retry up to 3 times for transient network issues
+    last_error = None
+    response = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    SZAMLAZZ_API_URL,
+                    data={action_field: xml_payload},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+            break  # success — exit retry loop
+        except httpx.TimeoutException as e:
+            last_error = e
+            logger.warning(f"Számlázz.hu timeout (attempt {attempt + 1}/3): {e}")
+            if attempt < 2:
+                await asyncio.sleep(1)
+        except httpx.ConnectError as e:
+            last_error = e
+            logger.warning(f"Számlázz.hu connection error (attempt {attempt + 1}/3): {e}")
+            if attempt < 2:
+                await asyncio.sleep(1)
+        except httpx.RequestError as e:
+            last_error = e
+            logger.error(f"Számlázz.hu request error (attempt {attempt + 1}/3): {e}")
+            if attempt < 2:
+                await asyncio.sleep(1)
 
-        if response.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Számlázz.hu hiba: HTTP {response.status_code}")
+    if response is None:
+        # All attempts failed
+        if isinstance(last_error, httpx.TimeoutException):
+            raise HTTPException(status_code=503, detail="A számlázási szolgáltatás nem válaszol. Kérjük próbálja újra.")
+        elif isinstance(last_error, httpx.ConnectError):
+            raise HTTPException(status_code=503, detail="Nem sikerült csatlakozni a számlázási szolgáltatáshoz. Kérjük ellenőrizze az internetkapcsolatot.")
+        else:
+            raise HTTPException(status_code=503, detail=f"Számlázási hálózati hiba, kérjük próbálja újra. ({type(last_error).__name__})")
 
-        invoice_number = response.headers.get("szlaszam", "") or response.headers.get("nyugtaszam", "")
-        invoice_id = f"inv_{uuid.uuid4().hex[:8]}"
+    if response.status_code != 200:
+        logger.error(f"Számlázz.hu HTTP error: {response.status_code} — {response.text[:200]}")
+        raise HTTPException(status_code=502, detail=f"Számlázz.hu hiba (HTTP {response.status_code}). Kérjük ellenőrizze az API kulcsot és a számlázási adatokat.")
 
-        # Store invoice record
-        invoice_doc = {
+    invoice_number = response.headers.get("szlaszam", "") or response.headers.get("nyugtaszam", "")
+    invoice_id = f"inv_{uuid.uuid4().hex[:8]}"
+
+    # Store invoice record
+    invoice_doc = {
+        "invoice_id": invoice_id,
+        "job_id": data.job_id,
+        "customer_id": job.get("customer_id"),
+        "customer_name": data.buyer_name,
+        "customer_email": data.buyer_email,
+        "buyer_tax_number": data.buyer_tax_number,
+        "is_receipt": is_receipt,
+        "is_company": is_company,
+        "invoice_number": invoice_number,
+        "amount": job.get("price", 0),
+        "location": location,
+        "billing_entity": "budapest" if location.lower() == "budapest" else ("debrecen_company" if is_company else "debrecen_private"),
+        "payment_method": data.payment_method,
+        "status": "fizetve" if data.payment_method in ("keszpenz", "kartya") else "fizetesre_var",
+        "job_date": (job.get("date") or "")[:10],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.user_id,
+    }
+    await db.invoices.insert_one(invoice_doc)
+
+    # Update job
+    await db.jobs.update_one(
+        {"job_id": data.job_id},
+        {"$set": {
             "invoice_id": invoice_id,
-            "job_id": data.job_id,
-            "customer_id": job.get("customer_id"),
-            "customer_name": data.buyer_name,
-            "customer_email": data.buyer_email,
-            "buyer_tax_number": data.buyer_tax_number,
-            "is_receipt": is_receipt,
-            "is_company": is_company,
             "invoice_number": invoice_number,
-            "amount": job.get("price", 0),
-            "location": location,
-            "billing_entity": "budapest" if location.lower() == "budapest" else ("debrecen_company" if is_company else "debrecen_private"),
-            "payment_method": data.payment_method,
-            "status": "fizetve" if data.payment_method in ("keszpenz", "kartya") else "fizetesre_var",
-            "job_date": (job.get("date") or "")[:10],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "created_by": user.user_id,
-        }
-        await db.invoices.insert_one(invoice_doc)
+            "invoice_type": "nyugta" if is_receipt else "szamla",
+            "invoice_created_at": datetime.now(timezone.utc).isoformat(),
+            "invoice_buyer": data.buyer_name,
+        }}
+    )
 
-        # Update job
-        await db.jobs.update_one(
-            {"job_id": data.job_id},
-            {"$set": {
-                "invoice_id": invoice_id,
-                "invoice_number": invoice_number,
-                "invoice_type": "nyugta" if is_receipt else "szamla",
-                "invoice_created_at": datetime.now(timezone.utc).isoformat(),
-                "invoice_buyer": data.buyer_name,
-            }}
-        )
-
-        type_label = "Nyugta" if is_receipt else "Számla"
-        return {
-            "success": True,
-            "invoice_id": invoice_id,
-            "invoice_number": invoice_number,
-            "is_receipt": is_receipt,
-            "billing_entity": invoice_doc["billing_entity"],
-            "message": f"{type_label} kiállítva" + (f": {invoice_number}" if invoice_number else " és elküldve"),
-        }
-
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"Hálózati hiba a Számlázz.hu kapcsolódáskor: {str(e)}")
+    type_label = "Nyugta" if is_receipt else "Számla"
+    return {
+        "success": True,
+        "invoice_id": invoice_id,
+        "invoice_number": invoice_number,
+        "is_receipt": is_receipt,
+        "billing_entity": invoice_doc["billing_entity"],
+        "message": f"{type_label} kiállítva" + (f": {invoice_number}" if invoice_number else " és elküldve"),
+    }
 
 
 @router.get("/invoices")

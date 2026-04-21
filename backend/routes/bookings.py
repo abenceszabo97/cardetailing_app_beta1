@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 import logging
+import re
 from dependencies import get_current_user
 from routes.events import publish_event
 from database import db
@@ -221,6 +222,19 @@ async def create_booking(data: BookingCreate):
         if worker:
             worker_name = worker["name"]
     
+    # Cooldown check: block new booking if same plate cancelled within the last hour
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    recent_cancel = await db.bookings.find_one({
+        "plate_number": {"$regex": f"^{re.escape(data.plate_number.upper())}$", "$options": "i"},
+        "status": "lemondta",
+        "cancelled_at": {"$gt": one_hour_ago.isoformat()}
+    }, {"_id": 0, "booking_id": 1})
+    if recent_cancel:
+        raise HTTPException(
+            status_code=429,
+            detail="Nemrég lemondott foglalás után 1 óra szünetet tartunk az újrafoglalás előtt. Kérjük próbálja újra később."
+        )
+
     # Calculate extras price — batch lookup instead of N+1 queries
     extras_price = 0
     if data.extras:
@@ -610,7 +624,7 @@ async def cancel_booking_by_token(token: str):
 
     await db.bookings.update_one(
         {"cancel_token": token},
-        {"$set": {"status": "lemondta"}}
+        {"$set": {"status": "lemondta", "cancelled_at": datetime.now(timezone.utc).isoformat()}}
     )
     publish_event("refresh", {"reason": "booking_cancelled"})
     return {"message": "Foglalás lemondva"}
