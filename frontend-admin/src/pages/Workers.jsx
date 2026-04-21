@@ -1238,7 +1238,8 @@ export const Workers = () => {
             <Card className="glass-card">
               <CardContent className="p-2 sm:p-4">
                 {/* Desktop view */}
-                <div className="hidden sm:block">
+                <div className="hidden sm:block overflow-x-auto">
+                  <div className="min-w-[560px]">
                   <div className="grid grid-cols-7 gap-1 mb-2">
                     {['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'].map((day, idx) => (
                       <div key={idx} className="text-center text-slate-400 text-sm font-medium py-2">{day}</div>
@@ -1291,8 +1292,9 @@ export const Workers = () => {
                       );
                     })}
                   </div>
+                  </div>
                 </div>
-                
+
                 {/* Mobile view - day cards */}
                 <div className="sm:hidden space-y-2">
                   {monthDays.filter(day => isSameMonth(day, currentDate)).map((day, idx) => {
@@ -1517,8 +1519,8 @@ export const Workers = () => {
         {/* Stats Tab */}
         <TabsContent value="stats" className="mt-6 space-y-4">
           {/* Month Selector */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -1531,7 +1533,7 @@ export const Workers = () => {
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <span className="text-white font-semibold text-lg">
+              <span className="text-white font-semibold text-base sm:text-lg">
                 {format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu })}
               </span>
               <Button
@@ -1548,7 +1550,7 @@ export const Workers = () => {
               </Button>
             </div>
             <Select value={statsLocation} onValueChange={setStatsLocation}>
-              <SelectTrigger className="w-40 bg-slate-950 border-slate-700 text-white">
+              <SelectTrigger className="w-full sm:w-40 bg-slate-950 border-slate-700 text-white">
                 <MapPin className="w-4 h-4 mr-2 text-green-400" />
                 <SelectValue />
               </SelectTrigger>
@@ -1558,7 +1560,7 @@ export const Workers = () => {
                 <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex gap-2 ml-auto flex-wrap">
+            <div className="flex gap-2 sm:ml-auto flex-wrap">
               <Button 
                 onClick={handleDownloadWorkerPDF}
                 className="bg-slate-800 hover:bg-slate-700 text-white"
@@ -1767,7 +1769,7 @@ export const Workers = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
                 <div>
                   <Label className="text-slate-400 text-sm mb-1 block">Dolgozó</Label>
                   <Select value={absenceForm.worker_id} onValueChange={(v) => setAbsenceForm({...absenceForm, worker_id: v})}>

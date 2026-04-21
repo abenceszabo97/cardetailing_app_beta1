@@ -588,21 +588,21 @@ export const DayManagement = () => {
               ) : (
                 <div className="space-y-2">
                   {todayJobs.filter(j => j.status === "kesz").map(job => (
-                    <div 
+                    <div
                       key={job.job_id}
-                      className="flex items-center justify-between p-3 bg-slate-950/50 rounded-lg"
+                      className="flex items-center justify-between gap-2 p-3 bg-slate-950/50 rounded-lg"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-white">{job.plate_number}</span>
-                        <span className="text-slate-400">{job.service_name}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono font-bold text-white flex-shrink-0">{job.plate_number}</span>
+                        <span className="text-slate-400 truncate text-sm">{job.service_name}</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         {job.payment_method === "keszpenz" ? (
                           <Wallet className="w-4 h-4 text-green-400" />
                         ) : (
                           <CreditCard className="w-4 h-4 text-blue-400" />
                         )}
-                        <span className="font-semibold text-green-400">{job.price.toLocaleString()} Ft</span>
+                        <span className="font-semibold text-green-400 whitespace-nowrap">{job.price.toLocaleString()} Ft</span>
                       </div>
                     </div>
                   ))}

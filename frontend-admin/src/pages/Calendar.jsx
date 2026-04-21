@@ -419,86 +419,91 @@ const Calendar = () => {
     
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        {/* Header row with workers */}
-        <div className="flex divide-x divide-slate-800 overflow-x-auto">
-          <div className="w-14 sm:w-16 flex-shrink-0 bg-slate-950/50 p-2 text-center">
-            <div className="text-xs text-slate-500">{format(currentDate, "EEE", { locale: hu })}</div>
-            <div className="text-lg font-bold text-green-400">{format(currentDate, "d")}</div>
-          </div>
-          {displayWorkers.map((worker, idx) => (
-            <div 
-              key={worker.worker_id} 
-              className={`min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
-            >
-              <div className="flex items-center justify-center gap-1">
-                <User className="w-3 h-3 text-slate-400" />
-                <span className="text-white font-medium text-sm truncate">{worker.name}</span>
+        {/* Scrollable wrapper for both header and body so they scroll together */}
+        <div className="overflow-x-auto -mx-2 px-2">
+          <div className="min-w-max">
+            {/* Header row with workers */}
+            <div className="flex divide-x divide-slate-800">
+              <div className="w-14 sm:w-16 flex-shrink-0 bg-slate-950/50 p-2 text-center">
+                <div className="text-xs text-slate-500">{format(currentDate, "EEE", { locale: hu })}</div>
+                <div className="text-lg font-bold text-green-400">{format(currentDate, "d")}</div>
               </div>
-            </div>
-          ))}
-          {hasUnassigned && (
-            <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
-              <div className="flex items-center justify-center gap-1">
-                <User className="w-3 h-3 text-orange-400" />
-                <span className="text-orange-300 font-medium text-sm">Nincs hozzárendelve</span>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Time slots */}
-        <div className="max-h-[500px] overflow-auto">
-          {hours.map(hour => (
-            <div key={hour} className="flex divide-x divide-slate-800 border-t border-slate-800">
-              <div className="w-14 sm:w-16 flex-shrink-0 p-1 text-xs text-slate-500 text-right pr-2">
-                {hour}:00
-              </div>
-              {displayWorkers.map((worker) => {
-                const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
-                const isWT = dropTarget?.key === `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}`;
-                return (
-                  <div
-                    key={worker.worker_id}
-                    className={`min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px] transition-colors ${isWT ? 'bg-green-500/10' : ''}`}
-                    onDragOver={(e) => { e.preventDefault(); setDropTarget({ date: currentDate, hour, key: `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}` }); }}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, currentDate, hour)}
-                  >
-                    {workerBookings.map(booking => (
-                      <div
-                        key={booking.booking_id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, booking)}
-                        onDragEnd={handleDragEnd}
-                        className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
-                        onClick={() => openBookingDetails(booking)}
-                      >
-                        <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
-                        <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
-                      </div>
-                    ))}
+              {displayWorkers.map((worker, idx) => (
+                <div
+                  key={worker.worker_id}
+                  className={`min-w-[110px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <User className="w-3 h-3 text-slate-400" />
+                    <span className="text-white font-medium text-sm truncate">{worker.name}</span>
                   </div>
-                );
-              })}
+                </div>
+              ))}
               {hasUnassigned && (
-                <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
-                  {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
-                    <div
-                      key={booking.booking_id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, booking)}
-                      onDragEnd={handleDragEnd}
-                      className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300 select-none ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
-                      onClick={() => openBookingDetails(booking)}
-                    >
-                      <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
-                      <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
-                    </div>
-                  ))}
+                <div className="min-w-[110px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
+                  <div className="flex items-center justify-center gap-1">
+                    <User className="w-3 h-3 text-orange-400" />
+                    <span className="text-orange-300 font-medium text-sm">Nincs hozzárendelve</span>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
+
+            {/* Time slots */}
+            <div className="max-h-[500px] overflow-y-auto">
+              {hours.map(hour => (
+                <div key={hour} className="flex divide-x divide-slate-800 border-t border-slate-800">
+                  <div className="w-14 sm:w-16 flex-shrink-0 p-1 text-xs text-slate-500 text-right pr-2">
+                    {hour}:00
+                  </div>
+                  {displayWorkers.map((worker) => {
+                    const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
+                    const isWT = dropTarget?.key === `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}`;
+                    return (
+                      <div
+                        key={worker.worker_id}
+                        className={`min-w-[110px] sm:min-w-[150px] flex-1 p-1 min-h-[50px] transition-colors ${isWT ? 'bg-green-500/10' : ''}`}
+                        onDragOver={(e) => { e.preventDefault(); setDropTarget({ date: currentDate, hour, key: `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}` }); }}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, currentDate, hour)}
+                      >
+                        {workerBookings.map(booking => (
+                          <div
+                            key={booking.booking_id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, booking)}
+                            onDragEnd={handleDragEnd}
+                            className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
+                            onClick={() => openBookingDetails(booking)}
+                          >
+                            <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                            <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {hasUnassigned && (
+                    <div className="min-w-[110px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                      {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
+                        <div
+                          key={booking.booking_id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, booking)}
+                          onDragEnd={handleDragEnd}
+                          className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300 select-none ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
+                          onClick={() => openBookingDetails(booking)}
+                        >
+                          <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                          <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
