@@ -29,9 +29,9 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { 
-  Settings as SettingsIcon, 
-  Users, 
+import {
+  Settings as SettingsIcon,
+  Users,
   UserPlus,
   Plus,
   Shield,
@@ -45,8 +45,29 @@ import {
   Check,
   X,
   Loader2,
-  Lock
+  Lock,
+  FileText,
+  ExternalLink,
+  Moon,
+  Sun,
+  Monitor,
+  Layout
 } from "lucide-react";
+
+// ── Theme / Appearance helpers ────────────────────────────────────────────────
+const getStoredTheme = () => localStorage.getItem("xclean_theme") || "dark";
+const getStoredCompact = () => localStorage.getItem("xclean_compact") === "true";
+const applyTheme = (theme) => {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("xclean_theme", theme);
+};
+const applyCompact = (compact) => {
+  document.documentElement.setAttribute("data-compact", compact ? "true" : "false");
+  localStorage.setItem("xclean_compact", compact ? "true" : "false");
+};
+// Apply on load
+applyTheme(getStoredTheme());
+applyCompact(getStoredCompact());
 
 // Change Password Form Component
 const ChangePasswordForm = () => {
@@ -159,6 +180,12 @@ export const Settings = () => {
   // Data cleanup state
   const [orphanedData, setOrphanedData] = useState(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+
+  // Számlázz.hu state — one entry per billing entity
+  const [szamlazzStatus, setSzamlazzStatus] = useState({ budapest: false, debrecen_private: false, debrecen_company: false });
+  const [szamlazzKeys, setSzamlazzKeys] = useState({ budapest: "", debrecen_private: "", debrecen_company: "" });
+  const [szamlazzSaving, setSzamlazzSaving] = useState({ budapest: false, debrecen_private: false, debrecen_company: false });
+  const [szamlazzVisible, setSzamlazzVisible] = useState({ budapest: false, debrecen_private: false, debrecen_company: false });
   
   const [newWorker, setNewWorker] = useState({
     name: "",
@@ -190,9 +217,39 @@ export const Settings = () => {
     }
   };
 
+  const fetchSzamlazzStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/invoices/status`, { withCredentials: true });
+      setSzamlazzStatus({
+        budapest: res.data.budapest || false,
+        debrecen_private: res.data.debrecen_private || false,
+        debrecen_company: res.data.debrecen_company || false,
+      });
+    } catch { /* silent */ }
+  };
+
+  const handleSaveSzamlazzKey = async (entity) => {
+    if (!szamlazzKeys[entity]?.trim()) {
+      toast.error("Kérjük add meg az API kulcsot");
+      return;
+    }
+    setSzamlazzSaving(s => ({ ...s, [entity]: true }));
+    try {
+      await axios.post(`${API}/invoices/set-api-key`, { entity, api_key: szamlazzKeys[entity] }, { withCredentials: true });
+      toast.success("Számlázz.hu API kulcs elmentve!");
+      setSzamlazzStatus(s => ({ ...s, [entity]: true }));
+      setSzamlazzKeys(s => ({ ...s, [entity]: "" }));
+    } catch {
+      toast.error("Hiba az API kulcs mentésekor");
+    } finally {
+      setSzamlazzSaving(s => ({ ...s, [entity]: false }));
+    }
+  };
+
   useEffect(() => {
     if (user?.role === "admin") {
       fetchData();
+      fetchSzamlazzStatus();
     }
   }, [user]);
 
@@ -415,6 +472,85 @@ export const Settings = () => {
           Minta adatok betöltése
         </Button>
       </div>
+
+      {/* Számlázz.hu Integration */}
+      <Card className={`glass-card ${Object.values(szamlazzStatus).some(Boolean) ? 'border-green-500/30' : 'border-amber-500/20'}`}>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2 flex-wrap">
+            <FileText className="w-5 h-5 text-amber-400" />
+            Számlázz.hu integráció
+            {Object.values(szamlazzStatus).every(Boolean) ? (
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-normal">✓ Mind beállítva</span>
+            ) : Object.values(szamlazzStatus).some(Boolean) ? (
+              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-normal">⚠ Részben beállítva</span>
+            ) : (
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-normal">Nincs beállítva</span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-5">
+          <p className="text-slate-400 text-sm">
+            Háromféle számlázási entitás: Budapest (X cég), Debrecen magánszemély (Y cég), Debrecen cég (Z cég).
+            Az ügyfél neve alapján automatikusan kerül kiválasztásra a megfelelő számlázó.
+          </p>
+          <a
+            href="https://www.szamlazz.hu/szamla/main?page=beallitasok"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-amber-400 text-xs hover:underline"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Agent kulcs lekérése a Számlázz.hu fiókodból
+          </a>
+
+          {/* Budapest */}
+          {[
+            { entity: "budapest", label: "Budapest — X cég", desc: "Minden budapesti munkához" },
+            { entity: "debrecen_private", label: "Debrecen – Magánszemély — Y cég", desc: "Debreceni magánügyfelek (nincs adószám)" },
+            { entity: "debrecen_company", label: "Debrecen – Cég — Z cég", desc: "Debreceni vállalkozások (KFT, BT, ZRT stb.)" },
+          ].map(({ entity, label, desc }) => (
+            <div key={entity} className="p-3 rounded-lg border border-slate-700 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">{label}</p>
+                  <p className="text-slate-500 text-xs">{desc}</p>
+                </div>
+                {szamlazzStatus[entity] ? (
+                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">✓ Beállítva</span>
+                ) : (
+                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Hiányzik</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={szamlazzVisible[entity] ? "text" : "password"}
+                    value={szamlazzKeys[entity]}
+                    onChange={(e) => setSzamlazzKeys(s => ({ ...s, [entity]: e.target.value }))}
+                    placeholder={szamlazzStatus[entity] ? "Felülíráshoz add meg az új kulcsot" : "Számlázz.hu agent kulcs"}
+                    className="bg-slate-950 border-slate-700 text-white pr-10 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSzamlazzVisible(v => ({ ...v, [entity]: !v[entity] }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {szamlazzVisible[entity] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <Button
+                  onClick={() => handleSaveSzamlazzKey(entity)}
+                  disabled={szamlazzSaving[entity] || !szamlazzKeys[entity]?.trim()}
+                  className="bg-amber-600 hover:bg-amber-500 shrink-0"
+                >
+                  {szamlazzSaving[entity] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span className="ml-1 hidden sm:inline">Mentés</span>
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Users Management */}
       <Card className="glass-card">
@@ -969,7 +1105,7 @@ export const Settings = () => {
 
               {/* Delete all button */}
               {(orphanedData.orphaned_worker_job_count > 0 || orphanedData.orphaned_customer_job_count > 0) && (
-                <Button 
+                <Button
                   onClick={handleCleanupAllOrphaned}
                   disabled={cleanupLoading}
                   className="w-full bg-red-600 hover:bg-red-500 mt-4"
@@ -982,6 +1118,92 @@ export const Settings = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Appearance Settings */}
+      <AppearanceSettings />
     </div>
+  );
+};
+
+// ── Appearance Settings Component ─────────────────────────────────────────────
+const AppearanceSettings = () => {
+  const [theme, setTheme] = useState(getStoredTheme());
+  const [compact, setCompact] = useState(getStoredCompact());
+
+  const handleTheme = (t) => {
+    applyTheme(t);
+    setTheme(t);
+  };
+  const handleCompact = (c) => {
+    applyCompact(c);
+    setCompact(c);
+  };
+
+  return (
+    <Card className="glass-card">
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-lg sm:text-xl text-white font-['Manrope'] flex items-center gap-2">
+          <Monitor className="w-5 h-5 text-purple-400" />
+          Megjelenés
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 sm:p-6 pt-0 space-y-6">
+        {/* Theme */}
+        <div>
+          <Label className="text-slate-300 mb-3 block">Téma</Label>
+          <div className="flex gap-2">
+            {[
+              { id: "dark", label: "Sötét", icon: Moon },
+              { id: "light", label: "Világos", icon: Sun },
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => handleTheme(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                  theme === id
+                    ? "bg-green-500/20 border-green-500/50 text-green-400"
+                    : "bg-slate-900/50 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+          {theme === "light" && (
+            <p className="text-xs text-amber-400 mt-2">
+              ⚠ A világos téma kísérleti — néhány elem elrendezése eltérhet.
+            </p>
+          )}
+        </div>
+
+        {/* Compact mode */}
+        <div>
+          <Label className="text-slate-300 mb-3 block">Nézet sűrűség</Label>
+          <div className="flex gap-2">
+            {[
+              { id: false, label: "Normál" },
+              { id: true, label: "Kompakt" },
+            ].map(({ id, label }) => (
+              <button
+                key={String(id)}
+                onClick={() => handleCompact(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                  compact === id
+                    ? "bg-green-500/20 border-green-500/50 text-green-400"
+                    : "bg-slate-900/50 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
+                }`}
+              >
+                <Layout className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Kompakt nézetben a sorok és kártyák kisebb helyen jelennek meg.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

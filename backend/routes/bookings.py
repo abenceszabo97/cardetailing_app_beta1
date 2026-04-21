@@ -7,7 +7,9 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 import logging
+import re
 from dependencies import get_current_user
+from routes.events import publish_event
 from database import db
 from config import RESEND_API_KEY, SENDER_EMAIL
 from models.user import User
@@ -68,7 +70,14 @@ async def get_available_slots(
     Takes into account worker availability based on booking duration.
     """
     workers_list = await db.workers.find({"location": location, "active": True}, {"_id": 0}).to_list(100)
-    
+
+    # Remove workers who are absent on this date
+    absences = await db.worker_absences.find(
+        {"date": date}, {"_id": 0, "worker_id": 1}
+    ).to_list(50)
+    absent_ids = {a["worker_id"] for a in absences}
+    workers_list = [w for w in workers_list if w["worker_id"] not in absent_ids]
+
     # Get all bookings for the date (excluding cancelled/no-show)
     existing = await db.bookings.find({
         "location": location, 
@@ -138,6 +147,17 @@ async def get_available_slots(
     
     return all_slots
 
+@router.get("/bookings/by-review-token/{token}")
+async def get_booking_by_review_token(token: str):
+    """Return minimal booking info for the review page (public)"""
+    booking = await db.bookings.find_one(
+        {"review_token": token},
+        {"_id": 0, "service_name": 1, "date": 1, "location": 1, "customer_name": 1}
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Érvénytelen értékelési token")
+    return booking
+
 @router.get("/bookings/public-services")
 async def get_public_services():
     """Get services list (public, no auth)"""
@@ -202,11 +222,29 @@ async def create_booking(data: BookingCreate):
         if worker:
             worker_name = worker["name"]
     
-    # Calculate extras price
+    # Cooldown check: block new booking if same plate cancelled within the last hour
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    recent_cancel = await db.bookings.find_one({
+        "plate_number": {"$regex": f"^{re.escape(data.plate_number.upper())}$", "$options": "i"},
+        "status": "lemondta",
+        "cancelled_at": {"$gt": one_hour_ago.isoformat()}
+    }, {"_id": 0, "booking_id": 1})
+    if recent_cancel:
+        raise HTTPException(
+            status_code=429,
+            detail="Nemrég lemondott foglalás után 1 óra szünetet tartunk az újrafoglalás előtt. Kérjük próbálja újra később."
+        )
+
+    # Calculate extras price — batch lookup instead of N+1 queries
     extras_price = 0
     if data.extras:
+        extra_docs = await db.services.find(
+            {"service_id": {"$in": data.extras}, "service_type": "extra"},
+            {"_id": 0, "service_id": 1, "price": 1, "min_price": 1}
+        ).to_list(len(data.extras))
+        extras_map = {e["service_id"]: e for e in extra_docs}
         for extra_id in data.extras:
-            extra = await db.services.find_one({"service_id": extra_id, "service_type": "extra"}, {"_id": 0})
+            extra = extras_map.get(extra_id)
             if extra:
                 extras_price += extra.get("price") or extra.get("min_price", 0)
     
@@ -255,10 +293,19 @@ async def create_booking(data: BookingCreate):
         cdoc["cancel_count"] = 0
         cdoc["blacklisted"] = False
         await db.customers.insert_one(cdoc)
+        customer_id = cust.customer_id
     else:
         await db.customers.update_one(
             {"plate_number": data.plate_number.upper()},
             {"$inc": {"booking_count": 1}, "$set": {"email": data.email, "phone": data.phone}}
+        )
+        customer_id = existing_cust.get("customer_id", "")
+
+    # Link customer_id to the booking
+    if customer_id:
+        await db.bookings.update_one(
+            {"booking_id": booking.booking_id},
+            {"$set": {"customer_id": customer_id}}
         )
     
     # Send confirmation email if configured
@@ -269,7 +316,16 @@ async def create_booking(data: BookingCreate):
             logging.info(f"Booking confirmation email: {email_result}")
         except Exception as e:
             logging.warning(f"Booking email failed: {e}")
-    
+
+    # Send confirmation SMS (fire-and-forget; never block booking creation)
+    if data.phone:
+        try:
+            from services.sms_service import send_booking_confirmation_sms
+            sms_result = await send_booking_confirmation_sms(doc)
+            logging.info(f"Booking confirmation SMS: {sms_result.get('status')}")
+        except Exception as e:
+            logging.warning(f"Booking SMS failed: {e}")
+
     # Create notification for management system
     notification = {
         "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
@@ -293,8 +349,9 @@ async def create_booking(data: BookingCreate):
         
         # Calculate next time slot (30 min later + service duration)
         hour, minute = map(int, data.time_slot.split(":"))
-        # Add service duration (rounded to 30 min slots)
-        duration_slots = (service["duration"] + 29) // 30  # Round up to next 30 min
+        # Add service duration (rounded to 30 min slots); service may be None for dynamic bookings
+        service_duration = (service.get("duration") if service else None) or data.duration or 60
+        duration_slots = (service_duration + 29) // 30  # Round up to next 30 min
         total_minutes = hour * 60 + minute + duration_slots * 30
         next_hour = total_minutes // 60
         next_minute = total_minutes % 60
@@ -456,8 +513,35 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"no_show_count": 1}})
     elif data.status == "lemondta" and booking:
         await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"cancel_count": 1}})
-    elif data.status == "kesz" and booking:
-        await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
+    elif data.status == "kesz" and booking and original_booking.get("status") != "kesz":
+        # Only increment total_spent if it wasn't already "kesz" (prevent double-count)
+        # Also skip if a completed job already exists for this booking (jobs.py handles it)
+        existing_done_job = await db.jobs.find_one({"booking_id": booking_id, "status": "kesz"}, {"_id": 0, "job_id": 1})
+        if not existing_done_job:
+            await db.customers.update_one({"plate_number": booking.get("plate_number")}, {"$inc": {"total_spent": booking.get("price", 0)}})
+        # Generate review token if not already set
+        if not booking.get("review_token"):
+            review_token = uuid.uuid4().hex
+            await db.bookings.update_one(
+                {"booking_id": booking_id},
+                {"$set": {"review_token": review_token, "review_sent": False}}
+            )
+            booking["review_token"] = review_token
+            booking["review_sent"] = False
+        # Send review request email if not already sent
+        if not booking.get("review_sent") and booking.get("email"):
+            try:
+                from services.email_service import send_review_request
+                email_result = await send_review_request(booking)
+                logging.info(f"Review request email: {email_result}")
+                if email_result.get("status") == "success":
+                    await db.bookings.update_one(
+                        {"booking_id": booking_id},
+                        {"$set": {"review_sent": True}}
+                    )
+            except Exception as e:
+                logging.warning(f"Review email failed: {e}")
+    publish_event("refresh", {"reason": "booking_updated"})
     return {"message": "Foglalás frissítve"}
 
 @router.delete("/bookings/{booking_id}")
@@ -465,7 +549,85 @@ async def delete_booking(booking_id: str, user: User = Depends(get_current_user)
     result = await db.bookings.delete_one({"booking_id": booking_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Foglalás nem található")
+    publish_event("refresh", {"reason": "booking_deleted"})
     return {"message": "Foglalás törölve"}
+
+
+# ============== SELF-SERVICE: MODIFY / CANCEL BY TOKEN ==============
+
+TOKEN_EXPIRY_DAYS = 90  # modify/cancel links expire after 90 days
+
+def _check_token_expiry(booking: dict):
+    """Raise 410 if the booking's self-service token has expired."""
+    created_raw = booking.get("created_at")
+    if created_raw:
+        try:
+            created_at = datetime.fromisoformat(str(created_raw))
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - created_at > timedelta(days=TOKEN_EXPIRY_DAYS):
+                raise HTTPException(status_code=410, detail="A módosítási link lejárt (90 nap)")
+        except (ValueError, TypeError):
+            pass  # can't parse date → don't block
+
+
+@router.get("/bookings/by-token/{token}")
+async def get_booking_by_token(token: str):
+    """Public — returns booking details for self-service modification page"""
+    booking = await db.bookings.find_one(
+        {"$or": [{"modify_token": token}, {"cancel_token": token}]},
+        {"_id": 0, "modify_token": 0, "cancel_token": 0}
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
+    if booking.get("status") not in ("foglalt", "visszaigazolva"):
+        raise HTTPException(status_code=410, detail="Ez a foglalás már nem módosítható")
+    _check_token_expiry(booking)
+    return booking
+
+
+@router.put("/bookings/by-token/{token}/modify")
+async def modify_booking_by_token(token: str, date: str, time_slot: str):
+    """Public — reschedule booking date/time using modify_token"""
+    booking = await db.bookings.find_one({"modify_token": token}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
+    if booking.get("status") not in ("foglalt", "visszaigazolva"):
+        raise HTTPException(status_code=410, detail="Ez a foglalás már nem módosítható")
+    _check_token_expiry(booking)
+
+    # Validate date is in the future (timezone-aware comparison)
+    try:
+        booking_dt = datetime.fromisoformat(f"{date}T{time_slot}:00").replace(tzinfo=timezone.utc)
+        if booking_dt < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="A kiválasztott időpont a múltban van")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Érvénytelen dátum vagy időpont")
+
+    await db.bookings.update_one(
+        {"modify_token": token},
+        {"$set": {"date": date, "time_slot": time_slot, "status": "foglalt"}}
+    )
+    publish_event("refresh", {"reason": "booking_modified"})
+    return {"message": "Foglalás módosítva", "date": date, "time_slot": time_slot}
+
+
+@router.put("/bookings/by-token/{token}/cancel")
+async def cancel_booking_by_token(token: str):
+    """Public — cancel booking using cancel_token"""
+    booking = await db.bookings.find_one({"cancel_token": token}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Foglalás nem található vagy a link lejárt")
+    if booking.get("status") not in ("foglalt", "visszaigazolva"):
+        raise HTTPException(status_code=410, detail="Ez a foglalás már korábban lemondva vagy teljesítve")
+    _check_token_expiry(booking)
+
+    await db.bookings.update_one(
+        {"cancel_token": token},
+        {"$set": {"status": "lemondta", "cancelled_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    publish_event("refresh", {"reason": "booking_cancelled"})
+    return {"message": "Foglalás lemondva"}
 
 
 # ============== REMINDER EMAILS ==============

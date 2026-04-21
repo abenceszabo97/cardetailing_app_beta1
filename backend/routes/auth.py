@@ -127,7 +127,15 @@ async def change_password(data: PasswordChange, request: Request):
         {"user_id": user.user_id},
         {"$set": {"password_hash": new_hash}}
     )
-    
+
+    # Invalidate all OTHER active sessions for this user (keep current one)
+    current_token = request.cookies.get("session_token") or \
+        (request.headers.get("Authorization", "").replace("Bearer ", "") or "")
+    await db.user_sessions.delete_many({
+        "user_id": user.user_id,
+        "session_token": {"$ne": current_token}
+    })
+
     return {"message": "Jelszó sikeresen megváltoztatva"}
 
 # ============== Admin: User Management ==============
@@ -135,8 +143,9 @@ async def change_password(data: PasswordChange, request: Request):
 @router.post("/auth/create-user")
 async def create_user(data: UserCreate, request: Request):
     """Create new user (admin only)"""
-    from dependencies import require_admin
-    admin = await require_admin(await __import__('dependencies').get_current_user(request))
+    from dependencies import get_current_user, require_admin
+    current_user = await get_current_user(request)
+    await require_admin(current_user)
     
     # Check if username exists
     existing = await db.users.find_one({"username": data.username})

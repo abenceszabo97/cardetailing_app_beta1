@@ -6,7 +6,7 @@ import uuid
 class Service(BaseModel):
     service_id: str = Field(default_factory=lambda: f"srv_{uuid.uuid4().hex[:12]}")
     name: str
-    category: str  # kulso, belso, komplett, extra
+    category: str  # kulso, belso, komplett, extra, poliroz
     price: float
     duration: int  # minutes
     description: Optional[str] = None
@@ -18,6 +18,9 @@ class Service(BaseModel):
     location: Optional[str] = None  # Debrecen, Budapest, or None for all
     active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Polishing-specific fields
+    size_prices: Optional[dict] = None  # {"S": 37990, "M": 43990, ...}
+    duration_label: Optional[str] = None  # e.g. "3-5 óra"
 
 class ServiceCreate(BaseModel):
     name: str
@@ -31,6 +34,9 @@ class ServiceCreate(BaseModel):
     service_type: Optional[str] = None
     min_price: Optional[float] = None
     location: Optional[str] = None
+    # Polishing-specific fields
+    size_prices: Optional[dict] = None  # {"S": 37990, "M": 43990, ...}
+    duration_label: Optional[str] = None  # e.g. "3-5 óra"
 
 # Package feature definitions based on X-CLEAN price list
 PACKAGE_FEATURES = {
@@ -165,6 +171,9 @@ EXTRA_SERVICES = [
     {"name": "Vízkő eltávolítás", "category": "extra_kulso", "min_price": 9000, "description": ""},
     {"name": "Gyanta eltávolítás", "category": "extra_kulso", "min_price": 3000, "description": ""},
     {"name": "Liquid kerámia", "category": "extra_kulso", "price": 12000, "description": "Prémium védőréteg"},
+    # Lámpapolírozás — önállóan is kérhető, minden szolgáltatással kombinálható
+    {"name": "Lámpapolír (pár)", "category": "extra_kulso", "price": 21990, "description": "S, M, L méretű autókhoz"},
+    {"name": "Lámpapolír terepjáróhoz (pár)", "category": "extra_kulso", "price": 23990, "description": "XL, XXL méretű autókhoz"},
     # Belső extrák
     {"name": "Légtér, klíma ózonos fertőtlenítése", "category": "extra_belso", "price": 8000, "description": ""},
     {"name": "Komplett kárpittisztítás", "category": "extra_belso", "min_price": 28000, "description": ""},
@@ -175,6 +184,45 @@ EXTRA_SERVICES = [
     {"name": "Állatszőr eltávolítás", "category": "extra_belso", "min_price": 5000, "description": ""},
     # Speciális
     {"name": "Eladásra felkészítés", "category": "extra_special", "min_price": 50000, "description": "Teljes körű felkészítés"}
+]
+
+# Polishing price matrix (Debrecen only)
+POLISHING_PRICES = {
+    "1lepes": {
+        "name": "1-lépéses polírozás",
+        "duration_label": "1–3 óra",
+        "prices": {
+            "S": 37990, "M": 43990, "L": 50990, "XL": 56990, "XXL": 63990
+        }
+    },
+    "tobbLepes": {
+        "name": "Többlépéses polírozás",
+        "duration_label": "2–5 óra",
+        "prices": {
+            "S": 50990, "M": 56990, "L": 63990, "XL": 69990, "XXL": 75990
+        }
+    },
+    "lampapolir": {
+        "name": "Lámpapolírozás (pár)",
+        "duration_label": "30–60 perc",
+        "description": "S, M, L méretű autókhoz — páronként",
+        "prices": {
+            "S": 21990, "M": 21990, "L": 21990, "XL": 0, "XXL": 0
+        }
+    },
+    "lampapolirTerepjaro": {
+        "name": "Lámpapolírozás terepjáróhoz (pár)",
+        "duration_label": "30–60 perc",
+        "description": "XL, XXL méretű autókhoz (terepjáró) — páronként",
+        "prices": {
+            "S": 0, "M": 0, "L": 0, "XL": 23990, "XXL": 23990
+        }
+    }
+}
+
+POLISHING_ADDONS = [
+    {"name": "Lámpapolír (pár)", "price": 21990, "note": "S, M, L méretekig"},
+    {"name": "Lámpapolír terepjáróhoz (pár)", "price": 23990, "note": "XL, XXL méretektől"},
 ]
 
 # Car size descriptions for UI
@@ -188,6 +236,38 @@ CAR_SIZE_INFO = {
 
 # Promotional/Special offers
 PROMOTIONS = [
+    {
+        "id": "budapest_mobil_komplett",
+        "name": "Teljes külső-belső mobil autókozmetika",
+        "description": "Kiszállással! Kiszállási díj: 0 Ft. Belső takarítás + porszívózás, belső üvegtisztítás, belső műanyagápolás, műszerfalápolás, bogároldás, külső tisztítás, külső üvegtisztítás, külső műanyagápolás, felnitisztítás, gumiápolás + AJÁNDÉK illatosító + AJÁNDÉK likvidkerámia bevonat",
+        "price": 19990,
+        "original_price": 29990,
+        "discount_percent": 33,
+        "category": "komplett",
+        "car_sizes": ["S", "M", "L", "XL", "XXL"],
+        "package": "Pro",
+        "features": [
+            "Belső takarítás + porszívózás",
+            "Belső üvegtisztítás",
+            "Belső műanyagápolás",
+            "Műszerfalápolás",
+            "Bogároldás",
+            "Külső tisztítás",
+            "Külső üvegtisztítás",
+            "Külső műanyagápolás",
+            "Felnitisztítás",
+            "Gumiápolás",
+            "🎁 AJÁNDÉK illatosító",
+            "🎁 AJÁNDÉK likvidkerámia bevonat"
+        ],
+        "duration": 120,
+        "badge": "🚗 MOBIL",
+        "valid_until": None,
+        "active": True,
+        "location": "Budapest",
+        "mobile": True,
+        "travel_fee": 0
+    },
     {
         "id": "tavaszi_akcio",
         "name": "Tavaszi akció",
@@ -212,6 +292,7 @@ PROMOTIONS = [
         "duration": 70,
         "badge": "🌸 AKCIÓ",
         "valid_until": "2025-04-30",
-        "active": True
+        "active": True,
+        "location": "Debrecen"
     }
 ]

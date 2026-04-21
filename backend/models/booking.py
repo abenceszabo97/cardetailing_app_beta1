@@ -14,6 +14,7 @@ class Booking(BaseModel):
     invoice_name: Optional[str] = None
     invoice_tax_number: Optional[str] = None
     invoice_address: Optional[str] = None
+    customer_id: Optional[str] = None  # linked customer record
     service_id: str
     service_name: str
     worker_id: Optional[str] = None
@@ -34,6 +35,12 @@ class Booking(BaseModel):
     extras: Optional[List[str]] = None  # list of extra service IDs
     extras_price: Optional[float] = None
     payment_method: Optional[str] = None  # cash, card, transfer
+    # Self-service modification/cancellation tokens
+    modify_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    cancel_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    # Review token — set when status → kesz, used for review email
+    review_token: Optional[str] = None
+    review_sent: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BookingCreate(BaseModel):

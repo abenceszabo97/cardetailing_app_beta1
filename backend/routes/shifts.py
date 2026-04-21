@@ -111,7 +111,8 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
     else:
         month_end = month_start.replace(month=month_start.month + 1)
     
-    worker_query = {}
+    VALID_LOCATIONS = ["Debrecen", "Budapest"]
+    worker_query = {"location": {"$in": VALID_LOCATIONS}, "active": True}
     if location and location != "all":
         worker_query["location"] = location
     all_workers = await db.workers.find(worker_query, {"_id": 0}).to_list(100)
@@ -130,7 +131,17 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
     if location and location != "all":
         job_query["location"] = location
     all_jobs = await db.jobs.find(job_query, {"_id": 0}).to_list(5000)
-    
+
+    # For jobs without extras (older records), fall back to the linked booking's extras
+    booking_ids_needed = [j["booking_id"] for j in all_jobs if j.get("booking_id") and not j.get("extras")]
+    booking_extras_map = {}
+    if booking_ids_needed:
+        linked_bookings = await db.bookings.find(
+            {"booking_id": {"$in": booking_ids_needed}},
+            {"_id": 0, "booking_id": 1, "extras": 1}
+        ).to_list(5000)
+        booking_extras_map = {b["booking_id"]: b.get("extras") or [] for b in linked_bookings}
+
     result = []
     for worker in all_workers:
         wid = worker["worker_id"]
@@ -150,8 +161,19 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
         
         worker_jobs = [j for j in all_jobs if j.get("worker_id") == wid]
         cars_count = len(worker_jobs)
+        # Count total services: each job = 1 main service + number of extras
+        # Fall back to linked booking's extras for older job records that lack the field
+        def _extras_count(j):
+            extras = j.get("extras")
+            if not extras and j.get("booking_id"):
+                extras = booking_extras_map.get(j["booking_id"], [])
+            return len(extras) if isinstance(extras, list) else 0
+
+        services_count = sum(1 + _extras_count(j) for j in worker_jobs)
         revenue = sum(j.get("price", 0) for j in worker_jobs)
-        
+        cash = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") == "keszpenz")
+        card = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") in ("kartya", "utalas"))
+
         result.append({
             "worker_id": wid,
             "name": worker.get("name", ""),
@@ -159,7 +181,10 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
             "days_worked": len(days_set),
             "hours_worked": round(total_hours, 1),
             "cars_completed": cars_count,
-            "revenue": revenue
+            "services_completed": services_count,
+            "revenue": revenue,
+            "cash": cash,
+            "card": card,
         })
     
     return result
@@ -188,7 +213,8 @@ async def get_attendance_report(month: Optional[str] = None, worker_id: Optional
                 "total_hours": 0,
                 "normal_days": 0,
                 "vacation_days": 0,
-                "sick_days": 0
+                "sick_days": 0,
+                "absence_days": 0
             }
         
         start = datetime.fromisoformat(shift["start_time"])
@@ -224,6 +250,8 @@ async def get_attendance_report(month: Optional[str] = None, worker_id: Optional
             workers_data[wid]["vacation_days"] += 1
         elif shift_type == "sick_leave":
             workers_data[wid]["sick_days"] += 1
+        elif shift_type == "absence":
+            workers_data[wid]["absence_days"] = workers_data[wid].get("absence_days", 0) + 1
     
     # Round totals
     for wid in workers_data:

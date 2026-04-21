@@ -4,12 +4,60 @@ Jobs Routes
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+import uuid
+import logging
 from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.job import Job, JobCreate, JobUpdate, IMAGE_SLOT_LABELS_BEFORE, IMAGE_SLOT_LABELS_AFTER, IMAGE_SLOTS_BEFORE, IMAGE_SLOTS_AFTER
+from routes.events import publish_event
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+async def _send_review_email_for_booking(booking_id: str, booking: dict):
+    """
+    Generate review token (if missing) and send the review request email.
+    Called whenever a job tied to a booking is marked 'kesz'.
+    """
+    try:
+        # Reload booking to get latest state
+        if not booking:
+            booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
+        if not booking:
+            return
+
+        email = booking.get("email")
+        if not email:
+            return
+
+        # Skip if already sent
+        if booking.get("review_sent"):
+            return
+
+        # Generate token if missing
+        review_token = booking.get("review_token")
+        if not review_token:
+            review_token = uuid.uuid4().hex
+            await db.bookings.update_one(
+                {"booking_id": booking_id},
+                {"$set": {"review_token": review_token, "review_sent": False}}
+            )
+            booking = {**booking, "review_token": review_token, "review_sent": False}
+
+        # Send email
+        from services.email_service import send_review_request
+        result = await send_review_request(booking)
+        logger.info(f"Review email for booking {booking_id}: {result.get('status')}")
+
+        if result.get("status") == "success":
+            await db.bookings.update_one(
+                {"booking_id": booking_id},
+                {"$set": {"review_sent": True}}
+            )
+    except Exception as e:
+        logger.warning(f"Review email failed for booking {booking_id}: {e}")
 
 @router.get("/jobs/image-slots")
 async def get_image_slots():
@@ -203,6 +251,7 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
     
     result = job.model_dump()
     result["booking_id"] = booking_doc["booking_id"]
+    publish_event("refresh", {"reason": "job_created"})
     return result
 
 @router.put("/jobs/{job_id}")
@@ -251,19 +300,20 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     {"$set": booking_sync}
                 )
                 
-                if update_data.get("status") == "kesz" and update_data.get("payment_method"):
-                    # Update customer total_spent with the actual updated price
+                if update_data.get("status") == "kesz" and update_data.get("payment_method") and existing_job.get("status") != "kesz":
+                    # Update customer total_spent with the actual updated price (only if not already done)
                     final_price = update_data.get("price", existing_job.get("price", 0))
                     await db.customers.update_one(
                         {"plate_number": booking["plate_number"]},
                         {"$inc": {"total_spent": final_price}}
                     )
+                    # Send review email for the linked booking
+                    await _send_review_email_for_booking(booking_id, booking)
                 return {"message": "Munka frissítve"}
             else:
                 # Create new job from booking
                 from models.job import Job
-                import uuid
-                
+
                 new_job_id = f"job_{uuid.uuid4().hex[:12]}"
                 job_data = {
                     "job_id": new_job_id,
@@ -285,28 +335,33 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     "car_type": booking.get("car_type"),
                     "email": booking.get("email"),
                     "notes": booking.get("notes", ""),
+                    # Carry over extras from booking so stats count them correctly
+                    "extras": booking.get("extras") or [],
+                    "extras_price": booking.get("extras_price") or 0,
                     "images_before": {},
                     "images_after": {},
                     "images_before_legacy": [],
                     "images_after_legacy": [],
                     "created_at": datetime.now(timezone.utc).isoformat()
                 }
-                
+
                 await db.jobs.insert_one(job_data)
-                
+
                 # Update booking status
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
                     {"$set": {"status": update_data.get("status", "folyamatban")}}
                 )
-                
+
                 if update_data.get("status") == "kesz" and update_data.get("payment_method"):
                     # Update customer total_spent
                     await db.customers.update_one(
                         {"plate_number": booking["plate_number"]},
                         {"$inc": {"total_spent": booking.get("price", 0)}}
                     )
-                
+                    # Send review email for the linked booking
+                    await _send_review_email_for_booking(booking_id, booking)
+
                 return {"message": "Munka létrehozva a foglalásból"}
         else:
             # Update booking with all provided fields (price, service, worker, etc.)
@@ -353,17 +408,18 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
     if not job:
         raise HTTPException(status_code=404, detail="Munka nem található")
     
-    if update_data.get("status") == "kesz":
+    if update_data.get("status") == "kesz" and job.get("status") != "kesz":
+        # Only increment total_spent once (guard against re-marking as kesz)
         await db.customers.update_one(
             {"customer_id": job["customer_id"]},
             {"$inc": {"total_spent": job["price"]}}
         )
-    
+
     await db.jobs.update_one(
         {"job_id": job_id},
         {"$set": update_data}
     )
-    
+
     # Sync back to booking if this job came from a booking
     if job.get("booking_id"):
         booking_sync = {}
@@ -386,7 +442,11 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 {"booking_id": job["booking_id"]},
                 {"$set": booking_sync}
             )
-    
+        # Send review email when marking as done
+        if update_data.get("status") == "kesz" and update_data.get("payment_method"):
+            await _send_review_email_for_booking(job["booking_id"], None)
+
+    publish_event("refresh", {"reason": "job_updated"})
     return {"message": "Munka frissítve"}
 
 @router.delete("/jobs/{job_id}")
@@ -395,4 +455,5 @@ async def delete_job(job_id: str, user: User = Depends(get_current_user)):
     result = await db.jobs.delete_one({"job_id": job_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Munka nem található")
+    publish_event("refresh", {"reason": "job_deleted"})
     return {"message": "Munka törölve"}

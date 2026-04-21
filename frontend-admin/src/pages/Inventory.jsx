@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -41,9 +41,9 @@ import {
 
 export const Inventory = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState("all");
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -54,12 +54,12 @@ export const Inventory = () => {
     current_quantity: 0,
     min_level: 0,
     unit: "db",
-    location: "Debrecen"
+    location: locationForApi || "Debrecen"
   });
 
   const fetchInventory = async () => {
     try {
-      const locationParam = selectedLocation !== "all" ? `?location=${selectedLocation}` : "";
+      const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       const response = await axios.get(`${API}/inventory${locationParam}`, { withCredentials: true });
       setInventory(response.data);
     } catch (error) {
@@ -71,7 +71,7 @@ export const Inventory = () => {
 
   useEffect(() => {
     fetchInventory();
-  }, [selectedLocation]);
+  }, [selectedLocation, locationForApi]);
 
   const handleCreateItem = async () => {
     try {
@@ -124,7 +124,7 @@ export const Inventory = () => {
     }
   };
 
-  const lowStockItems = inventory.filter(item => item.current_quantity < item.min_level);
+  const lowStockItems = inventory.filter(item => Number(item.min_level) > 0 && Number(item.current_quantity) <= Number(item.min_level));
 
   if (loading) {
     return (
@@ -140,21 +140,11 @@ export const Inventory = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Készlet</h1>
-          <p className="text-slate-400 mt-1 text-sm sm:text-base">{inventory.length} termék összesen</p>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">
+            {inventory.length} termék · {selectedLocation === "all" ? "Összes telephely" : selectedLocation}
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-full sm:w-[150px] bg-slate-900 border-slate-700 text-white text-sm">
-              <MapPin className="w-4 h-4 mr-2 text-green-400" />
-              <SelectValue placeholder="Telephely" />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              <SelectItem value="all" className="text-white">Összes</SelectItem>
-              <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
-              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
-            </SelectContent>
-          </Select>
-          
           <Dialog open={isNewItemOpen} onOpenChange={setIsNewItemOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-green-600 hover:bg-green-500 w-full sm:w-auto" data-testid="new-inventory-btn">
@@ -270,7 +260,7 @@ export const Inventory = () => {
               {/* Mobile Card View */}
               <div className="sm:hidden space-y-3 p-4">
                 {inventory.map((item) => {
-                  const isLow = item.current_quantity < item.min_level;
+                  const isLow = Number(item.current_quantity) <= Number(item.min_level) && Number(item.min_level) > 0;
                   return (
                     <div 
                       key={item.inventory_id}
@@ -333,13 +323,13 @@ export const Inventory = () => {
                 </TableHeader>
                 <TableBody>
                   {inventory.map((item) => {
-                    const isLow = item.current_quantity < item.min_level;
+                    const isLow = Number(item.current_quantity) <= Number(item.min_level) && Number(item.min_level) > 0;
                     const isEditing = editingItem === item.inventory_id;
                     
                     return (
-                      <TableRow 
+                      <TableRow
                         key={item.inventory_id}
-                        className={`border-slate-800 ${isLow ? 'bg-red-500/5' : 'hover:bg-white/5'}`}
+                        className={`border-slate-800 ${isLow ? 'bg-red-500/10 border-l-2 border-l-red-500' : 'hover:bg-white/5'}`}
                         data-testid={`inventory-row-${item.inventory_id}`}
                       >
                         <TableCell className="text-white font-medium">
@@ -350,7 +340,10 @@ export const Inventory = () => {
                               className="w-40 bg-slate-950 border-slate-700 text-white"
                             />
                           ) : (
-                            item.product_name
+                            <span className="flex items-center gap-2">
+                              {isLow && <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />}
+                              {item.product_name}
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-slate-300">

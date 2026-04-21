@@ -7,8 +7,8 @@ import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
 import { 
-  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2, 
-  ChevronRight, ChevronLeft, Search, Star, Loader2, Sparkles,
+  Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2,
+  ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Star, Loader2, Sparkles,
   Calendar, Users, Timer, AlertTriangle, Plus, X, Check
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
@@ -110,15 +110,37 @@ const CAR_SIZE_INFO = {
   XXL: { name: "XXL - Nagy SUV", description: "Terepjáró, kisbusz", examples: "Range Rover, Ford Transit" }
 };
 
+// Hungarian phone number formatter + validator
+const formatHunPhone = (raw) => {
+  // Strip everything except digits and leading +
+  let digits = raw.replace(/[^\d]/g, "");
+  // Normalize: remove country code prefix (36 or 06)
+  if (digits.startsWith("36") && digits.length > 9) digits = digits.slice(2);
+  else if (digits.startsWith("06")) digits = digits.slice(2);
+  else if (digits.startsWith("0") && digits.length === 10) digits = digits.slice(1);
+  // Limit to 9 digits (after country code)
+  digits = digits.slice(0, 9);
+  // Build formatted string
+  let out = "+36";
+  if (digits.length > 0) out += " " + digits.slice(0, 2);
+  if (digits.length > 2) out += " " + digits.slice(2, 5);
+  if (digits.length > 5) out += " " + digits.slice(5, 9);
+  return out;
+};
+const isValidHunPhone = (phone) => /^\+36\s?\d{2}\s?\d{3}\s?\d{4}$/.test(phone.trim());
+
 const BookingPage = () => {
   const [step, setStep] = useState(1);
+  const [stepDir, setStepDir] = useState("forward");
+  const goToStep = (n) => { setStepDir(n > step ? "forward" : "back"); setStep(n); };
   const [pricingData, setPricingData] = useState(null);
-  const [pricingError, setPricingError] = useState("");
+  const [pricingError, setPricingError] = useState("");   // Részletes hibaüzenet helyett csak üres string
   const [extras, setExtras] = useState([]);
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [bookingResult, setBookingResult] = useState(null);
   
   // Selection state
   const [selectedSize, setSelectedSize] = useState(null);
@@ -126,6 +148,9 @@ const BookingPage = () => {
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [selectedPromotion, setSelectedPromotion] = useState(null);
+  const [selectedPolishingType, setSelectedPolishingType] = useState(null); // "1lepes" | "tobbLepes"
+  const [cleaningAddon, setCleaningAddon] = useState(null); // null | "kulso" | "belso" | "komplett"
+  const [cleaningPackage, setCleaningPackage] = useState("Pro"); // "Eco" | "Pro" | "VIP"
   
   // Form state
   const [form, setForm] = useState({
@@ -139,23 +164,27 @@ const BookingPage = () => {
   const [customerFound, setCustomerFound] = useState(null);
   const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState("");
+  const [plateError, setPlateError] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   // Load pricing data and extras
   // Load pricing data when location changes
   useEffect(() => {
-    setPricingError("");
+    setPricingError(false);
     const locParam = form.location ? `?location=${form.location}` : "";
     axios.get(`${API}/services/pricing-data${locParam}`)
       .then(r => {
         setPricingData(r.data);
+        setPricingError(false);
         if (r.data.extras) setExtras(r.data.extras);
       })
       .catch(err => {
         console.error("Pricing data error:", err);
-        setPricingError("Nem sikerült betölteni a booking adatokat. Ellenőrizd a backend URL beállítást és próbáld újra.");
+        // On error fall back to empty data so the page doesn't stay frozen
+        setPricingData({});
+        setPricingError(true);
       });
-    
+
     if (!form.location) {
       axios.get(`${API}/services/extras`)
         .then(r => setExtras(Array.isArray(r.data) ? r.data : []))
@@ -174,11 +203,29 @@ const BookingPage = () => {
     }
   }, [form.location, form.date, selectedSize, selectedCategory, selectedPackage, selectedPromotion]);
 
+  // Debounced plate lookup — properly cleans up the timeout on every change
+  useEffect(() => {
+    const plate = form.plate_number;
+    if (!plate || plate.length < 5) {
+      setCustomerFound(null);
+      setIsBlacklisted(false);
+      return;
+    }
+    const timeoutId = setTimeout(() => lookupPlate(plate), 500);
+    return () => clearTimeout(timeoutId);
+  }, [form.plate_number, lookupPlate]);
+
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   // Calculate price - supports promotions
+  const getPolishingPrice = () => {
+    if (!selectedSize || !selectedPolishingType || !pricingData?.polishing) return 0;
+    return pricingData.polishing.types[selectedPolishingType]?.prices[selectedSize] || 0;
+  };
+
   const getPrice = () => {
     if (selectedPromotion) return selectedPromotion.price;
+    if (selectedCategory === "poliroz") return getPolishingPrice();
     if (!selectedSize || !selectedCategory || !selectedPackage || !pricingData) return 0;
     return pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[selectedPackage] || 0;
   };
@@ -191,6 +238,11 @@ const BookingPage = () => {
 
   const getDuration = () => {
     if (selectedPromotion) return selectedPromotion.duration || 70;
+    if (selectedCategory === "poliroz" && selectedSize) {
+      const polishDurations = { "1lepes": { S: 90, M: 100, L: 120, XL: 140, XXL: 160 }, "tobbLepes": { S: 150, M: 180, L: 210, XL: 240, XXL: 270 } };
+      const base = polishDurations[selectedPolishingType]?.[selectedSize] || 120;
+      return base + getCleaningAddonDuration();
+    }
     if (!selectedSize || !selectedCategory || !pricingData) return 0;
     let base = pricingData.duration_matrix[selectedSize]?.[selectedCategory] || 60;
     if (selectedPackage === "VIP") base = Math.round(base * 1.5);
@@ -205,12 +257,21 @@ const BookingPage = () => {
     }, 0);
   };
 
-  const getTotalPrice = () => getPrice() + getExtrasTotal();
+  const getCleaningAddonPrice = () => {
+    if (!cleaningAddon || !selectedSize || !pricingData) return 0;
+    return pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[cleaningPackage] ?? 0;
+  };
+
+  const getCleaningAddonDuration = () => {
+    if (!cleaningAddon || !selectedSize || !pricingData) return 0;
+    return pricingData?.duration_matrix?.[selectedSize]?.[cleaningAddon] ?? 0;
+  };
+
+  const getTotalPrice = () => getPrice() + getExtrasTotal() + (selectedCategory === "poliroz" ? getCleaningAddonPrice() : 0);
 
   // Select a promotion
   const selectPromotion = (promo) => {
     setSelectedPromotion(promo);
-    setSelectedExtras([]); // Clear extras when promotion selected
     // Auto-select size and category based on promotion
     if (promo.car_sizes?.length > 0) {
       setSelectedSize(promo.car_sizes[promo.car_sizes.length - 1]); // Largest allowed
@@ -225,6 +286,7 @@ const BookingPage = () => {
     setSelectedSize(null);
     setSelectedCategory(null);
     setSelectedPackage(null);
+    setSelectedPolishingType(null);
   };
 
   // Plate lookup
@@ -267,37 +329,102 @@ const BookingPage = () => {
     setLookingUp(false);
   }, []);
 
+  // Accepts: ABC-123 (3 letters + 3 digits) or AB-CD-123 (2+2 letters + 3 digits)
+  const PLATE_REGEX = /^([A-ZÁÉÍÓÖŐÚÜŰ]{3}-\d{3}|[A-ZÁÉÍÓÖŐÚÜŰ]{2}-[A-ZÁÉÍÓÖŐÚÜŰ]{2}-\d{3})$/i;
+
   const handlePlateChange = (value) => {
     const plate = value.toUpperCase();
     set("plate_number", plate);
-    if (plate.length >= 5) {
-      const timeoutId = setTimeout(() => lookupPlate(plate), 500);
-      return () => clearTimeout(timeoutId);
+    if (plate.length > 2 && !PLATE_REGEX.test(plate)) {
+      setPlateError("Érvénytelen rendszám formátum (pl.: ABC-123 vagy AB-CD-123)");
+    } else {
+      setPlateError("");
     }
   };
 
-  const toggleExtra = (extraId) => {
-    setSelectedExtras(prev => 
-      prev.includes(extraId) 
-        ? prev.filter(id => id !== extraId)
-        : [...prev, extraId]
+  // Resolve extra name from its ID (service_id or name)
+  const resolveExtraName = (extraId) =>
+    extras.find(e => (e.service_id || e.name) === extraId)?.name || extraId;
+
+  // Returns true if the given extraId cannot currently be selected
+  const isExtraDisabled = (extraId) => {
+    const name = resolveExtraName(extraId);
+    // "Eladásra felkészítés" is already selected → everything else blocked
+    const eladasId = extras.find(e => e.name === "Eladásra felkészítés");
+    const eladasKey = eladasId ? (eladasId.service_id || eladasId.name) : "Eladásra felkészítés";
+    if (selectedExtras.includes(eladasKey) && extraId !== eladasKey) return true;
+    // "Komplett kárpittisztítás" selected → "Kárpittisztítás/ülés" blocked
+    const kompKarpitKey = (() => { const e = extras.find(ex => ex.name === "Komplett kárpittisztítás"); return e ? (e.service_id || e.name) : "Komplett kárpittisztítás"; })();
+    if (name === "Kárpittisztítás/ülés" && selectedExtras.includes(kompKarpitKey)) return true;
+    // "Komplett 3 fázisú bőrápolás" selected → "3 fázisú bőrápolás/ülés" blocked
+    const kompBorapKey = (() => { const e = extras.find(ex => ex.name === "Komplett 3 fázisú bőrápolás"); return e ? (e.service_id || e.name) : "Komplett 3 fázisú bőrápolás"; })();
+    if (name === "3 fázisú bőrápolás/ülés" && selectedExtras.includes(kompBorapKey)) return true;
+    return false;
+  };
+
+  // Returns true if the extra is already included in the selected promotion
+  const isExtraIncludedInPromo = (extraId) => {
+    if (!selectedPromotion?.features) return false;
+    const name = resolveExtraName(extraId);
+    return selectedPromotion.features.some(f =>
+      f.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(f.toLowerCase())
     );
   };
 
+  const toggleExtra = (extraId) => {
+    if (isExtraDisabled(extraId) && !selectedExtras.includes(extraId)) return; // blocked
+    const name = resolveExtraName(extraId);
+    setSelectedExtras(prev => {
+      if (prev.includes(extraId)) {
+        // Deselect always allowed
+        return prev.filter(id => id !== extraId);
+      }
+      // --- Selecting ---
+      // "Eladásra felkészítés": exclusive – clears all others
+      if (name === "Eladásra felkészítés") return [extraId];
+      // Selecting "Komplett kárpittisztítás" → remove "Kárpittisztítás/ülés" if present
+      let next = [...prev];
+      if (name === "Komplett kárpittisztítás") {
+        next = next.filter(id => resolveExtraName(id) !== "Kárpittisztítás/ülés");
+      }
+      // Selecting "Komplett 3 fázisú bőrápolás" → remove "3 fázisú bőrápolás/ülés" if present
+      if (name === "Komplett 3 fázisú bőrápolás") {
+        next = next.filter(id => resolveExtraName(id) !== "3 fázisú bőrápolás/ülés");
+      }
+      return [...next, extraId];
+    });
+  };
+
   const canGoNext = () => {
-    if (step === 1) return form.location && (selectedPromotion || (selectedSize && selectedCategory && selectedPackage));
+    if (step === 1) {
+      if (!form.location) return false;
+      // Budapest: only promotions are available — must select one
+      if (form.location === "Budapest" && pricingData?.promotions?.length > 0) {
+        return !!selectedPromotion;
+      }
+      return selectedPromotion || (selectedSize && selectedCategory === "poliroz" && selectedPolishingType) || (selectedSize && selectedCategory && selectedPackage && selectedCategory !== "poliroz");
+    }
     if (step === 2) return form.date && form.time_slot;
-    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && !isBlacklisted;
+    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && isValidHunPhone(form.phone) && !isBlacklisted;
     return true;
   };
 
   const handleSubmit = async () => {
+    if (plateError) return;
     setSubmitting(true);
     try {
       // Create service name from selection or promotion
       let serviceName;
       if (selectedPromotion) {
-        serviceName = `${selectedPromotion.name} - ${selectedPromotion.description}`;
+        serviceName = `${selectedPromotion.name}`;
+      } else if (selectedCategory === "poliroz") {
+        const polishLabel = pricingData?.polishing?.types?.[selectedPolishingType]?.name || selectedPolishingType || "Polírozás";
+        let polishName = `${selectedSize} - ${polishLabel}`;
+        if (cleaningAddon) {
+          const addonLabel = cleaningAddon === "kulso" ? "Külső mosás" : cleaningAddon === "belso" ? "Belső takarítás" : "Komplett (K+B)";
+          polishName += ` + ${addonLabel} ${cleaningPackage}`;
+        }
+        serviceName = polishName;
       } else {
         serviceName = `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Külső+Belső'} ${selectedPackage}`;
       }
@@ -313,10 +440,15 @@ const BookingPage = () => {
         car_size: selectedSize,
         package_type: selectedPackage,
         category: selectedCategory,
-        promotion_id: selectedPromotion?.id || null
+        promotion_id: selectedPromotion?.id || null,
+        ...(selectedCategory === "poliroz" && cleaningAddon ? {
+          cleaning_addon: cleaningAddon,
+          cleaning_package: cleaningPackage
+        } : {})
       };
       
-      await axios.post(`${API}/bookings`, bookingData);
+      const res = await axios.post(`${API}/bookings`, bookingData);
+      setBookingResult(res.data || null);
       setSuccess(true);
       toast.success("Foglalás sikeresen rögzítve!");
     } catch (error) {
@@ -327,12 +459,15 @@ const BookingPage = () => {
 
   const resetForm = () => {
     setSuccess(false);
+    setBookingResult(null);
     setStep(1);
     setSelectedSize(null);
     setSelectedCategory(null);
     setSelectedPackage(null);
     setSelectedExtras([]);
     setCustomerFound(null);
+    setCleaningAddon(null);
+    setCleaningPackage("Pro");
     setForm({
       customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
       address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
@@ -374,6 +509,9 @@ const BookingPage = () => {
   }
 
   if (success) {
+    const serviceSummary = selectedCategory === "poliroz"
+      ? (pricingData?.polishing?.types?.[selectedPolishingType]?.name || "Polírozás")
+      : `${selectedSize} – ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} ${selectedPackage}`;
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-slate-900/90 border-slate-800 backdrop-blur-xl">
@@ -382,27 +520,34 @@ const BookingPage = () => {
             <div className="w-20 h-20 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10 text-green-400" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Foglalás sikeres!</h2>
-            <p className="text-slate-400 mb-4">
-              Időpont: <strong className="text-white">{form.date}</strong> - <strong className="text-green-400">{form.time_slot}</strong>
+            <h2 className="text-2xl font-bold text-white mb-1">Foglalás sikeres!</h2>
+            <p className="text-slate-400 text-sm mb-4">
+              Visszaigazoló e-mailt küldtünk.
             </p>
-            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-800">
-              <div className="text-left space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Csomag:</span>
-                  <span className="text-white">{selectedSize} - {selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} {selectedPackage}</span>
+            <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-800 text-left space-y-2.5">
+              {bookingResult?.booking_id && (
+                <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                  <span className="text-slate-500 text-xs">Foglalási azonosító</span>
+                  <span className="text-green-400 font-mono text-xs font-bold">{bookingResult.booking_id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Rendszám:</span>
-                  <span className="text-white font-mono">{form.plate_number}</span>
-                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Időpont:</span>
+                <span className="text-white text-sm font-medium">{form.date} {form.time_slot}</span>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
-                <span className="text-slate-400">Fizetendő:</span>
-                <span className="text-green-400 text-2xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Szolgáltatás:</span>
+                <span className="text-white text-sm text-right max-w-[55%]">{serviceSummary}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Rendszám:</span>
+                <span className="text-white font-mono text-sm">{form.plate_number}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-800">
+                <span className="text-slate-400 text-sm">Fizetendő:</span>
+                <span className="text-green-400 text-xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
               </div>
             </div>
-            <p className="text-slate-500 text-sm mb-4">Visszaigazoló e-mailt küldtünk.</p>
             <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600" onClick={resetForm}>
               <Sparkles className="w-4 h-4 mr-2" /> Új foglalás
             </Button>
@@ -415,6 +560,13 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 pb-20">
       <div className="w-full max-w-3xl relative">
+        {/* Connection error banner */}
+        {pricingError && (
+          <div className="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Nem sikerült betölteni a szolgáltatásokat. Ellenőrizze az internetkapcsolatot, majd frissítse az oldalt.
+          </div>
+        )}
         {/* Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-3 shadow-lg shadow-green-500/20 p-2">
@@ -428,7 +580,7 @@ const BookingPage = () => {
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-2 mb-6">
+        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6">
           {[
             { num: 1, label: "Szolgáltatás", icon: Sparkles },
             { num: 2, label: "Időpont", icon: Calendar },
@@ -437,21 +589,22 @@ const BookingPage = () => {
           ].map((s, i) => (
             <div key={s.num} className="flex items-center">
               <div className={`flex flex-col items-center ${step >= s.num ? 'opacity-100' : 'opacity-40'}`}>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all ${
                   step >= s.num ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg' : 'bg-slate-800'
                 }`}>
-                  <s.icon className={`w-5 h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
+                  <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
                 </div>
-                <span className={`text-xs mt-1 ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
+                <span className={`text-xs mt-1 hidden sm:block ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
+                <span className={`text-xs mt-1 sm:hidden ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.num}</span>
               </div>
-              {i < 3 && <div className={`w-8 h-0.5 mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
+              {i < 3 && <div className={`w-4 sm:w-8 h-0.5 mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
             </div>
           ))}
         </div>
 
         {/* Step 1: Car Size, Category, Package Selection */}
         {step === 1 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-1">
+          <Card key="step-1" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-1">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -485,6 +638,14 @@ const BookingPage = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Budapest info banner */}
+              {form.location === "Budapest" && pricingData?.promotions?.length > 0 && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/40 text-indigo-300 text-sm">
+                  <span className="text-base leading-none mt-0.5">ℹ️</span>
+                  <span>Budapesten kizárólag kiszállásos autóápolás érhető el. Válassz az alábbi akciós csomagok közül!</span>
+                </div>
+              )}
 
               {/* Active Promotions Banner */}
               {pricingData?.promotions?.length > 0 && !selectedPromotion && (
@@ -564,6 +725,11 @@ const BookingPage = () => {
                 </div>
               )}
 
+              {/* Regular service sections (greyed out for Budapest when promotions exist) */}
+              {!selectedPromotion && form.location === "Budapest" && pricingData?.promotions?.length > 0 && (
+                <p className="text-slate-500 text-xs text-center italic">Az alábbi csomagok Budapesten nem elérhetők</p>
+              )}
+              <div className={!selectedPromotion && form.location === "Budapest" && pricingData?.promotions?.length > 0 ? "opacity-50 pointer-events-none select-none space-y-6" : "space-y-6"}>
               {/* Car Size Selection - only show if no promotion selected */}
               {!selectedPromotion && (
               <div>
@@ -602,18 +768,21 @@ const BookingPage = () => {
               {!selectedPromotion && selectedSize && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">2. Szolgáltatás típusa</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className={`grid gap-3 ${form.location === "Debrecen" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
                     {[
                       { id: 'kulso', name: 'Külső', desc: 'Külső tisztítás', icon: '🚿' },
                       { id: 'belso', name: 'Belső', desc: 'Belső takarítás', icon: '🧹' },
-                      { id: 'komplett', name: 'Külső + Belső', desc: 'Teljes tisztítás', icon: '✨' }
+                      { id: 'komplett', name: 'Külső + Belső', desc: 'Teljes tisztítás', icon: '✨' },
+                      ...(form.location === "Debrecen" ? [{ id: 'poliroz', name: 'Polírozás', desc: 'Fényezés polírozás', icon: '🔮' }] : [])
                     ].map(cat => (
                       <button
                         key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
+                        onClick={() => { setSelectedCategory(cat.id); setSelectedPolishingType(null); setSelectedPackage(null); }}
                         className={`p-4 rounded-xl border-2 transition-all ${
-                          selectedCategory === cat.id 
-                            ? 'border-green-500 bg-green-500/10' 
+                          selectedCategory === cat.id
+                            ? cat.id === 'poliroz'
+                              ? 'border-amber-500 bg-amber-500/10'
+                              : 'border-green-500 bg-green-500/10'
                             : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
                         }`}
                         data-testid={`category-${cat.id}`}
@@ -629,11 +798,104 @@ const BookingPage = () => {
                 </div>
               )}
 
-              {/* Package Selection with Features - only show if no promotion selected */}
-              {!selectedPromotion && selectedSize && selectedCategory && (
+              {/* Polishing Type Selection - only for Debrecen poliroz category */}
+              {!selectedPromotion && selectedSize && selectedCategory === "poliroz" && (
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-3 block font-medium">3. Polírozás típusa</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {pricingData?.polishing?.types && Object.entries(pricingData.polishing.types).filter(([_, typeData]) => (typeData.prices?.[selectedSize] || 0) > 0).map(([typeId, typeData]) => {
+                        const price = typeData.prices?.[selectedSize] || 0;
+                        const isSelected = selectedPolishingType === typeId;
+                        return (
+                          <button
+                            key={typeId}
+                            onClick={() => setSelectedPolishingType(typeId)}
+                            className={`p-4 rounded-xl border-2 transition-all text-left ${
+                              isSelected
+                                ? 'border-amber-500 bg-amber-500/10'
+                                : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                            }`}
+                            data-testid={`polishing-${typeId}`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <span className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                                {typeData.name}
+                              </span>
+                              {isSelected && <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />}
+                            </div>
+                            <div className={`text-2xl font-bold mb-2 ${isSelected ? 'text-amber-400' : 'text-slate-400'}`}>
+                              {price.toLocaleString()} Ft
+                            </div>
+                            <div className="text-xs text-slate-500 flex items-center gap-1">
+                              <Timer className="w-3 h-3" /> {typeData.duration_label}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Cleaning Addon - visible immediately after selecting a polishing type */}
+                  {selectedPolishingType && (
+                    <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
+                      <label className="text-sm text-green-400 mb-3 block font-medium flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        4. Kiegészítő mosás / takarítás <span className="text-slate-500 font-normal">(opcionális)</span>
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { id: null, label: "Nincs" },
+                          { id: "kulso", label: "Külső mosás" },
+                          { id: "belso", label: "Belső takarítás" },
+                          { id: "komplett", label: "Komplett (K+B)" }
+                        ].map(opt => (
+                          <button
+                            key={String(opt.id)}
+                            onClick={() => setCleaningAddon(opt.id)}
+                            className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                              cleaningAddon === opt.id
+                                ? 'border-green-500 bg-green-500/10 text-white'
+                                : 'border-slate-700 hover:border-green-500/40 bg-slate-800/50 text-slate-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                      {cleaningAddon && (
+                        <div className="mt-3 space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {["Eco", "Pro", "VIP"].map(pkg => {
+                              const addonPrice = pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[pkg] ?? 0;
+                              return (
+                                <button
+                                  key={pkg}
+                                  onClick={() => setCleaningPackage(pkg)}
+                                  className={`py-2 px-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                                    cleaningPackage === pkg
+                                      ? 'border-green-500 bg-green-500/10 text-white'
+                                      : 'border-slate-700 hover:border-slate-600 bg-slate-800/50 text-slate-300'
+                                  }`}
+                                >
+                                  <span className="block">{pkg}</span>
+                                  <span className="text-xs text-green-400 font-bold">+{addonPrice.toLocaleString()} Ft</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Package Selection with Features - only show if no promotion selected and not poliroz */}
+              {!selectedPromotion && selectedSize && selectedCategory && selectedCategory !== "poliroz" && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">3. Csomag választás</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {['Eco', 'Pro', 'VIP'].map(pkg => {
                       const price = pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[pkg] || 0;
                       const features = pricingData.package_features[selectedCategory]?.[pkg] || [];
@@ -706,64 +968,78 @@ const BookingPage = () => {
                   </div>
                 </div>
               )}
+              </div>{/* end regular-service wrapper */}
 
-              {/* Extra Services - show for both promotion and manual selection */}
-              {(selectedPromotion || selectedPackage) && extras.length > 0 && (
+              {/* Extra Services - show for promotion, package, or poliroz type selection */}
+              {(selectedPromotion || selectedPackage || (selectedCategory === "poliroz" && selectedPolishingType)) && extras.length > 0 && (
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block font-medium">
                     {selectedPromotion ? 'Extra szolgáltatások' : '4. Extra szolgáltatások (opcionális)'}
                   </label>
-                  {selectedPromotion ? (
-                    <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                      <p className="text-amber-400 text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Az akciós csomag már tartalmazza az összes szolgáltatást!
-                      </p>
-                      <p className="text-slate-500 text-xs mt-1">Az akciós árak fix csomagokat tartalmaznak, extra szolgáltatás nem adható hozzá.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {extras.map(extra => (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {extras.map(extra => {
+                      const extraKey = extra.service_id || extra.name;
+                      const isSelected = selectedExtras.includes(extraKey);
+                      const includedInPromo = isExtraIncludedInPromo(extraKey);
+                      const disabled = includedInPromo || isExtraDisabled(extraKey);
+                      const isExclusive = extra.name === "Eladásra felkészítés";
+                      return (
                         <div
-                          key={extra.service_id || extra.name}
-                          onClick={() => toggleExtra(extra.service_id || extra.name)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            selectedExtras.includes(extra.service_id || extra.name)
-                              ? 'border-green-500 bg-green-500/10'
-                              : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
+                          key={extraKey}
+                          onClick={() => !disabled && toggleExtra(extraKey)}
+                          className={`p-3 rounded-lg border transition-all ${
+                            includedInPromo
+                              ? 'border-slate-800 bg-slate-900/30 cursor-not-allowed opacity-50'
+                              : disabled && !isSelected
+                                ? 'border-slate-800 bg-slate-900/30 cursor-not-allowed opacity-40'
+                                : isSelected
+                                  ? isExclusive
+                                    ? 'border-orange-500 bg-orange-500/10 cursor-pointer'
+                                    : 'border-green-500 bg-green-500/10 cursor-pointer'
+                                  : 'border-slate-700 hover:border-slate-600 bg-slate-800/30 cursor-pointer'
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Checkbox 
-                                checked={selectedExtras.includes(extra.service_id || extra.name)}
-                                className="border-slate-600"
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Checkbox
+                                checked={isSelected}
+                                disabled={disabled && !isSelected}
+                                className={isSelected && isExclusive ? "border-orange-500" : "border-slate-600"}
                               />
-                              <div>
-                                <span className="text-white text-sm">{extra.name}</span>
+                              <div className="min-w-0">
+                                <span className={`text-sm font-medium ${isExclusive ? 'text-orange-300' : 'text-white'}`}>
+                                  {extra.name}
+                                  {isExclusive && <span className="ml-2 text-xs bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">FULL SERVICE</span>}
+                                </span>
                                 {extra.description && (
-                                  <p className="text-xs text-slate-500">{extra.description}</p>
+                                  <p className="text-xs text-slate-500 truncate">{extra.description}</p>
+                                )}
+                                {includedInPromo && (
+                                  <p className="text-xs text-amber-500 italic">✓ Akció tartalmazza</p>
+                                )}
+                                {!includedInPromo && disabled && !isSelected && (
+                                  <p className="text-xs text-slate-600 italic">Más szolgáltatással nem kombinálható</p>
                                 )}
                               </div>
                             </div>
-                            <span className="text-green-400 font-medium">
+                            <span className={`font-medium text-sm whitespace-nowrap ${isExclusive ? 'text-orange-400' : 'text-green-400'}`}>
                               {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
                             </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* Price Summary - show for both promotion and manual selection */}
-              {(selectedPromotion || selectedPackage) && (
+              {/* Price Summary - show for promotion, package, or poliroz type selection */}
+              {(selectedPromotion || selectedPackage || (selectedCategory === "poliroz" && selectedPolishingType)) && (
                 <>
                   {/* Smart Extra Suggestions - inline, automatic */}
                   {!selectedPromotion && selectedSize && selectedPackage && extras.length > 0 && (
                     (() => {
-                      const unselectedExtras = extras.filter(e => !selectedExtras.includes(e.service_id || e.name));
+                      const unselectedExtras = extras.filter(e => !selectedExtras.includes(e.service_id || e.name) && !isExtraDisabled(e.service_id || e.name));
                       if (unselectedExtras.length === 0) return null;
                       const suggested = unselectedExtras.slice(0, 3);
                       return (
@@ -801,12 +1077,14 @@ const BookingPage = () => {
                 </>
               )}
 
-              {/* Price Summary - show for both promotion and manual selection */}
-              {(selectedPromotion || selectedPackage) && (
+              {/* Price Summary - show for all selection types */}
+              {(selectedPromotion || selectedPackage || (selectedCategory === "poliroz" && selectedPolishingType)) && (
                 <div className={`rounded-xl p-4 border ${
-                  selectedPromotion 
+                  selectedPromotion
                     ? 'bg-gradient-to-r from-pink-500/10 to-orange-500/10 border-pink-500/30'
-                    : 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30'
+                    : selectedCategory === "poliroz"
+                      ? 'bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border-amber-500/30'
+                      : 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30'
                 }`}>
                   <div className="flex justify-between items-center">
                     <div>
@@ -817,7 +1095,7 @@ const BookingPage = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`text-3xl font-bold ${selectedPromotion ? 'text-pink-400' : 'text-green-400'}`}>
+                      <span className={`text-3xl font-bold ${selectedPromotion ? 'text-pink-400' : selectedCategory === "poliroz" ? 'text-amber-400' : 'text-green-400'}`}>
                         {getTotalPrice().toLocaleString()} Ft
                       </span>
                       {selectedPromotion && selectedPromotion.original_price && (
@@ -841,7 +1119,7 @@ const BookingPage = () => {
 
         {/* Step 2: Date & Time Selection */}
         {step === 2 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-2">
+          <Card key="step-2" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-2">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -1001,7 +1279,7 @@ const BookingPage = () => {
 
         {/* Step 3: Personal Data */}
         {step === 3 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-3">
+          <Card key="step-3" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-3">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -1012,22 +1290,27 @@ const BookingPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Plate Lookup */}
+              {/* Plate Number (required) + smart lookup */}
               <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-xl p-4 border border-green-500/20">
-                <label className="text-sm text-green-400 mb-2 block flex items-center gap-2">
-                  <Search className="w-4 h-4" /> Gyors foglalás rendszámmal
+                <label className="text-sm font-semibold text-green-400 mb-2 block flex items-center gap-2">
+                  <Car className="w-4 h-4" /> Rendszám <span className="text-red-400 ml-0.5">*</span>
+                  <span className="text-slate-500 font-normal text-xs ml-1">– visszatérő ügyfeleket automatikusan felismerünk</span>
                 </label>
                 <div className="relative">
-                  <Input 
-                    placeholder="ABC-123" 
-                    value={form.plate_number} 
+                  <Input
+                    placeholder="ABC-123"
+                    value={form.plate_number}
                     onChange={e => handlePlateChange(e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-lg tracking-wider pr-10" 
+                    className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-lg tracking-wider pr-10"
+                    required
                   />
                   {lookingUp && (
                     <Loader2 className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin" />
                   )}
                 </div>
+                {plateError && (
+                  <p className="mt-1 text-xs text-red-400">{plateError}</p>
+                )}
                 {customerFound && (
                   <div className="mt-3 flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -1049,23 +1332,43 @@ const BookingPage = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input placeholder="Név *" value={form.customer_name} onChange={e => set("customer_name", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white" />
                 <Input placeholder="Autó típusa" value={form.car_type} onChange={e => set("car_type", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input placeholder="E-mail *" type="email" value={form.email} onChange={e => set("email", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white" />
-                <Input placeholder="Telefonszám *" value={form.phone} onChange={e => set("phone", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white" />
+                <div>
+                  <Input
+                    placeholder="Telefonszám * (+36 XX XXX XXXX)"
+                    value={form.phone}
+                    onChange={e => set("phone", formatHunPhone(e.target.value))}
+                    className={`bg-slate-800/50 border-slate-700 text-white ${form.phone && !isValidHunPhone(form.phone) ? "border-red-500/60" : ""}`}
+                    maxLength={16}
+                  />
+                  {form.phone && !isValidHunPhone(form.phone) && (
+                    <p className="text-red-400 text-xs mt-1 ml-1">Érvényes formátum: +36 XX XXX XXXX</p>
+                  )}
+                </div>
               </div>
               <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
                 className="bg-slate-800/50 border-slate-700 text-white" />
               
-              <button onClick={() => setShowInvoice(!showInvoice)} className="text-sm text-green-400 hover:text-green-300 flex items-center gap-2">
-                <FileText className="w-4 h-4" /> {showInvoice ? "Számla adatok elrejtése" : "Számlát kérek (ÁFÁ-s)"}
+              <button
+                onClick={() => setShowInvoice(!showInvoice)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 border-dashed border-slate-600 hover:border-green-500/50 hover:bg-green-500/5 transition-all text-sm"
+              >
+                <span className="flex items-center gap-2 text-slate-300 font-medium">
+                  <FileText className="w-4 h-4 text-green-400" />
+                  Számlát kérek (ÁFÁ-s számla)
+                </span>
+                {showInvoice
+                  ? <ChevronUp className="w-4 h-4 text-green-400" />
+                  : <ChevronDown className="w-4 h-4 text-slate-500" />
+                }
               </button>
               {showInvoice && (
                 <div className="space-y-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700">
@@ -1085,7 +1388,7 @@ const BookingPage = () => {
 
         {/* Step 4: Summary */}
         {step === 4 && (
-          <Card className="bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden" data-testid="booking-step-4">
+          <Card key="step-4" className={`bg-slate-900/90 border-slate-800 backdrop-blur-xl overflow-hidden ${stepDir === "forward" ? "step-enter" : "step-enter-back"}`} data-testid="booking-step-4">
             <div className="h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
             <CardHeader>
               <CardTitle className="text-white text-xl flex items-center gap-3">
@@ -1110,7 +1413,12 @@ const BookingPage = () => {
                 <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
                   <Car className="w-6 h-6 text-green-400" />
                   <span className="text-white font-semibold text-lg">
-                    {selectedSize} - {selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} {selectedPackage}
+                    {selectedPromotion
+                      ? selectedPromotion.name
+                      : selectedCategory === "poliroz"
+                        ? `${selectedSize} – ${pricingData?.polishing?.types?.[selectedPolishingType]?.name || selectedPolishingType || "Polírozás"}`
+                        : `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Komplett'} ${selectedPackage}`
+                    }
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-y-3 text-sm">
@@ -1150,8 +1458,68 @@ const BookingPage = () => {
                   </div>
                 </div>
                 
-                {/* Selected Extras */}
-                {selectedExtras.length > 0 && (
+                {/* Extra services picker — Budapest promotion: show all extras, grey out kulso/belso */}
+                {form.location === "Budapest" && selectedPromotion && extras.length > 0 && (
+                  <div className="pt-3 border-t border-slate-700">
+                    <span className="text-slate-400 text-sm font-medium">Extra szolgáltatások</span>
+                    <div className="mt-3 space-y-2">
+                      {extras.map(extra => {
+                        const extraKey = extra.service_id || extra.name;
+                        // Only grey out extras explicitly included in the Budapest promotion as gifts.
+                        // The Budapest package includes "likvidkerámia" as a gift — match by name.
+                        // Lámpapolír, kárpittisztítás, etc. are genuine add-ons and stay selectable.
+                        const isBudapestIncluded = selectedPromotion?.features?.some(f =>
+                          f.toLowerCase().replace(/\s+/g, "").includes(
+                            (extra.name || "").toLowerCase().replace(/\s+/g, "").split(/[\s(]/)[0]
+                          )
+                        ) || (extra.name || "").toLowerCase().includes("liquid kerámia");
+                        const isSelected = selectedExtras.includes(extraKey);
+                        const disabled = isBudapestIncluded || (isExtraDisabled(extraKey) && !isSelected);
+                        return (
+                          <div
+                            key={extraKey}
+                            onClick={() => !isBudapestIncluded && !isExtraDisabled(extraKey) && toggleExtra(extraKey)}
+                            className={`p-3 rounded-lg border transition-all ${
+                              isBudapestIncluded
+                                ? 'border-slate-800 bg-slate-900/30 opacity-40 cursor-not-allowed'
+                                : isSelected
+                                  ? 'border-green-500 bg-green-500/10 cursor-pointer'
+                                  : 'border-slate-700 hover:border-slate-600 bg-slate-800/30 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {isBudapestIncluded ? (
+                                  <span className="text-xs text-green-500 font-medium whitespace-nowrap">✓ Tartalmazza a csomag</span>
+                                ) : (
+                                  <Checkbox
+                                    checked={isSelected}
+                                    disabled={disabled}
+                                    className="border-slate-600"
+                                  />
+                                )}
+                                <div className="min-w-0">
+                                  <span className="text-sm font-medium text-white">{extra.name}</span>
+                                  {extra.description && (
+                                    <p className="text-xs text-slate-500 truncate">{extra.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {!isBudapestIncluded && (
+                                <span className="font-medium text-sm whitespace-nowrap text-green-400">
+                                  {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected Extras (non-Budapest or non-promotion flow) */}
+                {!(form.location === "Budapest" && selectedPromotion) && selectedExtras.length > 0 && (
                   <div className="pt-3 border-t border-slate-700">
                     <span className="text-slate-400 text-sm">Extra szolgáltatások:</span>
                     <div className="mt-2 space-y-1">
@@ -1167,7 +1535,18 @@ const BookingPage = () => {
                     </div>
                   </div>
                 )}
-                
+
+                {/* Cleaning Addon summary line (read-only in summary) */}
+                {selectedCategory === "poliroz" && cleaningAddon && (
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-slate-400 flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-green-400" />
+                      {cleaningAddon === "kulso" ? "Külső mosás" : cleaningAddon === "belso" ? "Belső takarítás" : "Komplett (K+B)"} – {cleaningPackage}
+                    </span>
+                    <span className="text-green-400">+{getCleaningAddonPrice().toLocaleString()} Ft</span>
+                  </div>
+                )}
+
                 <div className="pt-4 mt-3 border-t border-slate-700 flex justify-between items-center">
                   <span className="text-slate-300 font-medium">Fizetendő összeg</span>
                   <span className="text-green-400 text-2xl font-bold">{getTotalPrice().toLocaleString()} Ft</span>
@@ -1182,7 +1561,7 @@ const BookingPage = () => {
           <Button 
             variant="outline" 
             className="border-slate-700 text-slate-300 hover:bg-slate-800" 
-            onClick={() => setStep(s => s - 1)} 
+            onClick={() => goToStep(step - 1)}
             disabled={step === 1}
           >
             <ChevronLeft className="w-4 h-4 mr-2" /> Vissza
@@ -1190,7 +1569,7 @@ const BookingPage = () => {
           {step < 4 ? (
             <Button 
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8" 
-              onClick={() => setStep(s => s + 1)} 
+              onClick={() => goToStep(step + 1)}
               disabled={!canGoNext()}
             >
               Tovább <ChevronRight className="w-4 h-4 ml-2" />

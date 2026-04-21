@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where npm:*)",
+      "Bash(where node:*)",
+      "Bash(where yarn:*)",
+      "Bash(cmd /c mklink /J \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-admin\\\\node_modules\" \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\frontend-admin\\\\node_modules\")",
+      "Bash(cmd /c mklink /J \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-booking\\\\node_modules\" \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\frontend-booking\\\\node_modules\")",
+      "Bash(npm install:*)",
+      "Bash(where python:*)",
+      "Bash(where uvicorn:*)",
+      "Bash(python -m uvicorn --version)",
+      "Bash(pip install:*)",
+      "Bash(grep -v \"//.*console\")",
+      "Bash(git -C \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\" show HEAD:frontend-admin/src/pages/Services.jsx)",
+      "Bash(git -C \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\" diff HEAD origin/main -- frontend-admin/src/pages/Services.jsx)",
+      "Bash(git -C \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\" show f039d64 --name-only)",
+      "Bash(git -C \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\" log --oneline -- frontend-admin/src/pages/Services.jsx)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-booking\" /B)",
+      "Bash(findstr -i env)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-booking\\\\public\")",
+      "Bash(dir \"C:\\\\Users\\\\coner\\\\cardetailing_app_beta1\\\\.claude\\\\worktrees\\\\flamboyant-hopper\\\\frontend-admin\\\\public\")"
+    ]
+  }
+}

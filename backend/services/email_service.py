@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+# Root URL of the deployed frontend-booking app (no trailing slash, no path suffix).
+# Example: https://foglalas.xclean.hu  OR  https://frontend-booking-xxx.up.railway.app
+# Must be set in Railway env vars — links in confirmation emails will be broken without it.
+_raw_booking_url = os.environ.get("BOOKING_FRONTEND_URL", "").rstrip("/")
+BOOKING_FRONTEND_URL = _raw_booking_url or None
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -24,6 +29,27 @@ else:
 
 def generate_booking_confirmation_html(booking: dict) -> str:
     """Generate HTML email for booking confirmation"""
+    modify_token = booking.get("modify_token", "")
+    cancel_token = booking.get("cancel_token", "")
+    # Only generate links when BOOKING_FRONTEND_URL is configured
+    modify_url = f"{BOOKING_FRONTEND_URL}/modify/{modify_token}" if (BOOKING_FRONTEND_URL and modify_token) else ""
+    cancel_url = f"{BOOKING_FRONTEND_URL}/modify/{cancel_token}?action=cancel" if (BOOKING_FRONTEND_URL and cancel_token) else ""
+    self_service_section = ""
+    if modify_url:
+        self_service_section = f"""
+                <div style="background:#f0f9ff;border-left:4px solid #3b82f6;padding:15px;margin:20px 0;border-radius:0 8px 8px 0;">
+                    <p style="margin:0 0 8px 0;font-weight:bold;color:#1e40af;">Foglalás kezelése</p>
+                    <p style="margin:0 0 8px 0;font-size:13px;color:#1d4ed8;">
+                        Az alábbi linkeken módosíthatja vagy lemondhatja foglalását.<br>
+                        <em>A linkek csak egyszer használhatók fel, és a foglalás státuszától függően érhetők el.</em>
+                    </p>
+                    <p style="margin:4px 0;">
+                        <a href="{modify_url}" style="color:#2563eb;font-size:14px;font-weight:bold;">📅 Időpont módosítása</a>
+                    </p>
+                    <p style="margin:4px 0;">
+                        <a href="{cancel_url}" style="color:#dc2626;font-size:14px;">❌ Foglalás lemondása</a>
+                    </p>
+                </div>"""
     return f"""
     <!DOCTYPE html>
     <html>
@@ -99,6 +125,7 @@ def generate_booking_confirmation_html(booking: dict) -> str:
                         <strong>Attila:</strong> +36 30 665 7623
                     </p>
                 </div>
+                {self_service_section}
             </div>
             <div class="footer">
                 <p style="font-weight: bold; margin-bottom: 10px;">xClean Autókozmetika</p>
@@ -217,6 +244,62 @@ def generate_booking_reminder_html(booking: dict) -> str:
     </body>
     </html>
     """
+
+
+async def send_review_request(booking: dict) -> dict:
+    """Send review request email after service completion"""
+    review_token = booking.get("review_token", "")
+    if not review_token or not booking.get("email"):
+        return {"status": "skipped"}
+
+    review_base_url = BOOKING_FRONTEND_URL or "https://xclean.hu"
+    review_base = f"{review_base_url}/review/{review_token}"
+
+    # Build individual numbered star links
+    stars_row = ""
+    for i in range(1, 6):
+        url = f"{review_base}?rating={i}"
+        stars_row += f'<a href="{url}" style="display:inline-block;text-align:center;text-decoration:none;margin:0 6px;"><span style="font-size:28px;">⭐</span><br><span style="font-size:11px;color:#666;">{i}</span></a>'
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px;">
+<div style="max-width:560px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.1);">
+  <div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:28px;text-align:center;">
+    <h1 style="color:white;margin:0;font-size:22px;">X-CLEAN</h1>
+    <p style="color:rgba(255,255,255,.85);margin:6px 0 0;font-size:14px;">Hogyan sikerült?</p>
+  </div>
+  <div style="padding:28px;">
+    <p style="color:#333;font-size:15px;">Kedves {booking.get('customer_name', 'Ügyfelünk')}!</p>
+    <p style="color:#555;font-size:14px;">Köszönjük, hogy nálunk járt! Kérjük, értékelje a szolgáltatást egy rövid visszajelzéssel — ez sokat jelent számunkra.</p>
+    <p style="color:#555;font-size:13px;"><strong>Szolgáltatás:</strong> {booking.get('service_name','')}<br>
+    <strong>Időpont:</strong> {booking.get('date','')} {booking.get('time_slot','')}</p>
+    <div style="text-align:center;margin:24px 0;">
+      <p style="color:#333;font-weight:bold;margin-bottom:12px;">Értékelés (kattintson a csillagra):</p>
+      {stars_row}
+    </div>
+    <div style="text-align:center;margin-top:20px;">
+      <a href="{review_base}" style="background:#22c55e;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">Értékelés írása</a>
+    </div>
+    <p style="color:#aaa;font-size:12px;text-align:center;margin-top:20px;">Köszönjük bizalmát! Várjuk vissza!</p>
+  </div>
+</div>
+</body></html>"""
+
+    if not RESEND_API_KEY:
+        return {"status": "skipped_no_key"}
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [booking["email"]],
+            "subject": "Hogyan sikerült? – X-CLEAN értékelés",
+            "html": html,
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        return {"status": "success", "id": result.get("id") if isinstance(result, dict) else str(result)}
+    except Exception as e:
+        logger.error(f"Review email error: {e}")
+        return {"status": "error", "error": str(e)}
 
 
 async def send_booking_reminder(booking: dict) -> dict:

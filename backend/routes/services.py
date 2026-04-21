@@ -10,9 +10,10 @@ from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.service import (
-    Service, ServiceCreate, 
-    PACKAGE_FEATURES, PRICE_MATRIX, DURATION_MATRIX, 
-    EXTRA_SERVICES, CAR_SIZE_INFO, PROMOTIONS
+    Service, ServiceCreate,
+    PACKAGE_FEATURES, PRICE_MATRIX, DURATION_MATRIX,
+    EXTRA_SERVICES, CAR_SIZE_INFO, PROMOTIONS,
+    POLISHING_PRICES, POLISHING_ADDONS
 )
 
 router = APIRouter()
@@ -32,6 +33,7 @@ class PromotionCreate(BaseModel):
     badge: str = "🎉 AKCIÓ"
     valid_until: Optional[str] = None
     active: bool = True
+    location: Optional[str] = None
 
 class PromotionUpdate(BaseModel):
     name: Optional[str] = None
@@ -47,11 +49,24 @@ class PromotionUpdate(BaseModel):
     badge: Optional[str] = None
     valid_until: Optional[str] = None
     active: Optional[bool] = None
+    location: Optional[str] = None
 
 @router.get("/services")
-async def get_services(user: User = Depends(get_current_user)):
-    """Get all services"""
-    services = await db.services.find({}, {"_id": 0}).to_list(1000)
+async def get_services(location: Optional[str] = None, strict: bool = False, user: User = Depends(get_current_user)):
+    """Get services filtered by location.
+
+    - strict=True: only services explicitly assigned to that location (admin edit view)
+    - strict=False (default): services for that location + global (no location set), for display/booking
+    """
+    query = {}
+    if location and location != "all":
+        if strict:
+            # Admin strict view: only services with this exact location
+            query["location"] = location
+        else:
+            # Display view: include global (null/missing) + location-specific
+            query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    services = await db.services.find(query, {"_id": 0}).to_list(1000)
     return services
 
 @router.get("/services/pricing-data")
@@ -59,20 +74,113 @@ async def get_pricing_data(location: Optional[str] = None):
     """Get all pricing data for the booking page (public, no auth)"""
     # Get promotions from database
     promo_query = {"active": True}
-    if location:
+    if location == "Budapest":
+        # Budapest: STRICT — only show explicitly Budapest-tagged promotions (no global/null ones)
+        promo_query["location"] = "Budapest"
+    elif location:
         promo_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     db_promotions = await db.promotions.find(promo_query, {"_id": 0}).to_list(100)
-    
-    # If no DB promotions, use default
-    if not db_promotions:
-        db_promotions = [p for p in PROMOTIONS if p.get("active", True)]
+
+    # Also include any hard-coded defaults that match the location and aren't already in DB
+    # Deduplicate by both id AND name (case-insensitive) to avoid duplicates
+    db_promo_ids = {p.get("id") for p in db_promotions}
+    db_promo_names = {p.get("name", "").strip().lower() for p in db_promotions}
+    for p in PROMOTIONS:
+        if not p.get("active", True):
+            continue
+        if p.get("id") in db_promo_ids:
+            continue
+        if p.get("name", "").strip().lower() in db_promo_names:
+            continue
+        if location == "Budapest":
+            # Budapest strict: only include hardcoded promotions explicitly tagged Budapest
+            if p.get("location") != "Budapest":
+                continue
+        elif location and p.get("location") and p.get("location") != location:
+            continue
+        db_promotions.append(p)
     
     # Get extras from database (filtered by location)
     extras_query = {"service_type": "extra", "active": {"$ne": False}}
     if location:
         extras_query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
     db_extras = await db.services.find(extras_query, {"_id": 0}).to_list(100)
-    
+
+    # Auto-seed and fallback if DB extras are empty
+    if not db_extras:
+        for extra in EXTRA_SERVICES:
+            service = Service(
+                name=extra["name"],
+                category=extra.get("category", "extra_kulso"),
+                price=extra.get("price", extra.get("min_price", 0)),
+                min_price=extra.get("min_price"),
+                duration=30,
+                description=extra.get("description", ""),
+                service_type="extra",
+                active=True
+            )
+            doc = service.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.services.update_one(
+                {"service_id": doc["service_id"]},
+                {"$setOnInsert": doc},
+                upsert=True
+            )
+        db_extras = await db.services.find(extras_query, {"_id": 0}).to_list(100)
+        if not db_extras:
+            db_extras = EXTRA_SERVICES
+
+    # Auto-seed each polishing type from POLISHING_PRICES if not yet in DB (by name).
+    # Name-based check ensures missing types (e.g. lamp polishing) are added even if
+    # other poliroz records already exist from a previous seeding run.
+    for type_key, type_data in POLISHING_PRICES.items():
+        prices = type_data.get("prices", {})
+        non_zero = [v for v in prices.values() if v > 0]
+        if not non_zero:
+            continue
+        min_price = min(non_zero)
+        service = Service(
+            name=type_data["name"],
+            category="poliroz",
+            service_type="poliroz",
+            price=min_price,
+            duration=120,
+            duration_label=type_data.get("duration_label", ""),
+            description=type_data.get("description", ""),
+            size_prices=prices,
+            active=True
+        )
+        doc = service.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        await db.services.update_one(
+            {"category": "poliroz", "name": type_data["name"]},
+            {"$setOnInsert": doc},
+            upsert=True
+        )
+
+    # Get polishing services from DB, filtered by location
+    polishing_query = {"category": "poliroz", "active": {"$ne": False}}
+    if location:
+        polishing_query["$or"] = [
+            {"location": location},
+            {"location": None},
+            {"location": {"$exists": False}}
+        ]
+    db_polishing = await db.services.find(polishing_query, {"_id": 0}).to_list(50)
+
+    # Build polishing types dict purely from DB records
+    polishing_types = {}
+    for db_pol in db_polishing:
+        if db_pol.get("size_prices"):
+            polishing_types[db_pol["service_id"]] = {
+                "name": db_pol["name"],
+                "duration_label": db_pol.get("duration_label", ""),
+                "description": db_pol.get("description", ""),
+                "location": db_pol.get("location"),
+                "service_id": db_pol["service_id"],
+                "prices": db_pol["size_prices"],
+            }
+
     return {
         "package_features": PACKAGE_FEATURES,
         "price_matrix": PRICE_MATRIX,
@@ -81,7 +189,11 @@ async def get_pricing_data(location: Optional[str] = None):
         "packages": ["Eco", "Pro", "VIP"],
         "categories": ["kulso", "belso", "komplett"],
         "promotions": db_promotions,
-        "extras": db_extras
+        "extras": db_extras,
+        "polishing": {
+            "types": polishing_types,
+            "addons": POLISHING_ADDONS,
+        }
     }
 
 @router.get("/services/promotions")
@@ -93,9 +205,39 @@ async def get_promotions():
     return promotions
 
 @router.get("/services/promotions/admin")
-async def get_promotions_admin(user: User = Depends(get_current_user)):
-    """Get all promotions for admin (including inactive)"""
-    promotions = await db.promotions.find({}, {"_id": 0}).to_list(100)
+async def get_promotions_admin(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Get all promotions for admin (including inactive), optionally filtered by location.
+    Also merges hardcoded PROMOTIONS that are not yet in DB so they can be managed."""
+    query = {}
+    if location == "Budapest":
+        # Budapest admin: strict — only explicitly Budapest-tagged promos
+        query["location"] = "Budapest"
+    elif location and location != "all":
+        # Other locations: inclusive (location-specific + global/null)
+        query["$or"] = [{"location": location}, {"location": None}, {"location": {"$exists": False}}]
+    promotions = await db.promotions.find(query, {"_id": 0}).to_list(100)
+
+    # Include hardcoded promotions not yet saved to DB (marked _hardcoded=True)
+    db_promo_ids = {p.get("id") for p in promotions}
+    db_promo_names = {p.get("name", "").strip().lower() for p in promotions}
+    for p in PROMOTIONS:
+        if p.get("id") in db_promo_ids:
+            continue
+        if p.get("name", "").strip().lower() in db_promo_names:
+            continue
+        p_loc = p.get("location")
+        if location == "Budapest":
+            # Strict: only Budapest-tagged hardcoded promos
+            if p_loc != "Budapest":
+                continue
+        elif location and location != "all":
+            # Inclusive: skip only if explicitly tagged to a DIFFERENT location
+            if p_loc and p_loc != location:
+                continue
+        merged = dict(p)
+        merged["_hardcoded"] = True
+        promotions.append(merged)
+
     return promotions
 
 @router.post("/services/promotions")
@@ -124,6 +266,7 @@ async def create_promotion(data: PromotionCreate, user: User = Depends(get_curre
         "badge": data.badge,
         "valid_until": data.valid_until,
         "active": data.active,
+        "location": data.location,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -335,6 +478,35 @@ async def sync_pricing_to_db(user: User = Depends(get_current_user)):
     
     return {"created": created, "updated": updated, "message": "Árak szinkronizálva"}
 
+@router.post("/services/extras/seed")
+async def seed_extras(user: User = Depends(get_current_user)):
+    """Seed default extras into DB if not present (admin only)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    created = 0
+    for extra in EXTRA_SERVICES:
+        service = Service(
+            name=extra["name"],
+            category=extra.get("category", "extra_kulso"),
+            price=extra.get("price", extra.get("min_price", 0)),
+            min_price=extra.get("min_price"),
+            duration=30,
+            description=extra.get("description", ""),
+            service_type="extra",
+            active=True
+        )
+        doc = service.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        result = await db.services.update_one(
+            {"service_id": doc["service_id"]},
+            {"$setOnInsert": doc},
+            upsert=True
+        )
+        if result.upserted_id:
+            created += 1
+    return {"created": created, "message": f"{created} alapértelmezett extra hozzáadva az adatbázishoz"}
+
+
 @router.put("/services/{service_id}")
 async def update_service(service_id: str, data: ServiceCreate, user: User = Depends(get_current_user)):
     """Update service"""
@@ -445,3 +617,25 @@ LOCATIONS = [
 async def get_locations():
     """Get available locations (public)"""
     return LOCATIONS
+
+
+@router.get("/services/polishing-prices")
+async def get_polishing_prices():
+    """Get current polishing prices (falls back to defaults)"""
+    saved = await db.settings.find_one({"key": "polishing_prices"}, {"_id": 0})
+    if saved and "prices" in saved:
+        return saved["prices"]
+    from models.service import POLISHING_PRICES
+    return {k: v["prices"] for k, v in POLISHING_PRICES.items()}
+
+@router.post("/services/polishing-prices")
+async def save_polishing_prices(prices: dict, user: User = Depends(get_current_user)):
+    """Save custom polishing prices to DB settings"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin jogosultság szükséges")
+    await db.settings.update_one(
+        {"key": "polishing_prices"},
+        {"$set": {"key": "polishing_prices", "prices": prices}},
+        upsert=True
+    )
+    return {"message": "Polírozási árak mentve"}

@@ -2,6 +2,8 @@
 Customers Routes
 """
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+import re
 from dependencies import get_current_user
 from database import db
 from models.user import User
@@ -10,9 +12,36 @@ from models.customer import Customer, CustomerCreate
 router = APIRouter()
 
 @router.get("/customers")
-async def get_customers(user: User = Depends(get_current_user)):
-    """Get all customers"""
-    customers = await db.customers.find({}, {"_id": 0}).to_list(1000)
+async def get_customers(
+    location: Optional[str] = None,
+    search: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get all customers, optionally filtered by location and/or search query"""
+    query = {}
+    if location and location != "all":
+        # Include customers explicitly tagged to this location AND legacy customers
+        # with no location set (they were created before location tracking was added)
+        query["$or"] = [
+            {"location": location},
+            {"location": None},
+            {"location": {"$exists": False}},
+            {"location": ""}
+        ]
+    if search and search.strip():
+        q = re.escape(search.strip())
+        search_cond = {"$or": [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"plate_number": {"$regex": q, "$options": "i"}},
+            {"phone": {"$regex": q, "$options": "i"}},
+        ]}
+        if "$and" in query:
+            query["$and"].append(search_cond)
+        elif query:
+            query = {"$and": [query, search_cond]}
+        else:
+            query.update(search_cond)
+    customers = await db.customers.find(query, {"_id": 0}).to_list(1000)
     return customers
 
 @router.get("/customers/{customer_id}")

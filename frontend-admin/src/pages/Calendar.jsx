@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { useLocation2 } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { getStatusConfig } from "../lib/statusColors";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { 
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Car, MapPin, 
+import {
+  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Car, MapPin,
   Phone, Mail, X, Check, AlertTriangle, Edit, Trash2, Ban, Save, UserX, Upload, Image,
-  Users, Columns3, Grid3X3
+  Users, Columns3, Grid3X3, Search
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -21,20 +23,30 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-const LOCATIONS = ["all", "Debrecen"];
-const STATUS_COLORS = {
-  foglalt: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  folyamatban: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  kesz: "bg-green-500/20 text-green-400 border-green-500/30",
-  lemondta: "bg-red-500/20 text-red-400 border-red-500/30",
-  nem_jott_el: "bg-slate-500/20 text-slate-400 border-slate-500/30"
+const LOCATIONS = ["all", "Debrecen", "Budapest"];
+// Build STATUS_COLORS from unified config; add lemondta alias for legacy data
+const _buildStatusColors = () => {
+  const statuses = ["foglalt","visszaigazolva","folyamatban","kesz","lemondva","nem_jott_el","torolt"];
+  const map = {};
+  statuses.forEach(s => {
+    const c = getStatusConfig(s);
+    map[s] = `${c.bg} ${c.text} ${c.border}`;
+  });
+  // Legacy alias used in some older bookings
+  map["lemondta"] = map["lemondva"];
+  return map;
 };
+const STATUS_COLORS = _buildStatusColors();
+
+// Filter button labels — only canonical statuses (no lemondta alias to avoid duplicate button)
 const STATUS_LABELS = {
   foglalt: "Foglalt",
+  visszaigazolva: "Visszaigazolva",
   folyamatban: "Folyamatban",
   kesz: "Kész",
-  lemondta: "Lemondta",
-  nem_jott_el: "Nem jött el"
+  lemondva: "Lemondva",
+  nem_jott_el: "Nem jött el",
+  torolt: "Törölve",
 };
 
 // Worker colors for column headers
@@ -48,20 +60,25 @@ const WORKER_COLORS = [
 ];
 
 const Calendar = () => {
-  const [view, setView] = useState("week"); // week, month, day
+  const { selectedLocation: globalLocation } = useLocation2();
+  const [view, setView] = useState("week"); // week, month, day, list
   const [viewMode, setViewMode] = useState("standard"); // standard, workers (per-worker columns)
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookings, setBookings] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [services, setServices] = useState([]);
-  const [location, setLocation] = useState("all");
+  const [location, setLocation] = useState(globalLocation || "all");
   const [selectedWorker, setSelectedWorker] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Drag & Drop state
+  const [draggedBooking, setDraggedBooking] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // { date, hour }
   const [showBlacklistDialog, setShowBlacklistDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [blacklistReason, setBlacklistReason] = useState("");
   const [blacklistImages, setBlacklistImages] = useState([]);
   const [uploadingBlacklistImage, setUploadingBlacklistImage] = useState(false);
@@ -247,6 +264,59 @@ const Calendar = () => {
     setBlacklistImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // DnD handlers
+  const handleDragStart = (e, booking) => {
+    setDraggedBooking(booking);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", booking.booking_id);
+  };
+
+  const handleDragOver = (e, date, hour) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const key = `${format(date, "yyyy-MM-dd")}-${hour}`;
+    if (!dropTarget || dropTarget.key !== key) {
+      setDropTarget({ date, hour, key });
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
+
+  const handleDrop = async (e, date, hour) => {
+    e.preventDefault();
+    setDropTarget(null);
+    if (!draggedBooking) return;
+
+    const newDate = format(date, "yyyy-MM-dd");
+    const newTimeSlot = `${hour.toString().padStart(2, "0")}:00`;
+
+    // Skip if nothing changed
+    if (draggedBooking.date === newDate && draggedBooking.time_slot?.startsWith(`${hour.toString().padStart(2, "0")}:`)) {
+      setDraggedBooking(null);
+      return;
+    }
+
+    try {
+      await axios.put(
+        `${API}/bookings/${draggedBooking.booking_id}`,
+        { date: newDate, time_slot: newTimeSlot },
+        { withCredentials: true }
+      );
+      toast.success(`${draggedBooking.customer_name} átütemezve → ${newDate} ${newTimeSlot}`);
+      fetchData();
+    } catch (err) {
+      toast.error("Hiba az átütemezéskor");
+    }
+    setDraggedBooking(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBooking(null);
+    setDropTarget(null);
+  };
+
   const getBookingsForDate = (date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     return bookings.filter(b => b.date === dateStr && (selectedWorker === "all" || b.worker_id === selectedWorker));
@@ -297,14 +367,29 @@ const Calendar = () => {
         <div className="max-h-[600px] overflow-y-auto">
           {hours.map(hour => {
             const slotBookings = getBookingsForSlot(currentDate, hour);
+            const isDropTarget = dropTarget?.key === `${format(currentDate, "yyyy-MM-dd")}-${hour}`;
             return (
-              <div key={hour} className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] divide-x divide-slate-800 border-t border-slate-800 min-h-[60px]">
+              <div
+                key={hour}
+                className={`grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr] divide-x divide-slate-800 border-t border-slate-800 min-h-[60px] transition-colors ${isDropTarget ? 'bg-green-500/10' : ''}`}
+                onDragOver={(e) => handleDragOver(e, currentDate, hour)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, currentDate, hour)}
+              >
                 <div className="p-2 text-xs text-slate-500 text-right pr-3">{hour}:00</div>
                 <div className="p-1 space-y-1">
+                  {isDropTarget && draggedBooking && (
+                    <div className="p-2 rounded-lg border border-dashed border-green-500/50 bg-green-500/10 text-xs text-green-400 opacity-70">
+                      → {draggedBooking.customer_name}
+                    </div>
+                  )}
                   {slotBookings.map(booking => (
                     <div
                       key={booking.booking_id}
-                      className={`p-2 rounded-lg border cursor-pointer text-xs ${STATUS_COLORS[booking.status]}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, booking)}
+                      onDragEnd={handleDragEnd}
+                      className={`p-2 rounded-lg border cursor-grab active:cursor-grabbing text-xs select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                       onClick={() => openBookingDetails(booking)}
                     >
                       <div className="font-medium">{booking.customer_name}</div>
@@ -334,73 +419,91 @@ const Calendar = () => {
     
     return (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        {/* Header row with workers */}
-        <div className="flex divide-x divide-slate-800 overflow-x-auto">
-          <div className="w-14 sm:w-16 flex-shrink-0 bg-slate-950/50 p-2 text-center">
-            <div className="text-xs text-slate-500">{format(currentDate, "EEE", { locale: hu })}</div>
-            <div className="text-lg font-bold text-green-400">{format(currentDate, "d")}</div>
-          </div>
-          {displayWorkers.map((worker, idx) => (
-            <div 
-              key={worker.worker_id} 
-              className={`min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
-            >
-              <div className="flex items-center justify-center gap-1">
-                <User className="w-3 h-3 text-slate-400" />
-                <span className="text-white font-medium text-sm truncate">{worker.name}</span>
+        {/* Scrollable wrapper for both header and body so they scroll together */}
+        <div className="overflow-x-auto -mx-2 px-2">
+          <div className="min-w-max">
+            {/* Header row with workers */}
+            <div className="flex divide-x divide-slate-800">
+              <div className="w-14 sm:w-16 flex-shrink-0 bg-slate-950/50 p-2 text-center">
+                <div className="text-xs text-slate-500">{format(currentDate, "EEE", { locale: hu })}</div>
+                <div className="text-lg font-bold text-green-400">{format(currentDate, "d")}</div>
               </div>
-            </div>
-          ))}
-          {hasUnassigned && (
-            <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
-              <div className="flex items-center justify-center gap-1">
-                <User className="w-3 h-3 text-orange-400" />
-                <span className="text-orange-300 font-medium text-sm">Nincs hozzárendelve</span>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Time slots */}
-        <div className="max-h-[500px] overflow-auto">
-          {hours.map(hour => (
-            <div key={hour} className="flex divide-x divide-slate-800 border-t border-slate-800">
-              <div className="w-14 sm:w-16 flex-shrink-0 p-1 text-xs text-slate-500 text-right pr-2">
-                {hour}:00
-              </div>
-              {displayWorkers.map((worker) => {
-                const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
-                return (
-                  <div key={worker.worker_id} className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
-                    {workerBookings.map(booking => (
-                      <div
-                        key={booking.booking_id}
-                        className={`p-1.5 rounded text-xs cursor-pointer mb-1 ${STATUS_COLORS[booking.status]}`}
-                        onClick={() => openBookingDetails(booking)}
-                      >
-                        <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
-                        <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
-                      </div>
-                    ))}
+              {displayWorkers.map((worker, idx) => (
+                <div
+                  key={worker.worker_id}
+                  className={`min-w-[110px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r ${WORKER_COLORS[idx % WORKER_COLORS.length]}`}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <User className="w-3 h-3 text-slate-400" />
+                    <span className="text-white font-medium text-sm truncate">{worker.name}</span>
                   </div>
-                );
-              })}
+                </div>
+              ))}
               {hasUnassigned && (
-                <div className="min-w-[120px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
-                  {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
-                    <div
-                      key={booking.booking_id}
-                      className={`p-1.5 rounded text-xs cursor-pointer mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300`}
-                      onClick={() => openBookingDetails(booking)}
-                    >
-                      <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
-                      <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
-                    </div>
-                  ))}
+                <div className="min-w-[110px] sm:min-w-[150px] flex-1 p-2 text-center bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
+                  <div className="flex items-center justify-center gap-1">
+                    <User className="w-3 h-3 text-orange-400" />
+                    <span className="text-orange-300 font-medium text-sm">Nincs hozzárendelve</span>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
+
+            {/* Time slots */}
+            <div className="max-h-[500px] overflow-y-auto">
+              {hours.map(hour => (
+                <div key={hour} className="flex divide-x divide-slate-800 border-t border-slate-800">
+                  <div className="w-14 sm:w-16 flex-shrink-0 p-1 text-xs text-slate-500 text-right pr-2">
+                    {hour}:00
+                  </div>
+                  {displayWorkers.map((worker) => {
+                    const workerBookings = getBookingsForWorkerSlot(currentDate, hour, worker.worker_id);
+                    const isWT = dropTarget?.key === `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}`;
+                    return (
+                      <div
+                        key={worker.worker_id}
+                        className={`min-w-[110px] sm:min-w-[150px] flex-1 p-1 min-h-[50px] transition-colors ${isWT ? 'bg-green-500/10' : ''}`}
+                        onDragOver={(e) => { e.preventDefault(); setDropTarget({ date: currentDate, hour, key: `${format(currentDate, "yyyy-MM-dd")}-${hour}-${worker.worker_id}` }); }}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, currentDate, hour)}
+                      >
+                        {workerBookings.map(booking => (
+                          <div
+                            key={booking.booking_id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, booking)}
+                            onDragEnd={handleDragEnd}
+                            className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
+                            onClick={() => openBookingDetails(booking)}
+                          >
+                            <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                            <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {hasUnassigned && (
+                    <div className="min-w-[110px] sm:min-w-[150px] flex-1 p-1 min-h-[50px]">
+                      {getBookingsForWorkerSlot(currentDate, hour, "unassigned").map(booking => (
+                        <div
+                          key={booking.booking_id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, booking)}
+                          onDragEnd={handleDragEnd}
+                          className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300 select-none ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
+                          onClick={() => openBookingDetails(booking)}
+                        >
+                          <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                          <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -430,12 +533,22 @@ const Calendar = () => {
                 <div className="p-1 text-xs text-slate-500 text-right pr-2 pt-2">{hour}:00</div>
                 {days.map(day => {
                   const slotBookings = getBookingsForSlot(day, hour);
+                  const isWT = dropTarget?.key === `${format(day, "yyyy-MM-dd")}-${hour}`;
                   return (
-                    <div key={day.toISOString()} className="p-0.5 overflow-hidden">
+                    <div
+                      key={day.toISOString()}
+                      className={`p-0.5 overflow-hidden transition-colors ${isWT ? 'bg-green-500/10' : ''}`}
+                      onDragOver={(e) => handleDragOver(e, day, hour)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, day, hour)}
+                    >
                       {slotBookings.slice(0, 2).map(booking => (
                         <div
                           key={booking.booking_id}
-                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-pointer border-l-2 ${STATUS_COLORS[booking.status]} hover:brightness-110`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, booking)}
+                          onDragEnd={handleDragEnd}
+                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-grab active:cursor-grabbing border-l-2 select-none ${STATUS_COLORS[booking.status]} hover:brightness-110 ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                           onClick={() => openBookingDetails(booking)}
                           title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
                         >
@@ -625,6 +738,25 @@ const Calendar = () => {
           Foglalási naptár
         </h1>
         
+        {/* Search box */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Keresés: ügyfél neve vagy rendszám..."
+            className="pl-10 bg-slate-900 border-slate-700 text-white w-full sm:w-80"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
         {/* Controls */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
           {/* Location filter */}
@@ -658,10 +790,15 @@ const Calendar = () => {
 
           {/* Time period view selector */}
           <div className="flex bg-slate-900 rounded-lg border border-slate-700 p-1">
-            {[{ id: "day", label: "Nap" }, { id: "week", label: "Hét" }, { id: "month", label: "Hónap" }].map(v => (
-              <button 
-                key={v.id} 
-                onClick={() => { setView(v.id); if (v.id === "month") setViewMode("standard"); }}
+            {[
+              { id: "day", label: "Nap" },
+              { id: "week", label: "Hét" },
+              { id: "month", label: "Hónap" },
+              { id: "list", label: "Lista" },
+            ].map(v => (
+              <button
+                key={v.id}
+                onClick={() => { setView(v.id); if (v.id !== "day") setViewMode("standard"); }}
                 className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${view === v.id ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}
               >
                 {v.label}
@@ -711,16 +848,134 @@ const Calendar = () => {
         ))}
       </div>
 
-      {/* Calendar content */}
-      {loading ? (
-        <div className="text-center py-20 text-slate-500">Betöltés...</div>
+      {/* Search results (replaces calendar when active) */}
+      {searchTerm.trim() ? (
+        (() => {
+          const q = searchTerm.trim().toLowerCase();
+          const results = bookings.filter(b =>
+            b.customer_name?.toLowerCase().includes(q) ||
+            b.plate_number?.toLowerCase().replace(/\s/g, "").includes(q.replace(/\s/g, ""))
+          );
+          return (
+            <div className="space-y-2">
+              <p className="text-slate-400 text-sm">
+                {results.length === 0
+                  ? "Nincs találat"
+                  : `${results.length} találat: „${searchTerm}"`}
+              </p>
+              {results.map(booking => {
+                const sc = getStatusConfig(booking.status);
+                return (
+                  <div
+                    key={booking.booking_id}
+                    className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-green-500/30 transition-colors cursor-pointer"
+                    onClick={() => openBookingDetails(booking)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                        <Car className="w-4 h-4 text-green-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white font-semibold truncate">{booking.customer_name}</p>
+                        <p className="text-slate-400 text-xs flex items-center gap-2">
+                          <span className="font-mono">{booking.plate_number}</span>
+                          <span>·</span>
+                          <span>{booking.service_name}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right text-xs text-slate-400">
+                        <p>{booking.date} {booking.time_slot}</p>
+                        <p>{booking.location}</p>
+                      </div>
+                      <Badge className={`${sc.bg} ${sc.text} text-xs`}>{sc.label}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
       ) : (
-        <>
-          {view === "day" && viewMode === "standard" && renderDayView()}
-          {view === "day" && viewMode === "workers" && renderWorkersDayView()}
-          {view === "week" && renderWeekView()}
-          {view === "month" && renderMonthView()}
-        </>
+        /* Calendar content */
+        loading ? (
+          <div className="text-center py-20 text-slate-500">Betöltés...</div>
+        ) : view === "list" ? (
+          /* List view — mobile-friendly chronological cards grouped by date */
+          (() => {
+            const sorted = [...bookings]
+              .filter(b => b.status !== "lemondta" && b.status !== "lemondva" && b.status !== "torolt")
+              .sort((a, b) => {
+                const dt = (x) => `${x.date}T${x.time_slot || "00:00"}`;
+                return dt(a) < dt(b) ? -1 : 1;
+              });
+            const byDate = sorted.reduce((acc, b) => {
+              (acc[b.date] = acc[b.date] || []).push(b);
+              return acc;
+            }, {});
+            if (sorted.length === 0) return (
+              <div className="text-center py-20 text-slate-500">
+                <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>Nincs foglalás ebben az időszakban</p>
+              </div>
+            );
+            return (
+              <div className="space-y-4">
+                {Object.entries(byDate).map(([date, dayBookings]) => {
+                  const d = new Date(date + "T00:00:00");
+                  const dayLabel = format(d, "EEEE, MMMM d.", { locale: hu });
+                  return (
+                    <div key={date}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-px flex-1 bg-slate-800" />
+                        <span className="text-slate-400 text-xs font-medium px-2 capitalize">{dayLabel}</span>
+                        <span className="text-slate-600 text-xs">{dayBookings.length} db</span>
+                        <div className="h-px flex-1 bg-slate-800" />
+                      </div>
+                      <div className="space-y-2">
+                        {dayBookings.map(booking => {
+                          const sc = getStatusConfig(booking.status);
+                          return (
+                            <div
+                              key={booking.booking_id}
+                              className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3 hover:border-green-500/30 transition-colors cursor-pointer"
+                              onClick={() => openBookingDetails(booking)}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="text-center w-12 flex-shrink-0">
+                                  <p className="text-green-400 font-bold text-sm">{booking.time_slot}</p>
+                                  <p className="text-slate-600 text-[10px]">{booking.location?.slice(0,3)}</p>
+                                </div>
+                                <div className="w-px h-8 bg-slate-700 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-white font-medium text-sm truncate">{booking.customer_name}</p>
+                                  <p className="text-slate-400 text-xs truncate">
+                                    <span className="font-mono">{booking.plate_number}</span>
+                                    <span className="mx-1">·</span>
+                                    <span>{booking.service_name}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge className={`${sc.bg} ${sc.text} text-xs flex-shrink-0`}>{sc.label}</Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
+        ) : (
+          <>
+            {view === "day" && viewMode === "standard" && renderDayView()}
+            {view === "day" && viewMode === "workers" && renderWorkersDayView()}
+            {view === "week" && renderWeekView()}
+            {view === "month" && renderMonthView()}
+          </>
+        )
       )}
 
       {/* Booking Details Dialog */}

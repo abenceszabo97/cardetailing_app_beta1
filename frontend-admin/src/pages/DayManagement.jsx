@@ -41,7 +41,8 @@ import autoTable from "jspdf-autotable";
 export const DayManagement = () => {
   const { user } = useAuth();
   const { selectedLocation, locationForApi } = useLocation2();
-  const effectiveLoc = locationForApi || "Debrecen";
+  const [dayLoc, setDayLoc] = useState(locationForApi || "Debrecen");
+  const effectiveLoc = dayLoc;
   const [todayRecord, setTodayRecord] = useState(null);
   const [previousDayRecord, setPreviousDayRecord] = useState(null);
   const [stats, setStats] = useState({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
@@ -93,13 +94,18 @@ export const DayManagement = () => {
   };
 
   useEffect(() => {
+    setTodayRecord(null);
+    setPreviousDayRecord(null);
+    setTodayJobs([]);
+    setStats({ today_cars: 0, today_revenue: 0, cash: 0, card: 0 });
+    setLoading(true);
     fetchData();
-  }, [selectedLocation]);
+  }, [dayLoc]);
 
   const handleOpenDay = async () => {
     try {
       await axios.post(`${API}/day-records/open`, {
-        location: selectedLocation,
+        location: dayLoc,
         opening_balance: parseFloat(openingBalance) || 0
       }, { withCredentials: true });
       
@@ -115,7 +121,7 @@ export const DayManagement = () => {
     const closingVal = parseFloat(closingBalance) || 0;
     try {
       const response = await axios.post(`${API}/day-records/close`, {
-        location: selectedLocation,
+        location: dayLoc,
         closing_balance: closingVal,
         notes: closingNotes
       }, { withCredentials: true });
@@ -150,7 +156,7 @@ export const DayManagement = () => {
     
     try {
       await axios.post(`${API}/day-records/withdraw`, {
-        location: selectedLocation,
+        location: dayLoc,
         amount,
         reason: withdrawalReason
       }, { withCredentials: true });
@@ -176,7 +182,7 @@ export const DayManagement = () => {
     doc.text("X-CLEAN Napi Zarasi Osszesito", 14, 22);
     doc.setFontSize(12);
     doc.text(`Datum: ${today}`, 14, 32);
-    doc.text(`Telephely: ${selectedLocation}`, 14, 40);
+    doc.text(`Telephely: ${dayLoc}`, 14, 40);
     
     doc.setFontSize(14);
     doc.text("Penzforgalom", 14, 54);
@@ -320,7 +326,7 @@ export const DayManagement = () => {
   const handleDownloadPDF = () => {
     const doc = generateDayClosePDF();
     const today = format(new Date(), "yyyy-MM-dd");
-    savePDF(doc, `xclean_napzaras_${selectedLocation}_${today}.pdf`);
+    savePDF(doc, `xclean_napzaras_${dayLoc}_${today}.pdf`);
   };
 
   const handleEmailPDF = async () => {
@@ -334,10 +340,10 @@ export const DayManagement = () => {
       
       await axios.post(`${API}/send-email`, {
         recipient_email: email,
-        subject: `X-CLEAN Napi zaras - ${selectedLocation} - ${today}`,
+        subject: `X-CLEAN Napi zaras - ${dayLoc} - ${today}`,
         html_content: `<h2>X-CLEAN Napi Zarasi Osszesito</h2>
           <p><strong>Datum:</strong> ${today}</p>
-          <p><strong>Telephely:</strong> ${selectedLocation}</p>
+          <p><strong>Telephely:</strong> ${dayLoc}</p>
           <p><strong>Elkeszult autok:</strong> ${stats.today_cars} db</p>
           <p><strong>Osszes bevetel:</strong> ${stats.today_revenue.toLocaleString()} Ft</p>
           <p><strong>Keszpenz:</strong> ${stats.cash.toLocaleString()} Ft</p>
@@ -368,9 +374,21 @@ export const DayManagement = () => {
             {format(new Date(), 'yyyy. MMMM d. EEEE', { locale: hu })}
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
-          <MapPin className="w-4 h-4 text-green-400" />
-          <span className="text-sm text-white">{effectiveLoc}</span>
+        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-1">
+          {["Debrecen", "Budapest"].map(loc => (
+            <button
+              key={loc}
+              onClick={() => setDayLoc(loc)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                dayLoc === loc
+                  ? "bg-green-500/20 text-green-400"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              {loc}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -385,7 +403,7 @@ export const DayManagement = () => {
                 </div>
                 <div>
                   <p className="text-green-400 font-semibold text-sm sm:text-base">Nap lezárva</p>
-                  <p className="text-slate-400 text-xs sm:text-sm">A mai nap le van zárva a(z) {selectedLocation} telephelyen</p>
+                  <p className="text-slate-400 text-xs sm:text-sm">A mai nap le van zárva a(z) {dayLoc} telephelyen</p>
                 </div>
               </>
             ) : todayRecord ? (
@@ -570,21 +588,21 @@ export const DayManagement = () => {
               ) : (
                 <div className="space-y-2">
                   {todayJobs.filter(j => j.status === "kesz").map(job => (
-                    <div 
+                    <div
                       key={job.job_id}
-                      className="flex items-center justify-between p-3 bg-slate-950/50 rounded-lg"
+                      className="flex items-center justify-between gap-2 p-3 bg-slate-950/50 rounded-lg"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-white">{job.plate_number}</span>
-                        <span className="text-slate-400">{job.service_name}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono font-bold text-white flex-shrink-0">{job.plate_number}</span>
+                        <span className="text-slate-400 truncate text-sm">{job.service_name}</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         {job.payment_method === "keszpenz" ? (
                           <Wallet className="w-4 h-4 text-green-400" />
                         ) : (
                           <CreditCard className="w-4 h-4 text-blue-400" />
                         )}
-                        <span className="font-semibold text-green-400">{job.price.toLocaleString()} Ft</span>
+                        <span className="font-semibold text-green-400 whitespace-nowrap">{job.price.toLocaleString()} Ft</span>
                       </div>
                     </div>
                   ))}
@@ -603,7 +621,7 @@ export const DayManagement = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-950/50 rounded-lg">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-950/50 rounded-lg">
                   <div>
                     <p className="text-sm text-slate-400">Nyitó egyenleg</p>
                     <p className="text-xl font-semibold text-white">{todayRecord.opening_balance.toLocaleString()} Ft</p>
@@ -645,14 +663,14 @@ export const DayManagement = () => {
                   {(todayRecord.withdrawals || []).length > 0 ? (
                     <div className="space-y-2">
                       {(todayRecord.withdrawals || []).map((w, idx) => (
-                        <div key={w.withdrawal_id || idx} className="flex items-center justify-between p-2 bg-slate-950/50 rounded-lg text-sm">
-                          <div>
+                        <div key={w.withdrawal_id || idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2 bg-slate-950/50 rounded-lg text-sm">
+                          <div className="flex-1 min-w-0">
                             <span className="text-white font-medium">{w.reason}</span>
                             <span className="text-slate-500 text-xs ml-2">
-                              {w.withdrawn_by} - {format(new Date(w.timestamp), "HH:mm", { locale: hu })}
+                              {w.withdrawn_by} · {format(new Date(w.timestamp), "HH:mm", { locale: hu })}
                             </span>
                           </div>
-                          <span className="text-red-400 font-semibold">-{w.amount.toLocaleString()} Ft</span>
+                          <span className="text-red-400 font-semibold text-right">-{w.amount.toLocaleString()} Ft</span>
                         </div>
                       ))}
                     </div>
@@ -746,7 +764,7 @@ export const DayManagement = () => {
             <DialogTitle className="text-blue-400">Nap lezárása</DialogTitle>
           </DialogHeader>
           <p className="text-slate-400">Biztosan le szeretnéd zárni a mai napot?</p>
-          <p className="text-white">Telephely: <strong>{selectedLocation}</strong></p>
+          <p className="text-white">Telephely: <strong>{dayLoc}</strong></p>
           <p className="text-green-400 font-bold">Bevétel: {stats.today_revenue.toLocaleString()} Ft</p>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setShowCloseDayConfirm(false)} className="border-slate-700">

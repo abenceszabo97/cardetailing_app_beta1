@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -24,11 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Phone, 
+import {
+  Users,
+  Plus,
+  Search,
+  Phone,
   Car,
   ChevronRight,
   Banknote,
@@ -40,11 +40,20 @@ import {
   Upload,
   X,
   ZoomIn,
-  Camera
+  Camera,
+  MapPin,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 export const Customers = () => {
   const { user } = useAuth();
+  const { selectedLocation, locationForApi } = useLocation2();
   const [activeTab, setActiveTab] = useState("customers");
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -56,17 +65,39 @@ export const Customers = () => {
   const [deleteCustomerId, setDeleteCustomerId] = useState(null);
   const [viewEvidenceEntry, setViewEvidenceEntry] = useState(null);
   const [fullscreenImage, setFullscreenImage] = useState(null);
+
+  // Customer history panel
+  const [historyCustomer, setHistoryCustomer] = useState(null);
+  const [historyJobs, setHistoryJobs] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openCustomerHistory = async (customer) => {
+    setHistoryCustomer(customer);
+    setHistoryJobs([]);
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get(`${API}/customers/${customer.customer_id}`, { withCredentials: true });
+      setHistoryJobs(res.data.jobs || []);
+    } catch {
+      setHistoryJobs([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
   
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     phone: "",
+    email: "",
     car_type: "",
-    plate_number: ""
+    plate_number: "",
+    location: locationForApi || "Debrecen"
   });
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get(`${API}/customers`, { withCredentials: true });
+      const locParam = locationForApi ? `?location=${locationForApi}` : "";
+      const response = await axios.get(`${API}/customers${locParam}`, { withCredentials: true });
       setCustomers(response.data);
       setFilteredCustomers(response.data);
     } catch (error) {
@@ -88,7 +119,7 @@ export const Customers = () => {
   useEffect(() => {
     fetchCustomers();
     fetchBlacklist();
-  }, []);
+  }, [selectedLocation, locationForApi]);
 
   useEffect(() => {
     const filtered = customers.filter(c => 
@@ -104,7 +135,7 @@ export const Customers = () => {
       await axios.post(`${API}/customers`, newCustomer, { withCredentials: true });
       toast.success("Ügyfél sikeresen létrehozva!");
       setIsNewCustomerOpen(false);
-      setNewCustomer({ name: "", phone: "", car_type: "", plate_number: "" });
+      setNewCustomer({ name: "", phone: "", email: "", car_type: "", plate_number: "", location: locationForApi || "Debrecen" });
       fetchCustomers();
     } catch (error) {
       toast.error("Hiba az ügyfél létrehozásakor");
@@ -147,7 +178,10 @@ export const Customers = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Ügyfelek</h1>
-          <p className="text-slate-400 mt-1 text-sm sm:text-base">{customers.length} ügyfél összesen</p>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">
+            {customers.length} ügyfél
+            {selectedLocation && selectedLocation !== "all" ? ` — ${selectedLocation}` : " — Összes telephely"}
+          </p>
         </div>
         {activeTab === "customers" && (
           <Dialog open={isNewCustomerOpen} onOpenChange={setIsNewCustomerOpen}>
@@ -183,6 +217,16 @@ export const Customers = () => {
                   />
                 </div>
                 <div>
+                  <Label className="text-slate-300">Email <span className="text-slate-500 font-normal">(opcionális)</span></Label>
+                  <Input
+                    type="email"
+                    value={newCustomer.email}
+                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
                   <Label className="text-slate-300">Autó típusa</Label>
                   <Input
                     value={newCustomer.car_type}
@@ -202,7 +246,19 @@ export const Customers = () => {
                     data-testid="new-customer-plate"
                   />
                 </div>
-                <Button 
+                <div>
+                  <Label className="text-slate-300">Telephely</Label>
+                  <Select value={newCustomer.location} onValueChange={(v) => setNewCustomer({...newCustomer, location: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                      <SelectValue placeholder="Telephely" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">Debrecen</SelectItem>
+                      <SelectItem value="Budapest" className="text-white hover:bg-slate-800">Budapest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
                   onClick={handleCreateCustomer}
                   className="w-full bg-green-600 hover:bg-green-500"
                   disabled={!newCustomer.name || !newCustomer.phone || !newCustomer.plate_number}
@@ -303,6 +359,11 @@ export const Customers = () => {
                             <Car className="w-3 h-3" /> {customer.car_type || "-"}
                           </span>
                           <span className="font-mono text-white text-xs">{customer.plate_number}</span>
+                          {customer.location && (
+                            <span className="flex items-center gap-1 text-xs text-blue-400">
+                              <MapPin className="w-3 h-3" /> {customer.location}
+                            </span>
+                          )}
                         </div>
                       </Link>
                     ))}
@@ -323,10 +384,11 @@ export const Customers = () => {
                       </TableHeader>
                       <TableBody>
                         {filteredCustomers.map((customer) => (
-                          <TableRow 
+                          <TableRow
                             key={customer.customer_id}
                             className="border-slate-800 hover:bg-white/5 cursor-pointer"
                             data-testid={`customer-row-${customer.customer_id}`}
+                            onClick={() => openCustomerHistory(customer)}
                           >
                             <TableCell className="text-white font-medium">
                               <span className="flex items-center gap-2">
@@ -359,7 +421,7 @@ export const Customers = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                <Link to={`/customers/${customer.customer_id}`}>
+                                <Link to={`/customers/${customer.customer_id}`} onClick={(e) => e.stopPropagation()}>
                                   <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" title="Részletek">
                                     <ChevronRight className="w-5 h-5" />
                                   </Button>
@@ -563,6 +625,86 @@ export const Customers = () => {
             className="max-w-full max-h-full object-contain" 
             onClick={(e) => e.stopPropagation()} 
           />
+        </div>
+      )}
+
+      {/* Customer History Panel */}
+      {historyCustomer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setHistoryCustomer(null)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <div>
+                <h2 className="text-lg font-bold text-white font-['Manrope']">{historyCustomer.name}</h2>
+                <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
+                  <span className="font-mono text-white">{historyCustomer.plate_number}</span>
+                  {historyCustomer.car_type && <span>· {historyCustomer.car_type}</span>}
+                  {historyCustomer.phone && <span>· {historyCustomer.phone}</span>}
+                </div>
+              </div>
+              <button
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                onClick={() => setHistoryCustomer(null)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 p-5 border-b border-slate-800">
+              <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Összes költés</p>
+                <p className="text-base font-bold text-green-400">{(historyCustomer.total_spent || 0).toLocaleString('hu-HU')} Ft</p>
+              </div>
+              <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Munkák száma</p>
+                <p className="text-base font-bold text-white">{historyJobs.length}</p>
+              </div>
+              <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">Utolsó látogatás</p>
+                <p className="text-base font-bold text-white text-sm">
+                  {historyJobs.length > 0
+                    ? historyJobs.slice().sort((a, b) => b.date?.localeCompare(a.date)).slice(0,1)[0]?.date?.slice(0,10) || '—'
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Job list */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-2">
+              {historyLoading ? (
+                <div className="text-center py-8 text-slate-400">Betöltés...</div>
+              ) : historyJobs.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">Nincs korábbi munka</div>
+              ) : (
+                [...historyJobs]
+                  .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+                  .map((job) => (
+                    <div key={job.job_id} className="flex items-center justify-between bg-slate-800/50 rounded-lg px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{job.service_name || 'Ismeretlen szolgáltatás'}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {job.date?.slice(0,10)} · {job.location || ''}
+                          {job.worker_name ? ` · ${job.worker_name}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right ml-4 flex-shrink-0">
+                        <p className="text-sm font-bold text-green-400">{(job.price || 0).toLocaleString('hu-HU')} Ft</p>
+                        <p className="text-xs text-slate-500">
+                          {job.payment_method === 'keszpenz' ? 'Készpénz' : job.payment_method === 'kartya' ? 'Kártya' : job.payment_method || ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

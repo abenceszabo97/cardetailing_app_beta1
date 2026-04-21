@@ -35,8 +35,8 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { 
-  CalendarDays, 
+import {
+  CalendarDays,
   Plus,
   MapPin,
   ChevronLeft,
@@ -53,7 +53,9 @@ import {
   Car,
   Clock,
   Calendar,
-  Download
+  Download,
+  Sparkles,
+  Fuel
 } from "lucide-react";
 import { 
   format, 
@@ -70,8 +72,7 @@ import {
   isSameMonth
 } from "date-fns";
 import { hu } from "date-fns/locale";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// jsPDF and autoTable are loaded dynamically inside generateWorkerPDF / generateAttendancePDF
 
 export const Workers = () => {
   const { user } = useAuth();
@@ -89,6 +90,7 @@ export const Workers = () => {
   const [editWorkerForm, setEditWorkerForm] = useState(null);
   const [workerStats, setWorkerStats] = useState([]);
   const [statsMonth, setStatsMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [statsLocation, setStatsLocation] = useState("all");
   const [deleteShiftId, setDeleteShiftId] = useState(null);
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
   const [editingShift, setEditingShift] = useState(null);
@@ -96,114 +98,246 @@ export const Workers = () => {
   const [attendanceReport, setAttendanceReport] = useState(null);
   const [leaveStats, setLeaveStats] = useState([]);
 
-  const generateWorkerPDF = () => {
-    const doc = new jsPDF();
-    const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
-    
-    doc.setFontSize(20);
-    doc.text("X-CLEAN Dolgozoi Havi Riport", 14, 22);
-    doc.setFontSize(12);
-    doc.text(`Honap: ${monthLabel}`, 14, 32);
-    
-    const totals = workerStats.reduce((acc, w) => ({
-      days: acc.days + w.days_worked,
-      hours: acc.hours + w.hours_worked,
-      cars: acc.cars + w.cars_completed,
-      revenue: acc.revenue + w.revenue
-    }), { days: 0, hours: 0, cars: 0, revenue: 0 });
-    
-    autoTable(doc, {
-      startY: 40,
-      head: [["Megnevezes", "Ertek"]],
-      body: [
-        ["Osszes ledolgozott nap", `${totals.days} nap`],
-        ["Osszes ledolgozott ora", `${totals.hours.toFixed(1)} ora`],
-        ["Osszes elkeszitett auto", `${totals.cars} db`],
-        ["Osszes bevetel", `${totals.revenue.toLocaleString()} Ft`],
-      ],
-      theme: "grid",
-      headStyles: { fillColor: [30, 41, 59] },
-    });
-    
-    if (workerStats.length > 0) {
-      const finalY = doc.lastAutoTable?.finalY || 100;
-      autoTable(doc, {
-        startY: finalY + 14,
-        head: [["Dolgozo", "Telephely", "Napok", "Orak", "Autok", "Bevetel"]],
-        body: workerStats.map(w => [
-          w.name,
-          w.location,
-          `${w.days_worked} nap`,
-          `${w.hours_worked} ora`,
-          `${w.cars_completed} db`,
-          `${w.revenue.toLocaleString()} Ft`
-        ]),
-        theme: "grid",
-        headStyles: { fillColor: [30, 41, 59] },
+  // Absence management state
+  const [absences, setAbsences] = useState([]);
+  const [absenceForm, setAbsenceForm] = useState({ worker_id: "", date: "", reason: "Hiányzás" });
+  const [addingAbsence, setAddingAbsence] = useState(false);
+
+  const generateWorkerPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    await import("jspdf-autotable");
+    return new Promise((resolve) => {
+      const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
+      const totals = workerStats.reduce((acc, w) => ({
+        days: acc.days + w.days_worked,
+        hours: acc.hours + w.hours_worked,
+        cars: acc.cars + w.cars_completed,
+        services: acc.services + (w.services_completed || w.cars_completed),
+        revenue: acc.revenue + w.revenue,
+        cash: acc.cash + (w.cash || 0),
+        card: acc.card + (w.card || 0),
+      }), { days: 0, hours: 0, cars: 0, services: 0, revenue: 0, cash: 0, card: 0 });
+
+      const workerRows = workerStats.map(w => `
+        <tr>
+          <td>${w.name}</td>
+          <td>${w.location}</td>
+          <td style="text-align:center">${w.days_worked}</td>
+          <td style="text-align:center">${w.hours_worked} ó</td>
+          <td style="text-align:center">${w.cars_completed}</td>
+          <td style="text-align:center">${w.services_completed || w.cars_completed}</td>
+          <td style="text-align:right">${(w.revenue || 0).toLocaleString('hu-HU')} Ft</td>
+          <td style="text-align:right">${(w.cash || 0).toLocaleString('hu-HU')} Ft</td>
+          <td style="text-align:right">${(w.card || 0).toLocaleString('hu-HU')} Ft</td>
+        </tr>
+      `).join("");
+
+      const html = `
+        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1e293b; padding: 8px; width: 780px;">
+          <div style="background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px;">X-CLEAN Autókozmetika</div>
+            <div style="font-size: 14px; margin-top: 4px; opacity: 0.9;">Havi Dolgozói Riport — ${monthLabel}</div>
+            <div style="font-size: 10px; margin-top: 2px; opacity: 0.7;">Generálva: ${new Date().toLocaleDateString('hu-HU')}</div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+            ${[
+              { label: 'Ledolgozott napok', value: totals.days + ' nap' },
+              { label: 'Ledolgozott órák', value: totals.hours.toFixed(1) + ' óra' },
+              { label: 'Elvégzett autók', value: totals.cars + ' db' },
+              { label: 'Összes szolgáltatás', value: totals.services + ' db' },
+              { label: 'Összes bevétel', value: totals.revenue.toLocaleString('hu-HU') + ' Ft' },
+              { label: 'Ebből készpénz', value: totals.cash.toLocaleString('hu-HU') + ' Ft' },
+              { label: 'Ebből kártya', value: totals.card.toLocaleString('hu-HU') + ' Ft' },
+            ].map(s => `
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 12px; min-width: 100px; flex: 1;">
+                <div style="font-size: 9px; color: #16a34a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${s.label}</div>
+                <div style="font-size: 14px; font-weight: bold; color: #15803d; margin-top: 2px;">${s.value}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead>
+              <tr style="background: #1e293b; color: white;">
+                <th style="padding: 7px 8px; text-align: left; border: 1px solid #334155;">Dolgozó</th>
+                <th style="padding: 7px 8px; text-align: left; border: 1px solid #334155;">Telephely</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Napok</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Órák</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Autók</th>
+                <th style="padding: 7px 8px; text-align: center; border: 1px solid #334155;">Szolg.</th>
+                <th style="padding: 7px 8px; text-align: right; border: 1px solid #334155;">Bevétel</th>
+                <th style="padding: 7px 8px; text-align: right; border: 1px solid #334155;">Készpénz</th>
+                <th style="padding: 7px 8px; text-align: right; border: 1px solid #334155;">Kártya</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${workerRows}
+              <tr style="background: #f0fdf4; font-weight: bold; border-top: 2px solid #16a34a;">
+                <td colspan="2" style="padding: 7px 8px; border: 1px solid #bbf7d0;">ÖSSZESEN</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.days}</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.hours.toFixed(1)} ó</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.cars}</td>
+                <td style="padding: 7px 8px; text-align: center; border: 1px solid #bbf7d0;">${totals.services}</td>
+                <td style="padding: 7px 8px; text-align: right; border: 1px solid #bbf7d0;">${totals.revenue.toLocaleString('hu-HU')} Ft</td>
+                <td style="padding: 7px 8px; text-align: right; border: 1px solid #bbf7d0;">${totals.cash.toLocaleString('hu-HU')} Ft</td>
+                <td style="padding: 7px 8px; text-align: right; border: 1px solid #bbf7d0;">${totals.card.toLocaleString('hu-HU')} Ft</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 16px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px;">
+            X-CLEAN Autókozmetika | Debrecen, Vágóhíd u. 2. | Tel: 06 (20) 473 9638 | www.xclean.hu
+          </div>
+        </div>
+      `;
+
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      doc.html(container, {
+        callback: (doc) => {
+          document.body.removeChild(container);
+          resolve(doc);
+        },
+        x: 5,
+        y: 5,
+        width: 287,
+        windowWidth: 800,
       });
-    }
-    
-    return doc;
+    });
   };
 
   const generateAttendancePDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    await import("jspdf-autotable");
     try {
       const res = await axios.get(`${API}/shifts/attendance-report?month=${statsMonth}`, { withCredentials: true });
       const report = res.data;
-      
-      const doc = new jsPDF();
       const monthLabel = format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu });
-      
-      doc.setFontSize(20);
-      doc.text("X-CLEAN Jelenléti Ív", 14, 22);
-      doc.setFontSize(12);
-      doc.text(`Honap: ${monthLabel}`, 14, 32);
-      
-      let currentY = 42;
-      
-      for (const worker of report.workers) {
-        // Check if we need a new page
-        if (currentY > 240) {
-          doc.addPage();
-          currentY = 20;
-        }
-        
-        doc.setFontSize(14);
-        doc.setTextColor(34, 197, 94); // Green
-        doc.text(worker.worker_name, 14, currentY);
-        doc.setTextColor(0, 0, 0);
-        currentY += 6;
-        
-        doc.setFontSize(10);
-        doc.text(`Osszes ora: ${worker.total_hours} | Munkanapok: ${worker.normal_days} | Szabadsag: ${worker.vacation_days} | Betegszabadsag: ${worker.sick_days}`, 14, currentY);
-        currentY += 6;
-        
-        if (worker.shifts.length > 0) {
-          autoTable(doc, {
-            startY: currentY,
-            head: [["Datum", "Nap", "Kezdes", "Befejezes", "Orak", "Tipus"]],
-            body: worker.shifts.map(s => [
-              s.date,
-              s.day_name.substring(0, 3),
-              s.start_time,
-              s.end_time,
-              `${s.hours} ora`,
-              s.shift_type === "normal" ? "Munka" : s.shift_type === "vacation" ? "Szabadsag" : "Beteg"
-            ]),
-            theme: "grid",
-            headStyles: { fillColor: [30, 41, 59], fontSize: 8 },
-            styles: { fontSize: 8 },
-            margin: { left: 14 }
-          });
-          currentY = doc.lastAutoTable?.finalY + 10 || currentY + 50;
-        } else {
-          currentY += 10;
-        }
-      }
-      
-      return doc;
+
+      const shiftTypeLabel = (t) => {
+        if (t === "normal") return "Munka";
+        if (t === "vacation") return "Szabadság";
+        if (t === "sick_leave") return "Betegszabadság";
+        if (t === "absence") return "Hiányzás";
+        return t;
+      };
+
+      const shiftTypeColor = (t) => {
+        if (t === "normal") return "#16a34a";
+        if (t === "vacation") return "#2563eb";
+        if (t === "sick_leave") return "#dc2626";
+        if (t === "absence") return "#d97706";
+        return "#64748b";
+      };
+
+      const dayNames = { Monday: "Hétfő", Tuesday: "Kedd", Wednesday: "Szerda", Thursday: "Csütörtök", Friday: "Péntek", Saturday: "Szombat", Sunday: "Vasárnap" };
+
+      const workerSections = report.workers.map(worker => {
+        const shiftRows = worker.shifts.map(s => `
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0;">${s.date}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0;">${dayNames[s.day_name] || s.day_name}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type !== 'absence' ? s.start_time : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type !== 'absence' ? s.end_time : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.lunch || '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type === 'normal' ? s.hours + ' ó' : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center; color: ${shiftTypeColor(s.shift_type)}; font-weight: bold;">${shiftTypeLabel(s.shift_type)}</td>
+          </tr>
+        `).join('');
+
+        return `
+          <div style="margin-bottom: 24px; page-break-inside: avoid;">
+            <div style="background: #1e293b; color: white; padding: 10px 14px; border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 14px; font-weight: bold;">${worker.worker_name}</span>
+              <span style="font-size: 11px; opacity: 0.8;">${monthLabel}</span>
+            </div>
+            <div style="display: flex; gap: 0; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; overflow: hidden;">
+              ${[
+                { label: 'Munkanapok', value: worker.normal_days + ' nap', color: '#16a34a' },
+                { label: 'Ledolg. órák', value: worker.total_hours + ' óra', color: '#15803d' },
+                { label: 'Szabadság', value: worker.vacation_days + ' nap', color: '#2563eb' },
+                { label: 'Betegszabadság', value: worker.sick_days + ' nap', color: '#dc2626' },
+                { label: 'Hiányzás', value: (worker.absence_days || 0) + ' nap', color: '#d97706' },
+              ].map(s => `
+                <div style="flex: 1; padding: 8px 10px; border-right: 1px solid #e2e8f0; background: #f8fafc;">
+                  <div style="font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">${s.label}</div>
+                  <div style="font-size: 15px; font-weight: bold; color: ${s.color}; margin-top: 2px;">${s.value}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            ${worker.shifts.length > 0 ? `
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 8px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: left;">Dátum</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: left;">Nap</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Kezdés</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Befejezés</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Ebéd</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Órák</th>
+                  <th style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center;">Típus</th>
+                </tr>
+              </thead>
+              <tbody>${shiftRows}</tbody>
+            </table>` : '<p style="color: #94a3b8; font-size: 11px; margin-top: 8px; padding: 8px;">Nincs rögzített műszak ebben a hónapban.</p>'}
+
+            <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+              <span>Dolgozó aláírása: _______________________________</span>
+              <span>Vezető aláírása: _______________________________</span>
+            </div>
+          </div>
+        `;
+      }).join('<div style="page-break-after: always;"></div>');
+
+      const fullHtml = `
+        <div style="font-family: Arial, Helvetica, sans-serif; color: #1e293b; padding: 10px; width: 740px;">
+          <div style="background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 20px; font-weight: bold;">X-CLEAN Autókozmetika</div>
+              <div style="font-size: 13px; margin-top: 3px; opacity: 0.9;">Jelenléti Ív — ${monthLabel}</div>
+            </div>
+            <div style="font-size: 10px; opacity: 0.75; text-align: right;">
+              Generálva: ${new Date().toLocaleDateString('hu-HU')}<br/>
+              Debrecen, Vágóhíd u. 2.
+            </div>
+          </div>
+          ${workerSections}
+          <div style="font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+            X-CLEAN Autókozmetika | Tel: 06 (20) 473 9638 | rendeles@xclean.hu
+          </div>
+        </div>
+      `;
+
+      return new Promise((resolve) => {
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.innerHTML = fullHtml;
+        document.body.appendChild(container);
+
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        doc.html(container, {
+          callback: (doc) => {
+            document.body.removeChild(container);
+            resolve(doc);
+          },
+          x: 5,
+          y: 5,
+          width: 200,
+          windowWidth: 760,
+        });
+      });
     } catch (error) {
-      toast.error("Hiba a jelenleti iv generalasanal");
+      toast.error("Hiba a jelenléti ív generálásakor");
       return null;
     }
   };
@@ -243,8 +377,8 @@ export const Workers = () => {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
-  const handleDownloadWorkerPDF = () => {
-    const doc = generateWorkerPDF();
+  const handleDownloadWorkerPDF = async () => {
+    const doc = await generateWorkerPDF();
     savePDF(doc, `xclean_dolgozoi_riport_${statsMonth}.pdf`);
   };
 
@@ -285,7 +419,7 @@ export const Workers = () => {
   
   const [newShift, setNewShift] = useState({
     worker_id: "",
-    location: "Debrecen",
+    location: locationForApi || "Debrecen",
     start_time: "",
     end_time: "",
     lunch_start: "",
@@ -297,7 +431,10 @@ export const Workers = () => {
     phone: "",
     email: "",
     position: "",
-    location: "Debrecen"
+    location: locationForApi || "Debrecen",
+    fuel_eligible: false,
+    travel_allowance_eligible: false,
+    travel_allowance_amount: 0
   });
 
   const monthStart = startOfMonth(currentDate);
@@ -331,9 +468,9 @@ export const Workers = () => {
     fetchData();
   }, [selectedLocation]);
 
-  const fetchWorkerStats = async () => {
+  const fetchWorkerStats = async (loc) => {
     try {
-      const locationParam = locationForApi ? `&location=${locationForApi}` : "";
+      const locationParam = (loc && loc !== "all") ? `&location=${loc}` : "";
       const res = await axios.get(`${API}/stats/worker-monthly?month=${statsMonth}${locationParam}`, { withCredentials: true });
       setWorkerStats(res.data);
     } catch (error) {
@@ -343,16 +480,56 @@ export const Workers = () => {
 
   useEffect(() => {
     if (viewMode === "stats") {
-      fetchWorkerStats();
+      fetchWorkerStats(statsLocation);
     }
-  }, [viewMode, statsMonth, selectedLocation]);
+    if (viewMode === "absences") {
+      fetchAbsences();
+    }
+  }, [viewMode, statsMonth, statsLocation]);
+
+  const fetchAbsences = async () => {
+    try {
+      const res = await axios.get(`${API}/workers/absences/all`, { withCredentials: true });
+      setAbsences(res.data);
+    } catch (e) {
+      console.error("Absences fetch error:", e);
+    }
+  };
+
+  const handleAddAbsence = async () => {
+    if (!absenceForm.worker_id || !absenceForm.date) return;
+    setAddingAbsence(true);
+    try {
+      await axios.post(`${API}/workers/${absenceForm.worker_id}/absences`, {
+        date: absenceForm.date,
+        reason: absenceForm.reason || "Hiányzás"
+      }, { withCredentials: true });
+      toast.success("Hiányzás rögzítve");
+      setAbsenceForm({ worker_id: "", date: "", reason: "Hiányzás" });
+      fetchAbsences();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Hiba a rögzítés során");
+    } finally {
+      setAddingAbsence(false);
+    }
+  };
+
+  const handleDeleteAbsence = async (workerId, absenceId) => {
+    try {
+      await axios.delete(`${API}/workers/${workerId}/absences/${absenceId}`, { withCredentials: true });
+      toast.success("Hiányzás törölve");
+      fetchAbsences();
+    } catch (e) {
+      toast.error("Hiba a törlés során");
+    }
+  };
 
   const handleCreateShift = async () => {
     try {
       await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
       toast.success("Műszak sikeresen létrehozva!");
       setIsNewShiftOpen(false);
-      setNewShift({ worker_id: "", location: "Debrecen", start_time: "", end_time: "", shift_type: "normal", lunch_start: "", lunch_end: "" });
+      setNewShift({ worker_id: "", location: locationForApi || "Debrecen", start_time: "", end_time: "", shift_type: "normal", lunch_start: "", lunch_end: "" });
       fetchData();
     } catch (error) {
       toast.error("Hiba a műszak létrehozásakor");
@@ -423,7 +600,7 @@ export const Workers = () => {
       await axios.post(`${API}/workers`, newWorker, { withCredentials: true });
       toast.success("Dolgozó sikeresen hozzáadva!");
       setIsNewWorkerOpen(false);
-      setNewWorker({ name: "", phone: "", email: "", position: "", location: "Debrecen" });
+      setNewWorker({ name: "", phone: "", email: "", position: "", location: locationForApi || "Debrecen", fuel_eligible: false, travel_allowance_eligible: false, travel_allowance_amount: 0 });
       fetchData();
     } catch (error) {
       toast.error("Hiba a dolgozó hozzáadásakor");
@@ -437,7 +614,10 @@ export const Workers = () => {
       phone: worker.phone || "",
       email: worker.email || "",
       position: worker.position || "",
-      location: worker.location
+      location: worker.location,
+      fuel_eligible: worker.fuel_eligible || false,
+      travel_allowance_eligible: worker.travel_allowance_eligible || false,
+      travel_allowance_amount: worker.travel_allowance_amount || 0,
     });
   };
 
@@ -536,6 +716,11 @@ export const Workers = () => {
             <span className="hidden sm:inline">Statisztika</span>
             <span className="sm:hidden">Stat</span>
           </TabsTrigger>
+          <TabsTrigger value="absences" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400 text-xs sm:text-sm px-2 sm:px-3">
+            <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Hiányzások</span>
+            <span className="sm:hidden">Hiányzás</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Workers Tab */}
@@ -550,7 +735,7 @@ export const Workers = () => {
                       Új dolgozó
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                  <DialogContent className="bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="text-xl font-['Manrope']">Új dolgozó hozzáadása</DialogTitle>
                     </DialogHeader>
@@ -602,11 +787,53 @@ export const Workers = () => {
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-slate-700">
                               <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                              <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
-                      <Button 
+                      <div className="flex items-center gap-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+                        <Fuel className="w-4 h-4 text-amber-400" />
+                        <div className="flex-1">
+                          <Label className="text-slate-300 text-sm">Üzemanyag-térítésre jogosult</Label>
+                          <p className="text-xs text-slate-500">Budapest telephely esetén jutalékszámításban megjelenik</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewWorker({...newWorker, fuel_eligible: !newWorker.fuel_eligible})}
+                          className={`w-10 h-6 rounded-full transition-colors ${newWorker.fuel_eligible ? 'bg-amber-500' : 'bg-slate-700'}`}
+                        >
+                          <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${newWorker.fuel_eligible ? 'translate-x-2' : '-translate-x-2'}`} />
+                        </button>
+                      </div>
+                      {/* Travel allowance fields — shown when travel_allowance_eligible is true */}
+                      <div className="flex items-center gap-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+                        <Car className="w-4 h-4 text-green-400" />
+                        <div className="flex-1">
+                          <Label className="text-slate-300 text-sm">Bejárási költségtérítésre jogosult</Label>
+                          <p className="text-xs text-slate-500">Beállítható fix napi összeg</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewWorker({...newWorker, travel_allowance_eligible: !newWorker.travel_allowance_eligible})}
+                          className={`w-10 h-6 rounded-full transition-colors ${newWorker.travel_allowance_eligible ? 'bg-green-500' : 'bg-slate-700'}`}
+                        >
+                          <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${newWorker.travel_allowance_eligible ? 'translate-x-2' : '-translate-x-2'}`} />
+                        </button>
+                      </div>
+                      {newWorker.travel_allowance_eligible && (
+                        <div>
+                          <Label className="text-slate-300">Bejárási díj összege (Ft/nap)</Label>
+                          <Input
+                            type="number"
+                            value={newWorker.travel_allowance_amount}
+                            onChange={(e) => setNewWorker({...newWorker, travel_allowance_amount: parseInt(e.target.value) || 0})}
+                            className="bg-slate-950 border-slate-700 text-white"
+                            placeholder="pl. 1500"
+                          />
+                        </div>
+                      )}
+                      <Button
                         onClick={handleCreateWorker}
                         className="w-full bg-green-600 hover:bg-green-500"
                         disabled={!newWorker.name}
@@ -719,10 +946,17 @@ export const Workers = () => {
                                     </SelectContent>
                                   </Select>
                                 ) : (
-                                  <Badge variant="outline" className="border-slate-600 text-slate-300">
-                                    <MapPin className="w-3 h-3 mr-1" />
-                                    {worker.location}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                      <MapPin className="w-3 h-3 mr-1" />
+                                      {worker.location}
+                                    </Badge>
+                                    {worker.fuel_eligible && (
+                                      <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-xs">
+                                        <Fuel className="w-3 h-3 mr-1" />⛽
+                                      </Badge>
+                                    )}
+                                  </div>
                                 )}
                               </TableCell>
                               <TableCell>
@@ -761,18 +995,46 @@ export const Workers = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 {isEditing ? (
-                                  <div className="flex justify-end gap-1">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
+                                  <div className="flex justify-end items-center gap-2">
+                                    <button
+                                      type="button"
+                                      title="Üzemanyag-térítés"
+                                      onClick={() => setEditWorkerForm({...editWorkerForm, fuel_eligible: !editWorkerForm.fuel_eligible})}
+                                      className={`w-8 h-5 rounded-full transition-colors flex-shrink-0 ${editWorkerForm.fuel_eligible ? 'bg-amber-500' : 'bg-slate-700'}`}
+                                    >
+                                      <span className={`block w-3 h-3 bg-white rounded-full mx-auto transition-transform ${editWorkerForm.fuel_eligible ? 'translate-x-1.5' : '-translate-x-1.5'}`} />
+                                    </button>
+                                    {/* Travel allowance */}
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-slate-400 text-xs">Bejárási díj:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditWorkerForm({...editWorkerForm, travel_allowance_eligible: !editWorkerForm.travel_allowance_eligible})}
+                                        className={`w-8 h-5 rounded-full transition-colors flex-shrink-0 ${editWorkerForm.travel_allowance_eligible ? 'bg-green-500' : 'bg-slate-700'}`}
+                                      >
+                                        <span className={`block w-3 h-3 bg-white rounded-full mx-auto transition-transform ${editWorkerForm.travel_allowance_eligible ? 'translate-x-1.5' : '-translate-x-1.5'}`} />
+                                      </button>
+                                      {editWorkerForm.travel_allowance_eligible && (
+                                        <Input
+                                          type="number"
+                                          value={editWorkerForm.travel_allowance_amount || 0}
+                                          onChange={(e) => setEditWorkerForm({...editWorkerForm, travel_allowance_amount: parseInt(e.target.value) || 0})}
+                                          className="bg-slate-950 border-slate-700 text-white h-7 text-xs w-24"
+                                          placeholder="Ft/nap"
+                                        />
+                                      )}
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-8 w-8 text-green-400 hover:text-green-300"
                                       onClick={() => handleSaveWorker(worker.worker_id)}
                                     >
                                       <Save className="w-4 h-4" />
                                     </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-8 w-8 text-slate-400 hover:text-white"
                                       onClick={() => { setEditingWorker(null); setEditWorkerForm(null); }}
                                     >
@@ -834,7 +1096,7 @@ export const Workers = () => {
                     Új műszak
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogContent className="bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-['Manrope']">Új műszak létrehozása</DialogTitle>
                   </DialogHeader>
@@ -862,10 +1124,11 @@ export const Workers = () => {
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-700">
                           <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                          <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-slate-300">Kezdés</Label>
                         <Input
@@ -908,7 +1171,7 @@ export const Workers = () => {
                           <Clock className="w-4 h-4" />
                           Ebédszünet (opcionális)
                         </Label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-slate-400 text-sm">Kezdete</Label>
                             <Input
@@ -949,19 +1212,22 @@ export const Workers = () => {
           <Card className="glass-card">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => navigate('prev')} className="text-slate-400 hover:text-white">
-                  <ChevronLeft className="w-5 h-5 mr-1" />
-                  {calendarView === "month" ? "Előző hónap" : "Előző hét"}
+                <Button variant="ghost" onClick={() => navigate('prev')} className="text-slate-400 hover:text-white px-2">
+                  <ChevronLeft className="w-5 h-5" />
+                  <span className="hidden sm:inline ml-1">{calendarView === "month" ? "Előző hónap" : "Előző hét"}</span>
                 </Button>
-                <h2 className="text-lg font-semibold text-white">
-                  {calendarView === "month" 
+                <h2 className="text-sm sm:text-lg font-semibold text-white text-center truncate px-1 min-w-0">
+                  {calendarView === "month"
                     ? format(currentDate, 'yyyy. MMMM', { locale: hu })
-                    : `${format(weekStart, 'yyyy. MMMM d.', { locale: hu })} - ${format(weekEnd, 'MMMM d.', { locale: hu })}`
+                    : <>
+                        <span className="hidden sm:inline">{format(weekStart, 'yyyy. MMMM d.', { locale: hu })} – {format(weekEnd, 'MMMM d.', { locale: hu })}</span>
+                        <span className="sm:hidden">{format(weekStart, 'MMM d.', { locale: hu })} – {format(weekEnd, 'MMM d.', { locale: hu })}</span>
+                      </>
                   }
                 </h2>
-                <Button variant="ghost" onClick={() => navigate('next')} className="text-slate-400 hover:text-white">
-                  {calendarView === "month" ? "Következő hónap" : "Következő hét"}
-                  <ChevronRight className="w-5 h-5 ml-1" />
+                <Button variant="ghost" onClick={() => navigate('next')} className="text-slate-400 hover:text-white px-2">
+                  <span className="hidden sm:inline mr-1">{calendarView === "month" ? "Következő hónap" : "Következő hét"}</span>
+                  <ChevronRight className="w-5 h-5" />
                 </Button>
               </div>
             </CardContent>
@@ -972,7 +1238,8 @@ export const Workers = () => {
             <Card className="glass-card">
               <CardContent className="p-2 sm:p-4">
                 {/* Desktop view */}
-                <div className="hidden sm:block">
+                <div className="hidden sm:block overflow-x-auto">
+                  <div className="min-w-[560px]">
                   <div className="grid grid-cols-7 gap-1 mb-2">
                     {['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'].map((day, idx) => (
                       <div key={idx} className="text-center text-slate-400 text-sm font-medium py-2">{day}</div>
@@ -1025,8 +1292,9 @@ export const Workers = () => {
                       );
                     })}
                   </div>
+                  </div>
                 </div>
-                
+
                 {/* Mobile view - day cards */}
                 <div className="sm:hidden space-y-2">
                   {monthDays.filter(day => isSameMonth(day, currentDate)).map((day, idx) => {
@@ -1251,8 +1519,8 @@ export const Workers = () => {
         {/* Stats Tab */}
         <TabsContent value="stats" className="mt-6 space-y-4">
           {/* Month Selector */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -1265,7 +1533,7 @@ export const Workers = () => {
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <span className="text-white font-semibold text-lg">
+              <span className="text-white font-semibold text-base sm:text-lg">
                 {format(new Date(statsMonth + "-01"), "yyyy. MMMM", { locale: hu })}
               </span>
               <Button
@@ -1281,7 +1549,18 @@ export const Workers = () => {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex gap-2 ml-auto flex-wrap">
+            <Select value={statsLocation} onValueChange={setStatsLocation}>
+              <SelectTrigger className="w-full sm:w-40 bg-slate-950 border-slate-700 text-white">
+                <MapPin className="w-4 h-4 mr-2 text-green-400" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-slate-700">
+                <SelectItem value="all" className="text-white">Összes telephely</SelectItem>
+                <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2 sm:ml-auto flex-wrap">
               <Button 
                 onClick={handleDownloadWorkerPDF}
                 className="bg-slate-800 hover:bg-slate-700 text-white"
@@ -1304,37 +1583,7 @@ export const Workers = () => {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="glass-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Összes ledolgozott nap</p>
-                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-days-worked">
-                      {workerStats.reduce((sum, w) => sum + w.days_worked, 0)}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-blue-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="glass-card">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">Összes ledolgozott óra</p>
-                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-hours-worked">
-                      {workerStats.reduce((sum, w) => sum + w.hours_worked, 0).toFixed(1)}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-purple-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card className="glass-card">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -1346,6 +1595,21 @@ export const Workers = () => {
                   </div>
                   <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
                     <Car className="w-5 h-5 text-green-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-400">Összes elkészült szolgáltatás</p>
+                    <p className="text-2xl font-bold text-white mt-1" data-testid="total-services-completed">
+                      {workerStats.reduce((sum, w) => sum + (w.services_completed || w.cars_completed), 0)}
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-blue-400" />
                   </div>
                 </div>
               </CardContent>
@@ -1372,9 +1636,8 @@ export const Workers = () => {
                       <TableRow className="border-slate-800 hover:bg-transparent">
                         <TableHead className="text-slate-400">Dolgozó</TableHead>
                         <TableHead className="text-slate-400">Telephely</TableHead>
-                        <TableHead className="text-slate-400 text-center">Napok</TableHead>
-                        <TableHead className="text-slate-400 text-center">Órák</TableHead>
                         <TableHead className="text-slate-400 text-center">Autók</TableHead>
+                        <TableHead className="text-slate-400 text-center">Szolgáltatások</TableHead>
                         <TableHead className="text-slate-400 text-right">Bevétel</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1396,16 +1659,12 @@ export const Workers = () => {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className="text-white font-semibold">{worker.days_worked}</span>
-                              <span className="text-slate-500 text-xs ml-1">nap</span>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <span className="text-white font-semibold">{worker.hours_worked}</span>
-                              <span className="text-slate-500 text-xs ml-1">óra</span>
-                            </TableCell>
-                            <TableCell className="text-center">
                               <span className="text-green-400 font-semibold">{worker.cars_completed}</span>
-                              <span className="text-slate-500 text-xs ml-1">autó</span>
+                              <span className="text-slate-500 text-xs ml-1">db</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-blue-400 font-semibold">{worker.services_completed ?? worker.cars_completed}</span>
+                              <span className="text-slate-500 text-xs ml-1">db</span>
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-green-400 font-semibold">{worker.revenue.toLocaleString()} Ft</span>
@@ -1419,6 +1678,206 @@ export const Workers = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Budapest Commission Section */}
+          {workerStats.filter(w => w.location === "Budapest").length > 0 && (
+            <Card className="glass-card border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-amber-400" />
+                  Budapest – Jutalék elszámolás (31,5%)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {workerStats.filter(w => w.location === "Budapest").map(worker => {
+                    const commission = Math.round(worker.revenue * 0.315);
+                    const hasFuel = worker.fuel_eligible === true;
+                    let fuel = 0;
+                    if (hasFuel) {
+                      if (worker.revenue <= 500000) fuel = 40000;
+                      else if (worker.revenue <= 700000) fuel = 60000;
+                      else fuel = 80000;
+                    }
+                    const hasTravel = worker.travel_allowance_eligible === true && worker.travel_allowance_amount > 0;
+                    const travelAllowance = hasTravel ? (worker.travel_allowance_amount * (worker.days_worked || 0)) : 0;
+                    const total = commission + fuel + travelAllowance;
+                    return (
+                      <div key={worker.worker_id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-700 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-semibold text-base">{worker.name}</span>
+                          <span className="text-xs text-slate-500">{worker.cars_completed} autó · {worker.services_completed ?? worker.cars_completed} szolgáltatás</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Bruttó bevétel</p>
+                            <p className="text-white font-semibold">{worker.revenue.toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Készpénz</p>
+                            <p className="text-green-400 font-semibold">{(worker.cash || 0).toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Kártya/Utalás</p>
+                            <p className="text-blue-400 font-semibold">{(worker.card || 0).toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-center">
+                            <p className="text-amber-400 text-xs mb-1">Jutalék (31,5%)</p>
+                            <p className="text-amber-400 font-bold">{commission.toLocaleString()} Ft</p>
+                          </div>
+                        </div>
+                        {hasFuel && (
+                          <div className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg border border-slate-700 text-sm">
+                            <span className="text-slate-400 flex items-center gap-1"><Fuel className="w-3.5 h-3.5 text-amber-400" /> Üzemanyag-térítés</span>
+                            <span className="text-white font-semibold">{fuel.toLocaleString()} Ft
+                              <span className="text-slate-500 text-xs ml-2">({worker.revenue <= 500000 ? "≤500k" : worker.revenue <= 700000 ? "501-700k" : ">700k"} sáv)</span>
+                            </span>
+                          </div>
+                        )}
+                        {hasTravel && (
+                          <div className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg border border-slate-700 text-sm">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Car className="w-3.5 h-3.5 text-green-400" /> Bejárási költségtérítés
+                            </span>
+                            <span className="text-white font-semibold">
+                              {travelAllowance.toLocaleString()} Ft
+                              <span className="text-slate-500 text-xs ml-2">({worker.days_worked || 0} nap × {worker.travel_allowance_amount?.toLocaleString()} Ft)</span>
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between p-3 bg-amber-500/10 rounded-xl border border-amber-500/30">
+                          <span className="text-amber-300 font-medium">Összesen fizetendő</span>
+                          <span className="text-amber-400 text-xl font-bold">{total.toLocaleString()} Ft</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Absence Management Tab */}
+        <TabsContent value="absences" className="mt-6 space-y-6">
+          {/* Add absence form */}
+          <Card className="bg-slate-900/80 border-slate-800">
+            <CardHeader>
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <X className="w-4 h-4 text-red-400" />
+                Hiányzás rögzítése
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-slate-400 text-sm mb-1 block">Dolgozó</Label>
+                  <Select value={absenceForm.worker_id} onValueChange={(v) => setAbsenceForm({...absenceForm, worker_id: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                      <SelectValue placeholder="Válassz..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      {workers.map(w => (
+                        <SelectItem key={w.worker_id} value={w.worker_id} className="text-white">
+                          {w.name} <span className="text-slate-500 text-xs ml-1">({w.location})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-sm mb-1 block">Dátum</Label>
+                  <Input
+                    type="date"
+                    value={absenceForm.date}
+                    onChange={(e) => setAbsenceForm({...absenceForm, date: e.target.value})}
+                    className="bg-slate-950 border-slate-700 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-sm mb-1 block">Ok</Label>
+                  <Select value={absenceForm.reason} onValueChange={(v) => setAbsenceForm({...absenceForm, reason: v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="Hiányzás" className="text-white">Hiányzás</SelectItem>
+                      <SelectItem value="Betegszabadság" className="text-red-400">Betegszabadság</SelectItem>
+                      <SelectItem value="Szabadság" className="text-yellow-400">Szabadság</SelectItem>
+                      <SelectItem value="Egyéb" className="text-slate-400">Egyéb</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleAddAbsence}
+                  disabled={!absenceForm.worker_id || !absenceForm.date || addingAbsence}
+                  className="bg-red-600 hover:bg-red-500 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Rögzítés
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Absences list grouped by worker */}
+          {absences.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>Nincsenek rögzített hiányzások</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Group by worker */}
+              {workers
+                .filter(w => absences.some(a => a.worker_id === w.worker_id))
+                .map(worker => {
+                  const workerAbsences = absences
+                    .filter(a => a.worker_id === worker.worker_id)
+                    .sort((a, b) => b.date.localeCompare(a.date));
+                  return (
+                    <Card key={worker.worker_id} className="bg-slate-900/60 border-slate-800">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-red-400" />
+                            <span className="text-white font-medium">{worker.name}</span>
+                            <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                              <MapPin className="w-3 h-3 mr-1" />{worker.location}
+                            </Badge>
+                          </div>
+                          <Badge className="bg-red-500/20 text-red-400 text-xs">
+                            {workerAbsences.length} hiányzás
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {workerAbsences.map(abs => (
+                            <div
+                              key={abs.absence_id}
+                              className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-1.5 text-sm"
+                            >
+                              <span className="text-white">{abs.date}</span>
+                              <span className={`text-xs ${
+                                abs.reason === "Betegszabadság" ? "text-red-400" :
+                                abs.reason === "Szabadság" ? "text-yellow-400" :
+                                "text-slate-400"
+                              }`}>{abs.reason}</span>
+                              <button
+                                onClick={() => handleDeleteAbsence(worker.worker_id, abs.absence_id)}
+                                className="text-slate-600 hover:text-red-400 transition-colors"
+                                title="Törlés"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

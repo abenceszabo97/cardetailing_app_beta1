@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import { StatusBadge } from "../lib/statusColors";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -16,10 +17,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../components/ui/dialog";
-import { 
-  ArrowLeft, 
-  Phone, 
-  Car, 
+import {
+  ArrowLeft,
+  Phone,
+  Car,
   Banknote,
   Calendar,
   Edit,
@@ -30,7 +31,11 @@ import {
   Image,
   ZoomIn,
   ArrowLeftRight,
-  Camera
+  Camera,
+  Mail,
+  FileText,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -57,11 +62,14 @@ export const CustomerDetail = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedJobImages, setSelectedJobImages] = useState(null);
   const [fullscreenImage, setFullscreenImage] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
+    email: "",
     car_type: "",
     plate_number: ""
   });
@@ -79,8 +87,18 @@ export const CustomerDetail = () => {
     }
   };
 
+  const fetchInvoices = async () => {
+    setInvoicesLoading(true);
+    try {
+      const res = await axios.get(`${API}/invoices?customer_id=${customerId}`, { withCredentials: true });
+      setInvoices(res.data.invoices || []);
+    } catch { /* silent */ }
+    finally { setInvoicesLoading(false); }
+  };
+
   useEffect(() => {
     fetchCustomer();
+    fetchInvoices();
   }, [customerId]);
 
   const handleDelete = async () => {
@@ -97,6 +115,7 @@ export const CustomerDetail = () => {
     setEditForm({
       name: customer.name || "",
       phone: customer.phone || "",
+      email: customer.email || "",
       car_type: customer.car_type || "",
       plate_number: customer.plate_number || ""
     });
@@ -105,7 +124,7 @@ export const CustomerDetail = () => {
 
   const cancelEditing = () => {
     setIsEditing(false);
-    setEditForm({ name: "", phone: "", car_type: "", plate_number: "" });
+    setEditForm({ name: "", phone: "", email: "", car_type: "", plate_number: "" });
   };
 
   const handleSave = async () => {
@@ -127,15 +146,7 @@ export const CustomerDetail = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      kesz: { label: "Kész", className: "status-kesz" },
-      folyamatban: { label: "Folyamatban", className: "status-folyamatban" },
-      foglalt: { label: "Foglalt", className: "status-foglalt" }
-    };
-    const config = statusConfig[status] || statusConfig.foglalt;
-    return <Badge className={config.className}>{config.label}</Badge>;
-  };
+  const getStatusBadge = (status) => <StatusBadge status={status} />;
 
   if (loading) {
     return (
@@ -186,58 +197,72 @@ export const CustomerDetail = () => {
       </div>
 
       {/* Customer Info */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
         <Card className="glass-card">
-          <CardContent className="p-3 sm:p-6">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] sm:text-xs text-slate-400">Telefonszám</p>
-                <p className="text-white font-medium text-sm sm:text-base truncate">{customer.phone}</p>
+                <p className="text-white font-medium text-sm truncate">{customer.phone}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-3 sm:p-6">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Email</p>
+                <p className="text-white font-medium text-sm truncate">{customer.email || "-"}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Car className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] sm:text-xs text-slate-400">Autó típusa</p>
-                <p className="text-white font-medium text-sm sm:text-base truncate">{customer.car_type || "-"}</p>
+                <p className="text-white font-medium text-sm truncate">{customer.car_type || "-"}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                <span className="text-orange-400 font-bold text-sm">ABC</span>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-orange-400 font-bold text-xs">ABC</span>
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Rendszám</p>
-                <p className="text-white font-bold font-mono">{customer.plate_number}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Rendszám</p>
+                <p className="text-white font-bold font-mono text-sm truncate">{customer.plate_number}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <Banknote className="w-5 h-5 text-green-400" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Banknote className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               </div>
-              <div>
-                <p className="text-xs text-slate-400">Összes költés</p>
-                <p className="text-green-400 font-bold">{(customer.total_spent || 0).toLocaleString()} Ft</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-400">Összes költés</p>
+                <p className="text-green-400 font-bold text-sm truncate">{(customer.total_spent || 0).toLocaleString()} Ft</p>
               </div>
             </div>
           </CardContent>
@@ -304,6 +329,85 @@ export const CustomerDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Invoice History */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-xl text-white font-['Manrope'] flex items-center gap-2">
+            <FileText className="w-5 h-5 text-amber-400" />
+            Számlák / Nyugták
+            {invoices.length > 0 && (
+              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-normal ml-1">
+                {invoices.length} db
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {invoicesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : invoices.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Nincs kiállított számla / nyugta ehhez az ügyfélhez</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map((inv) => (
+                <div key={inv.invoice_id} className="bg-slate-950/50 rounded-xl p-3 border border-slate-800 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {inv.is_receipt ? (
+                      <Receipt className="w-5 h-5 text-blue-400 shrink-0" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-amber-400 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-white text-sm font-medium">
+                          {inv.is_receipt ? "Nyugta" : "Számla"}
+                        </span>
+                        {inv.invoice_number && (
+                          <span className="text-slate-400 font-mono text-xs">#{inv.invoice_number}</span>
+                        )}
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${inv.status === "fizetve" ? "bg-green-500/20 text-green-400" : "bg-orange-500/20 text-orange-400"}`}>
+                          {inv.status === "fizetve" ? "✓ Fizetve" : "⏳ Fizetésre vár"}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 text-xs mt-0.5">
+                        {inv.created_at ? format(new Date(inv.created_at), 'yyyy. MM. dd.', { locale: hu }) : ""} · {inv.location}
+                        {inv.payment_method === "keszpenz" ? " · 💵 Készpénz" : inv.payment_method === "kartya" ? " · 💳 Kártya" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-between sm:justify-end">
+                    <span className="text-green-400 font-bold">{Number(inv.amount || 0).toLocaleString()} Ft</span>
+                    {inv.invoice_number && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs px-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                        onClick={() => window.open("https://www.szamlazz.hu", "_blank")}
+                        title="Megnyitás Számlázz.hu-n"
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        Számlázz.hu
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-3 border-t border-slate-700 mt-2">
+                <span className="text-slate-400 text-sm">Összesen számlázva</span>
+                <span className="text-green-400 font-bold text-lg">
+                  {invoices.reduce((s, i) => s + Number(i.amount || 0), 0).toLocaleString()} Ft
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Delete Customer Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
@@ -352,6 +456,17 @@ export const CustomerDetail = () => {
                 className="bg-slate-950 border-slate-700 text-white"
                 placeholder="+36 70 123 4567"
                 data-testid="edit-customer-phone"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Email</Label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                className="bg-slate-950 border-slate-700 text-white"
+                placeholder="email@example.com"
+                data-testid="edit-customer-email"
               />
             </div>
             <div>

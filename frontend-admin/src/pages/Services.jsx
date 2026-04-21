@@ -31,8 +31,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "../components/ui/tabs";
-import { 
-  Sparkles, 
+import {
+  Sparkles,
   Plus,
   Edit,
   Trash2,
@@ -42,7 +42,8 @@ import {
   Percent,
   Calendar,
   Check,
-  Pencil
+  Pencil,
+  MapPin,
 } from "lucide-react";
 
 export const Services = () => {
@@ -65,9 +66,12 @@ export const Services = () => {
   const [isNewExtraOpen, setIsNewExtraOpen] = useState(false);
   const [editingExtra, setEditingExtra] = useState(null);
   const [extraForm, setExtraForm] = useState({
-    name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null
+    name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: locationForApi || null
   });
   
+  // Use global location context so Services page reflects the selected location
+  const [servicesLoc, setServicesLoc] = useState(locationForApi || "all");
+
   const [formData, setFormData] = useState({
     name: "",
     category: "komplett",
@@ -75,7 +79,10 @@ export const Services = () => {
     duration: 60,
     description: "",
     car_size: "",
-    package: ""
+    package: "",
+    location: locationForApi || null,
+    size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+    duration_label: ""
   });
 
   const [promoForm, setPromoForm] = useState({
@@ -89,22 +96,32 @@ export const Services = () => {
     duration: 70,
     badge: "🎉 AKCIÓ",
     valid_until: "",
-    active: true
+    active: true,
+    location: locationForApi || null
   });
 
   const categories = [
     { value: "komplett", label: "Komplett" },
     { value: "kulso", label: "Külső" },
-    { value: "belso", label: "Belső" },
-    { value: "extra", label: "Extra" }
+    { value: "belso", label: "Belső" }
+  ];
+
+  // All categories including poliroz (for the service dialog)
+  const allCategories = [
+    ...categories,
+    { value: "poliroz", label: "Polírozás" }
   ];
 
   const carSizes = ["S", "M", "L", "XL", "XXL"];
   const packages = ["Eco", "Pro", "VIP"];
 
-  const fetchServices = async () => {
+  const fetchServices = async (loc) => {
     try {
-      const response = await axios.get(`${API}/services`, { withCredentials: true });
+      // Show location-specific + global (null-location) services for the selected location.
+      // Global services (location=null) are shared across all locations intentionally.
+      // New services created while a location is selected inherit that location.
+      const locParam = (loc && loc !== "all") ? `?location=${loc}` : "";
+      const response = await axios.get(`${API}/services${locParam}`, { withCredentials: true });
       setServices(response.data);
     } catch (error) {
       toast.error("Hiba a szolgáltatások betöltésekor");
@@ -113,20 +130,26 @@ export const Services = () => {
     }
   };
 
-  const fetchPromotions = async () => {
+  const fetchPromotions = async (loc) => {
     try {
-      const response = await axios.get(`${API}/services/promotions/admin`, { withCredentials: true });
+      const locParam = (loc && loc !== "all") ? `?location=${loc}` : "";
+      const response = await axios.get(`${API}/services/promotions/admin${locParam}`, { withCredentials: true });
       setPromotions(response.data);
     } catch (error) {
       console.error("Promotions error:", error);
     }
   };
 
+  // Sync servicesLoc with the global location when it changes
   useEffect(() => {
-    fetchServices();
-    fetchPromotions();
+    setServicesLoc(locationForApi || "all");
+  }, [locationForApi]);
+
+  useEffect(() => {
+    fetchServices(servicesLoc);
+    fetchPromotions(servicesLoc);
     fetchExtras();
-  }, []);
+  }, [servicesLoc]);
 
   const fetchExtras = async () => {
     try {
@@ -151,7 +174,7 @@ export const Services = () => {
       }
       setIsNewExtraOpen(false);
       setEditingExtra(null);
-      setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
+      setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: locationForApi || null });
       fetchExtras();
     } catch (error) {
       toast.error("Hiba az extra mentésekor");
@@ -170,14 +193,33 @@ export const Services = () => {
 
   const handleSubmit = async () => {
     try {
-      // Clean up empty strings to null
-      const cleanedData = {
-        ...formData,
-        car_size: formData.car_size || null,
-        package: formData.package || null,
-        description: formData.description || null
-      };
-      
+      let cleanedData;
+      if (formData.category === "poliroz") {
+        const prices = formData.size_prices || {};
+        const nonZero = Object.values(prices).map(Number).filter(v => v > 0);
+        const minPrice = nonZero.length ? Math.min(...nonZero) : 0;
+        cleanedData = {
+          name: formData.name,
+          category: "poliroz",
+          service_type: "poliroz",
+          price: minPrice,
+          duration: formData.duration || 120,
+          duration_label: formData.duration_label || null,
+          description: formData.description || null,
+          size_prices: prices,
+          location: formData.location || null,
+        };
+      } else {
+        cleanedData = {
+          ...formData,
+          car_size: formData.car_size || null,
+          package: formData.package || null,
+          description: formData.description || null,
+          size_prices: undefined,
+          duration_label: undefined,
+        };
+      }
+
       if (editingService) {
         await axios.put(`${API}/services/${editingService.service_id}`, cleanedData, { withCredentials: true });
         toast.success("Szolgáltatás frissítve!");
@@ -188,7 +230,7 @@ export const Services = () => {
       setIsNewServiceOpen(false);
       setEditingService(null);
       resetForm();
-      fetchServices();
+      fetchServices(servicesLoc);
     } catch (error) {
       console.error("Service error:", error);
       toast.error(error.response?.data?.detail || "Hiba történt");
@@ -214,7 +256,10 @@ export const Services = () => {
       duration: 60,
       description: "",
       car_size: "",
-      package: ""
+      package: "",
+      location: servicesLoc !== "all" ? servicesLoc : null,
+      size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+      duration_label: ""
     });
   };
 
@@ -231,23 +276,25 @@ export const Services = () => {
       duration: 70,
       badge: "🎉 AKCIÓ",
       valid_until: "",
-      active: true
+      active: true,
+      location: servicesLoc !== "all" ? servicesLoc : null
     });
   };
 
   const handlePromoSubmit = async () => {
     try {
-      if (editingPromo) {
+      if (editingPromo && !editingPromo._hardcoded) {
         await axios.put(`${API}/services/promotions/${editingPromo.id}`, promoForm, { withCredentials: true });
         toast.success("Akció frissítve!");
       } else {
+        // New or hardcoded (seed to DB)
         await axios.post(`${API}/services/promotions`, promoForm, { withCredentials: true });
-        toast.success("Akció létrehozva!");
+        toast.success(editingPromo?._hardcoded ? "Akció DB-be mentve!" : "Akció létrehozva!");
       }
       setIsNewPromoOpen(false);
       setEditingPromo(null);
       resetPromoForm();
-      fetchPromotions();
+      fetchPromotions(servicesLoc);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Hiba történt");
     }
@@ -277,7 +324,8 @@ export const Services = () => {
       duration: promo.duration,
       badge: promo.badge || "🎉 AKCIÓ",
       valid_until: promo.valid_until || "",
-      active: promo.active !== false
+      active: promo.active !== false,
+      location: promo.location || null
     });
     setIsNewPromoOpen(true);
   };
@@ -300,7 +348,10 @@ export const Services = () => {
       duration: service.duration,
       description: service.description || "",
       car_size: service.car_size || "",
-      package: service.package || ""
+      package: service.package || "",
+      location: service.location || null,
+      size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0, ...(service.size_prices || {}) },
+      duration_label: service.duration_label || ""
     });
     setIsNewServiceOpen(true);
   };
@@ -313,6 +364,20 @@ export const Services = () => {
       extra: "bg-orange-500/20 text-orange-400"
     };
     return colors[category] || colors.komplett;
+  };
+
+  const getCategoryLabel = (cat) => {
+    if (cat === "extra_kulso") return "Külső extra";
+    if (cat === "extra_belso") return "Belső extra";
+    if (cat === "extra_special") return "Speciális";
+    return cat || "Extra";
+  };
+
+  const getCategoryBadgeClass = (cat) => {
+    if (cat === "extra_kulso") return "bg-green-500/20 text-green-400";
+    if (cat === "extra_belso") return "bg-blue-500/20 text-blue-400";
+    if (cat === "extra_special") return "bg-orange-500/20 text-orange-400";
+    return "bg-slate-500/20 text-slate-400";
   };
 
   const groupedServices = services.reduce((acc, service) => {
@@ -338,6 +403,29 @@ export const Services = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Manrope']">Szolgáltatások</h1>
           <p className="text-slate-400 mt-1 text-sm sm:text-base">{services.length} szolgáltatás</p>
         </div>
+      </div>
+
+      {/* Location Filter */}
+      <div className="flex items-center gap-2">
+        <MapPin className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-1">
+          {[{ val: "all", label: "Összes telephely" }, { val: "Debrecen", label: "Debrecen" }, { val: "Budapest", label: "Budapest" }].map(({ val, label }) => (
+            <button
+              key={val}
+              onClick={() => setServicesLoc(val)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                servicesLoc === val ? "bg-green-500/20 text-green-400" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* New Service Button row */}
+      <div className="flex justify-end">
+        <div className="flex gap-2">
         <Dialog open={isNewServiceOpen} onOpenChange={(open) => {
             setIsNewServiceOpen(open);
             if (!open) {
@@ -367,7 +455,7 @@ export const Services = () => {
                     placeholder="Szolgáltatás neve"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300">Kategória</Label>
                     <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
@@ -375,7 +463,7 @@ export const Services = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        {categories.map(cat => (
+                        {allCategories.map(cat => (
                           <SelectItem key={cat.value} value={cat.value} className="text-white">
                             {cat.label}
                           </SelectItem>
@@ -383,54 +471,102 @@ export const Services = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-slate-300">Ár (Ft)</Label>
-                    <Input
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})}
-                      className="bg-slate-950 border-slate-700 text-white"
-                    />
-                  </div>
+                  {formData.category !== "poliroz" && (
+                    <div>
+                      <Label className="text-slate-300">Ár (Ft)</Label>
+                      <Input
+                        type="number"
+                        value={formData.price}
+                        onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})}
+                        className="bg-slate-950 border-slate-700 text-white"
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-slate-300">Időtartam (perc)</Label>
-                    <Input
-                      type="number"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value) || 0})}
-                      className="bg-slate-950 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Autó méret</Label>
-                    <Select value={formData.car_size || "none"} onValueChange={(v) => setFormData({...formData, car_size: v === "none" ? "" : v})}>
-                      <SelectTrigger className="bg-slate-950 border-slate-700">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="none" className="text-white">-</SelectItem>
-                        {carSizes.map(size => (
-                          <SelectItem key={size} value={size} className="text-white">{size}</SelectItem>
+
+                {/* Poliroz-specific fields */}
+                {formData.category === "poliroz" ? (
+                  <>
+                    <div>
+                      <Label className="text-slate-300 mb-2 block">Árak méretenként (Ft) — 0 = nem elérhető ennél a méretnél</Label>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                        {["S","M","L","XL","XXL"].map(sz => (
+                          <div key={sz}>
+                            <Label className="text-xs text-slate-500 mb-1 block text-center">{sz}</Label>
+                            <Input
+                              type="number"
+                              value={formData.size_prices?.[sz] || 0}
+                              onChange={(e) => setFormData({...formData, size_prices: {...formData.size_prices, [sz]: parseInt(e.target.value) || 0}})}
+                              className="bg-slate-950 border-slate-700 text-white text-center px-1"
+                            />
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Időtartam felirat (pl. "1–3 óra")</Label>
+                      <Input
+                        value={formData.duration_label}
+                        onChange={(e) => setFormData({...formData, duration_label: e.target.value})}
+                        className="bg-slate-950 border-slate-700 text-white"
+                        placeholder="pl. 1–3 óra"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-slate-300">Időtartam (perc)</Label>
+                      <Input
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value) || 0})}
+                        className="bg-slate-950 border-slate-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Autó méret</Label>
+                      <Select value={formData.car_size || "none"} onValueChange={(v) => setFormData({...formData, car_size: v === "none" ? "" : v})}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="none" className="text-white">-</SelectItem>
+                          {carSizes.map(size => (
+                            <SelectItem key={size} value={size} className="text-white">{size}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Csomag</Label>
+                      <Select value={formData.package || "none"} onValueChange={(v) => setFormData({...formData, package: v === "none" ? "" : v})}>
+                        <SelectTrigger className="bg-slate-950 border-slate-700">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="none" className="text-white">-</SelectItem>
+                          {packages.map(pkg => (
+                            <SelectItem key={pkg} value={pkg} className="text-white">{pkg}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-slate-300">Csomag</Label>
-                    <Select value={formData.package || "none"} onValueChange={(v) => setFormData({...formData, package: v === "none" ? "" : v})}>
-                      <SelectTrigger className="bg-slate-950 border-slate-700">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="none" className="text-white">-</SelectItem>
-                        {packages.map(pkg => (
-                          <SelectItem key={pkg} value={pkg} className="text-white">{pkg}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                )}
+
+                <div>
+                  <Label className="text-slate-300">Telephely</Label>
+                  <Select value={formData.location || "all"} onValueChange={(v) => setFormData({...formData, location: v === "all" ? null : v})}>
+                    <SelectTrigger className="bg-slate-950 border-slate-700">
+                      <SelectValue placeholder="Mindkét telephely" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="all" className="text-white">Mindkét telephely</SelectItem>
+                      <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                      <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-slate-300">Leírás</Label>
@@ -441,43 +577,50 @@ export const Services = () => {
                     placeholder="Opcionális leírás..."
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleSubmit}
                   className="w-full bg-green-600 hover:bg-green-500"
-                  disabled={!formData.name || !formData.price}
+                  disabled={!formData.name || (formData.category !== "poliroz" && !formData.price)}
                 >
                   {editingService ? "Mentés" : "Létrehozás"}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
+        </div>
       </div>
 
       {/* Services by Category */}
       <Tabs defaultValue="promotions" className="w-full">
-        <TabsList className="bg-slate-900 border border-slate-800 p-1">
-          <TabsTrigger 
+        <TabsList className="bg-slate-900 border border-slate-800 p-1 flex overflow-x-auto gap-1 w-full h-auto flex-nowrap scrollbar-none">
+          <TabsTrigger
             value="promotions"
-            className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400"
+            className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
           >
-            <Tag className="w-4 h-4 mr-2" />
+            <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             Akciók
           </TabsTrigger>
           {categories.map(cat => (
-            <TabsTrigger 
-              key={cat.value} 
+            <TabsTrigger
+              key={cat.value}
               value={cat.value}
-              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400"
+              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
             >
               {cat.label}
             </TabsTrigger>
           ))}
-          <TabsTrigger 
+          <TabsTrigger
             value="extras"
-            className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
+            className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
           >
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
             Extrák
+          </TabsTrigger>
+          <TabsTrigger
+            value="poliroz"
+            className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
+          >
+            ✨ Polírozás
           </TabsTrigger>
         </TabsList>
 
@@ -526,7 +669,7 @@ export const Services = () => {
                       placeholder="pl. Komplett külső+belső tisztítás M méretig"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Akciós ár (Ft)</Label>
                       <Input
@@ -546,7 +689,7 @@ export const Services = () => {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Kategória</Label>
                       <Select value={promoForm.category} onValueChange={(v) => setPromoForm({...promoForm, category: v})}>
@@ -593,7 +736,7 @@ export const Services = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Időtartam (perc)</Label>
                       <Input
@@ -622,6 +765,19 @@ export const Services = () => {
                       placeholder="pl. 🌸 AKCIÓ vagy 🔥 KIÁRUSÍTÁS"
                     />
                   </div>
+                  <div>
+                    <Label className="text-slate-300">Telephely</Label>
+                    <Select value={promoForm.location || "all"} onValueChange={(v) => setPromoForm({...promoForm, location: v === "all" ? null : v})}>
+                      <SelectTrigger className="bg-slate-950 border-slate-700">
+                        <SelectValue placeholder="Mindkét telephely" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="all" className="text-white">Mindkét telephely</SelectItem>
+                        <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                        <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center gap-3 pt-2">
                     <Switch
                       checked={promoForm.active}
@@ -645,23 +801,28 @@ export const Services = () => {
           {/* Promotions list */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {promotions.map(promo => (
-              <Card 
+              <Card
                 key={promo.id}
                 className={`overflow-hidden transition-colors ${
-                  promo.active 
-                    ? 'border-pink-500/50 hover:border-pink-500' 
-                    : 'border-slate-800 opacity-60'
+                  promo._hardcoded
+                    ? 'border-amber-500/40 hover:border-amber-500'
+                    : promo.active
+                      ? 'border-pink-500/50 hover:border-pink-500'
+                      : 'border-slate-800 opacity-60'
                 }`}
               >
-                <div className={`h-1 ${promo.active ? 'bg-gradient-to-r from-pink-500 to-orange-500' : 'bg-slate-700'}`} />
+                <div className={`h-1 ${promo._hardcoded ? 'bg-gradient-to-r from-amber-500 to-yellow-400' : promo.active ? 'bg-gradient-to-r from-pink-500 to-orange-500' : 'bg-slate-700'}`} />
                 <CardContent className="p-5">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge className={promo.active ? 'bg-pink-500/20 text-pink-400' : 'bg-slate-700 text-slate-500'}>
+                        <Badge className={promo._hardcoded ? 'bg-amber-500/20 text-amber-400' : promo.active ? 'bg-pink-500/20 text-pink-400' : 'bg-slate-700 text-slate-500'}>
                           {promo.badge || '🎉 AKCIÓ'}
                         </Badge>
-                        {!promo.active && (
+                        {promo._hardcoded && (
+                          <Badge className="bg-amber-700/30 text-amber-400 text-xs">Beépített</Badge>
+                        )}
+                        {!promo._hardcoded && !promo.active && (
                           <Badge className="bg-slate-700 text-slate-500">Inaktív</Badge>
                         )}
                       </div>
@@ -669,22 +830,30 @@ export const Services = () => {
                       <p className="text-slate-400 text-sm">{promo.description}</p>
                     </div>
                     <div className="flex gap-1">
-                      <button 
+                      <button
                         className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                        title="Szerkesztés"
                         onClick={() => openEditPromoDialog(promo)}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
-                        onClick={() => setDeletePromoId(promo.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!promo._hardcoded && (
+                        <button
+                          className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                          onClick={() => setDeletePromoId(promo.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   
                   <div className="flex flex-wrap gap-2 mb-3">
+                    {promo.location && (
+                      <Badge variant="outline" className="border-green-500/40 text-green-400">
+                        <MapPin className="w-3 h-3 mr-1" />{promo.location}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="border-slate-600 text-slate-400">
                       <Car className="w-3 h-3 mr-1" />
                       {promo.car_sizes?.join(', ')} méret
@@ -739,6 +908,28 @@ export const Services = () => {
 
         {categories.map(cat => (
           <TabsContent key={cat.value} value={cat.value} className="mt-6">
+            <div className="flex justify-end mb-4">
+              <Button
+                className="bg-green-600 hover:bg-green-500"
+                onClick={() => {
+                  setEditingService(null);
+                  setFormData({
+                    name: "",
+                    category: cat.value,
+                    price: 0,
+                    duration: 60,
+                    description: "",
+                    car_size: "",
+                    package: "",
+                    location: servicesLoc !== "all" ? servicesLoc : null
+                  });
+                  setIsNewServiceOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Új {cat.label.toLowerCase()} szolgáltatás
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(groupedServices[cat.value] || []).map(service => (
                 <Card 
@@ -750,7 +941,12 @@ export const Services = () => {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
                         <h3 className="text-white font-semibold">{service.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {service.location && (
+                            <Badge variant="outline" className="text-xs border-green-500/40 text-green-400">
+                              <MapPin className="w-3 h-3 mr-1" />{service.location}
+                            </Badge>
+                          )}
                           {service.car_size && (
                             <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
                               <Car className="w-3 h-3 mr-1" />
@@ -824,76 +1020,209 @@ export const Services = () => {
 
         {/* Extras Tab */}
         <TabsContent value="extras" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h2 className="text-lg text-white font-semibold flex items-center gap-2">
               <Plus className="w-5 h-5 text-blue-400" />
               Extra szolgáltatások
             </h2>
-            <Button
-              onClick={() => {
-                setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: null });
-                setEditingExtra(null);
-                setIsNewExtraOpen(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-500"
-              data-testid="new-extra-btn"
-            >
-              <Plus className="w-4 h-4 mr-2" /> Új extra
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const res = await axios.post(`${API}/services/extras/seed`, {}, { withCredentials: true });
+                    toast.success(res.data.message || "Alapértelmezett extrák betöltve!");
+                    fetchExtras();
+                  } catch { toast.error("Hiba az extrák betöltésekor"); }
+                }}
+                className="border-slate-600 text-slate-300 hover:text-white text-xs"
+              >
+                Új extrák betöltése
+              </Button>
+              <Button
+                onClick={() => {
+                  setExtraForm({ name: "", category: "extra_kulso", price: 0, min_price: 0, description: "", location: locationForApi || null });
+                  setEditingExtra(null);
+                  setIsNewExtraOpen(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-500"
+                data-testid="new-extra-btn"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Új extra
+              </Button>
+            </div>
           </div>
 
-          {/* Extras List */}
-          <div className="space-y-3">
+          {/* Extras Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {extras.map(extra => (
-              <Card key={extra.service_id} className="glass-card">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-white font-medium">{extra.name}</h3>
-                      {extra.location && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{extra.location}</span>
+              <Card key={extra.service_id} className="glass-card hover:border-blue-500/30 transition-colors overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0">
+                      <Badge className={`mb-2 text-xs ${getCategoryBadgeClass(extra.category)}`}>
+                        {getCategoryLabel(extra.category)}
+                      </Badge>
+                      <h3 className="text-white font-semibold truncate">{extra.name}</h3>
+                      {extra.description && (
+                        <p className="text-slate-400 text-sm mt-1">{extra.description}</p>
                       )}
                     </div>
-                    <p className="text-sm text-slate-400">{extra.description || extra.category}</p>
+                    <div className="flex gap-1 ml-2 flex-shrink-0">
+                      <button
+                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                        onClick={() => {
+                          setEditingExtra(extra);
+                          setExtraForm({
+                            name: extra.name,
+                            category: extra.category || "extra_kulso",
+                            price: extra.price || 0,
+                            min_price: extra.min_price || 0,
+                            description: extra.description || "",
+                            location: extra.location || null
+                          });
+                          setIsNewExtraOpen(true);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                        onClick={() => handleDeleteExtra(extra.service_id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-green-400 font-bold">
+                  {extra.location && (
+                    <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs mb-3">
+                      <MapPin className="w-3 h-3 mr-1" />{extra.location}
+                    </Badge>
+                  )}
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
+                    <span className="text-xl font-bold text-blue-400">
                       {extra.min_price ? `${extra.min_price.toLocaleString()} Ft-tól` : `${(extra.price || 0).toLocaleString()} Ft`}
                     </span>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => {
-                        setEditingExtra(extra);
-                        setExtraForm({
-                          name: extra.name,
-                          category: extra.category || "extra_kulso",
-                          price: extra.price || 0,
-                          min_price: extra.min_price || 0,
-                          description: extra.description || "",
-                          location: extra.location || null
-                        });
-                        setIsNewExtraOpen(true);
-                      }}
-                      className="text-blue-400 hover:text-blue-300"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => handleDeleteExtra(extra.service_id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
-            {extras.length === 0 && (
-              <div className="text-center text-slate-500 py-12">
-                <Plus className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p>Nincs extra szolgáltatás</p>
-                <p className="text-sm mt-1">Adj hozzá extra szolgáltatásokat a Booking oldalhoz</p>
+          </div>
+          {extras.length === 0 && (
+            <div className="text-center text-slate-500 py-12">
+              <Plus className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p>Nincs extra szolgáltatás</p>
+              <p className="text-sm mt-1">Adj hozzá extra szolgáltatásokat a Booking oldalhoz</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Polírozás Tab */}
+        <TabsContent value="poliroz" className="mt-6">
+          <div className="flex justify-end mb-4">
+            <Button
+              className="bg-amber-600 hover:bg-amber-500"
+              onClick={() => {
+                setEditingService(null);
+                setFormData({
+                  name: "",
+                  category: "poliroz",
+                  price: 0,
+                  duration: 120,
+                  description: "",
+                  car_size: "",
+                  package: "",
+                  location: servicesLoc !== "all" ? servicesLoc : null,
+                  size_prices: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+                  duration_label: ""
+                });
+                setIsNewServiceOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Új polírozás típus
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {services.filter(s => s.category === "poliroz").map(service => {
+              const prices = service.size_prices || {};
+              const priceValues = Object.values(prices).map(Number).filter(v => v > 0);
+              const minP = priceValues.length ? Math.min(...priceValues) : 0;
+              const maxP = priceValues.length ? Math.max(...priceValues) : 0;
+              return (
+                <Card
+                  key={service.service_id}
+                  className="bg-slate-900/80 border-slate-800 rounded-xl hover:border-amber-500/30 transition-colors overflow-hidden"
+                >
+                  <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-400" />
+                  <CardContent className="p-5">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-semibold truncate">{service.name}</h3>
+                        {service.description && (
+                          <p className="text-slate-400 text-xs mt-0.5">{service.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 ml-2 flex-shrink-0">
+                        <button
+                          className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-md"
+                          title="Szerkesztés"
+                          onClick={() => openEditDialog(service)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                          onClick={() => setDeleteServiceId(service.service_id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      {service.duration_label && (
+                        <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+                          <Clock className="w-3 h-3 mr-1" />{service.duration_label}
+                        </Badge>
+                      )}
+                      {service.location && (
+                        <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs">
+                          <MapPin className="w-3 h-3 mr-1" />{service.location}
+                        </Badge>
+                      )}
+                    </div>
+                    {/* Size price grid */}
+                    {Object.keys(prices).length > 0 && (
+                      <div className="grid grid-cols-5 gap-1 mb-3">
+                        {["S","M","L","XL","XXL"].map(sz => (
+                          <div key={sz} className="text-center">
+                            <div className="text-xs text-slate-500">{sz}</div>
+                            <div className={`text-xs font-medium ${prices[sz] > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                              {prices[sz] > 0 ? `${Number(prices[sz]).toLocaleString()}` : "–"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-end">
+                      {minP > 0 && (
+                        <span className="text-amber-400 font-bold text-lg">
+                          {minP === maxP
+                            ? `${minP.toLocaleString()} Ft`
+                            : `${minP.toLocaleString()} – ${maxP.toLocaleString()} Ft`}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {services.filter(s => s.category === "poliroz").length === 0 && (
+              <div className="col-span-full text-center py-12 text-slate-400">
+                <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nincsenek polírozás típusok</p>
+                <p className="text-sm mt-1">Kattints az "Új polírozás típus" gombra a létrehozáshoz</p>
               </div>
             )}
           </div>
@@ -918,7 +1247,7 @@ export const Services = () => {
                 placeholder="pl. Bőrápolás"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-slate-300">Ár (Ft)</Label>
                 <Input

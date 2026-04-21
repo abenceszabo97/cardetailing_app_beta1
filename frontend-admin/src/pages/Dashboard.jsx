@@ -22,10 +22,10 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { 
-  Car, 
-  Calendar, 
-  TrendingUp, 
+import {
+  Car,
+  Calendar,
+  TrendingUp,
   Plus,
   Clock,
   User,
@@ -42,9 +42,12 @@ import {
   Pencil,
   Bell,
   AlertTriangle,
-  Package
+  Package,
+  FileText,
+  Receipt,
+  Search
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
 import { 
@@ -77,6 +80,7 @@ const IMAGE_SLOTS_AFTER = [
   { id: "belter_elol_jobb", label: "Beltér elől jobboldal", category: "belter", matchBefore: "belter_elol_jobb" },
   { id: "belter_hatul_bal", label: "Beltér hátul baloldal", category: "belter", matchBefore: "belter_hatul_bal" },
   { id: "belter_hatul_jobb", label: "Beltér hátul jobboldal", category: "belter", matchBefore: "belter_hatul_jobb" },
+  { id: "atadas_atvatel", label: "Átadás-átvétel dokumentáció", category: "handover", matchBefore: null },
 ];
 
 export const Dashboard = () => {
@@ -106,6 +110,57 @@ export const Dashboard = () => {
   // Edit job state
   const [editJobOpen, setEditJobOpen] = useState(false);
   const [editJob, setEditJob] = useState(null);
+
+  // Invoice state
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceJob, setInvoiceJob] = useState(null);
+  const [invoiceForm, setInvoiceForm] = useState({ buyer_name: "", buyer_email: "", buyer_address: "", buyer_tax_number: "", comment: "", billing_entity: "auto" });
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [jobSearch, setJobSearch] = useState("");
+  const [invoiceConfigured, setInvoiceConfigured] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/invoices/status`, { withCredentials: true })
+      .then(r => setInvoiceConfigured(r.data.configured))
+      .catch(() => {});
+  }, []);
+
+  const openInvoiceDialog = (job) => {
+    setInvoiceJob(job);
+    setInvoiceForm({
+      buyer_name: job.customer_name || "",
+      buyer_email: job.email || "",
+      buyer_address: "",
+      buyer_tax_number: "",
+      comment: `${job.plate_number} – ${job.service_name || "Autókozmetikai szolgáltatás"}`,
+      billing_entity: "auto"
+    });
+    setInvoiceDialogOpen(true);
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!invoiceJob) return;
+    setInvoiceLoading(true);
+    try {
+      const res = await axios.post(`${API}/invoices/create`, {
+        job_id: invoiceJob.job_id,
+        buyer_name: invoiceForm.buyer_name,
+        buyer_email: invoiceForm.buyer_email || undefined,
+        buyer_address: invoiceForm.buyer_address || undefined,
+        buyer_tax_number: invoiceForm.buyer_tax_number || undefined,
+        payment_method: invoiceJob.payment_method || "keszpenz",
+        comment: invoiceForm.comment || undefined,
+        billing_entity: invoiceForm.billing_entity !== "auto" ? invoiceForm.billing_entity : undefined,
+      }, { withCredentials: true });
+      toast.success(res.data.message || "Számla kiállítva!");
+      setInvoiceDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Hiba a számla kiállításakor");
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
   
   const [newJob, setNewJob] = useState({
     customer_id: "",
@@ -121,7 +176,7 @@ export const Dashboard = () => {
     try {
       const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       
-      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, lowStockRes] = await Promise.all([
+      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, lowStockRes] = await Promise.allSettled([
         axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/jobs/today${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
@@ -131,13 +186,13 @@ export const Dashboard = () => {
         axios.get(`${API}/notifications/low-stock`, { withCredentials: true })
       ]);
 
-      setStats(statsRes.data);
-      setTodayJobs(jobsRes.data);
-      setDailyStats(dailyRes.data);
-      setCustomers(customersRes.data);
-      setServices(servicesRes.data);
-      setWorkers(workersRes.data);
-      setLowStockItems(lowStockRes.data);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
+      if (jobsRes.status === 'fulfilled') setTodayJobs(Array.isArray(jobsRes.value.data) ? jobsRes.value.data : []);
+      if (dailyRes.status === 'fulfilled') setDailyStats(Array.isArray(dailyRes.value.data) ? dailyRes.value.data : []);
+      if (customersRes.status === 'fulfilled') setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
+      if (servicesRes.status === 'fulfilled') setServices(Array.isArray(servicesRes.value.data) ? servicesRes.value.data : []);
+      if (workersRes.status === 'fulfilled') setWorkers(Array.isArray(workersRes.value.data) ? workersRes.value.data : []);
+      if (lowStockRes.status === 'fulfilled') setLowStockItems(Array.isArray(lowStockRes.value.data) ? lowStockRes.value.data : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Hiba az adatok betöltésekor");
@@ -150,6 +205,32 @@ export const Dashboard = () => {
     fetchData();
     // Request notification permission on load
     requestNotificationPermission();
+
+    // ── SSE: live refresh when jobs/bookings change ────────────────────────
+    let es;
+    let retryTimeout;
+    const connectSSE = () => {
+      try {
+        es = new EventSource(`${API}/events/dashboard`, { withCredentials: true });
+        es.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "refresh") fetchData();
+          } catch {}
+        };
+        es.onerror = () => {
+          es.close();
+          // Reconnect after 5 s
+          retryTimeout = setTimeout(connectSSE, 5000);
+        };
+      } catch {}
+    };
+    connectSSE();
+    return () => {
+      es?.close();
+      clearTimeout(retryTimeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLocation, locationForApi]);
 
   // Notification permission state
@@ -247,7 +328,7 @@ export const Dashboard = () => {
       if (paymentMethod) updateData.payment_method = paymentMethod;
       await axios.put(`${API}/jobs/${jobId}`, updateData, { withCredentials: true });
       toast.success("Státusz frissítve!");
-      
+
       // Send notification
       if (job) {
         if (paymentMethod) {
@@ -256,7 +337,14 @@ export const Dashboard = () => {
           notifyJobStatusChange(job, status);
         }
       }
-      
+
+      // Auto-open invoice dialog when marking job as done with payment
+      if (status === "kesz" && paymentMethod && job && !job.invoice_number) {
+        const jobWithPayment = { ...job, payment_method: paymentMethod };
+        // Small delay so fetchData can start, then open dialog
+        setTimeout(() => openInvoiceDialog(jobWithPayment), 300);
+      }
+
       fetchData();
     } catch (error) {
       toast.error("Hiba a státusz frissítésekor");
@@ -319,7 +407,6 @@ export const Dashboard = () => {
   const handleFileSelected = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !selectedJob || !currentUploadSlot) {
-      console.log("Missing data:", { file: !!file, selectedJob: !!selectedJob, currentUploadSlot });
       return;
     }
     
@@ -336,9 +423,8 @@ export const Dashboard = () => {
       if (file.size > 2 * 1024 * 1024) { // > 2MB
         try {
           fileToUpload = await compressImage(file);
-          console.log(`Compressed from ${file.size} to ${fileToUpload.size}`);
-        } catch (compressError) {
-          console.log("Compression failed, using original:", compressError);
+        } catch {
+          // Compression failed, use original
         }
       }
       
@@ -498,13 +584,15 @@ export const Dashboard = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      kesz: { label: "Kész", className: "status-kesz" },
-      folyamatban: { label: "Folyamatban", className: "status-folyamatban" },
-      foglalt: { label: "Foglalt", className: "status-foglalt" },
-      nem_jott_el: { label: "Nem jött el", className: "bg-red-500/20 text-red-400 border border-red-500/30" },
-      lemondta: { label: "Lemondva", className: "bg-orange-500/20 text-orange-400 border border-orange-500/30" }
+      kesz:           { label: "Kész",            className: "bg-green-500/20 text-green-400 border border-green-500/30" },
+      folyamatban:    { label: "Folyamatban",     className: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
+      foglalt:        { label: "Foglalt",         className: "bg-blue-500/20 text-blue-400 border border-blue-500/30" },
+      visszaigazolva: { label: "Visszaigazolva",  className: "bg-blue-500/20 text-blue-300 border border-blue-500/30" },
+      nem_jott_el:    { label: "Nem jött el",     className: "bg-slate-500/20 text-slate-400 border border-slate-700" },
+      lemondva:       { label: "Lemondva",        className: "bg-red-500/20 text-red-400 border border-red-500/30" },
+      lemondta:       { label: "Lemondva",        className: "bg-red-500/20 text-red-400 border border-red-500/30" },
     };
-    const config = statusConfig[status] || statusConfig.foglalt;
+    const config = statusConfig[status] || { label: status, className: "bg-slate-700/20 text-slate-400 border border-slate-700" };
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
@@ -521,6 +609,13 @@ export const Dashboard = () => {
     );
   }
 
+  const filteredTodayJobs = jobSearch.trim()
+    ? todayJobs.filter(j => {
+        const q = jobSearch.toLowerCase();
+        return j.plate_number?.toLowerCase().includes(q) || j.customer_name?.toLowerCase().includes(q);
+      })
+    : todayJobs;
+
   return (
     <div className="space-y-4 sm:space-y-6" data-testid="dashboard">
       {/* Header */}
@@ -534,7 +629,26 @@ export const Dashboard = () => {
             <MapPin className="w-4 h-4 text-green-400" />
             <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
           </div>
-          
+
+          {/* Search bar */}
+          <div className="relative flex-1 sm:flex-none sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Input
+              placeholder="Rendszám, ügyfél..."
+              value={jobSearch}
+              onChange={e => setJobSearch(e.target.value)}
+              className="pl-9 pr-8 bg-slate-900 border-slate-700 text-white h-9 text-sm"
+            />
+            {jobSearch && (
+              <button
+                onClick={() => setJobSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
             <DialogTrigger asChild>
               <Button className="bg-green-600 hover:bg-green-500" data-testid="new-job-btn">
@@ -562,11 +676,11 @@ export const Dashboard = () => {
                   
                   {newJob.isNewCustomer ? (
                     <div className="space-y-3 p-3 bg-slate-950/50 rounded-lg border border-slate-700">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label className="text-xs text-slate-400">Név *</Label>
-                          <Input 
-                            value={newJob.newCustomerName || ""} 
+                          <Input
+                            value={newJob.newCustomerName || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerName: e.target.value})}
                             className="bg-slate-950 border-slate-700 text-white h-9"
                             placeholder="Ügyfél neve"
@@ -574,19 +688,19 @@ export const Dashboard = () => {
                         </div>
                         <div>
                           <Label className="text-xs text-slate-400">Rendszám *</Label>
-                          <Input 
-                            value={newJob.newCustomerPlate || ""} 
+                          <Input
+                            value={newJob.newCustomerPlate || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerPlate: e.target.value.toUpperCase()})}
                             className="bg-slate-950 border-slate-700 text-white h-9 uppercase font-mono"
                             placeholder="ABC-123"
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <Label className="text-xs text-slate-400">Telefon</Label>
-                          <Input 
-                            value={newJob.newCustomerPhone || ""} 
+                          <Input
+                            value={newJob.newCustomerPhone || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerPhone: e.target.value})}
                             className="bg-slate-950 border-slate-700 text-white h-9"
                             placeholder="+36 30 123 4567"
@@ -594,8 +708,8 @@ export const Dashboard = () => {
                         </div>
                         <div>
                           <Label className="text-xs text-slate-400">Email</Label>
-                          <Input 
-                            value={newJob.newCustomerEmail || ""} 
+                          <Input
+                            value={newJob.newCustomerEmail || ""}
                             onChange={(e) => setNewJob({...newJob, newCustomerEmail: e.target.value})}
                             className="bg-slate-950 border-slate-700 text-white h-9"
                             placeholder="email@example.com"
@@ -670,7 +784,7 @@ export const Dashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-slate-300">Ár (Ft)</Label>
                     <Input type="number" value={newJob.price} onChange={(e) => setNewJob({...newJob, price: parseInt(e.target.value) || 0})} className="bg-slate-950 border-slate-700 text-white" />
@@ -681,6 +795,7 @@ export const Dashboard = () => {
                       <SelectTrigger className="bg-slate-950 border-slate-700"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                        <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -792,6 +907,102 @@ export const Dashboard = () => {
         </Card>
       </div>
 
+      {/* Weekly Revenue Sparkline */}
+      {dailyStats.length > 0 && (() => {
+        // Last 7 days from dailyStats
+        const last7 = [...dailyStats]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(-7)
+          .map(d => ({
+            ...d,
+            label: d.date.slice(5), // MM-DD
+          }));
+        const totalWeek = last7.reduce((s, d) => s + (d.revenue || 0), 0);
+        return (
+          <Card className="glass-card border-indigo-500/20">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs text-slate-400">Elmúlt 7 nap bevétel</p>
+                  <p className="text-lg font-bold text-indigo-400">{totalWeek.toLocaleString('hu-HU')} Ft</p>
+                </div>
+                <TrendingUp className="w-5 h-5 text-indigo-400 opacity-60" />
+              </div>
+              <ResponsiveContainer width="100%" height={80}>
+                <AreaChart data={last7} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <Tooltip
+                    formatter={(v) => [`${v.toLocaleString('hu-HU')} Ft`, 'Bevétel']}
+                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fill="url(#revenueGrad)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Revenue Forecast */}
+      {(() => {
+        const now = new Date();
+        const dayOfMonth = now.getDate();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysRemaining = daysInMonth - dayOfMonth;
+        const dailyAvg = dayOfMonth > 0 ? (stats.month_revenue || 0) / dayOfMonth : 0;
+        const projected = Math.round(dailyAvg * daysInMonth);
+        const progress = daysInMonth > 0 ? Math.round((dayOfMonth / daysInMonth) * 100) : 0;
+        const revenueProgress = projected > 0 ? Math.min(100, Math.round(((stats.month_revenue || 0) / projected) * 100)) : 0;
+        if (!stats.month_revenue) return null;
+        return (
+          <Card className="glass-card border-purple-500/20">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="w-9 h-9 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <p className="text-xs text-slate-400">Bevétel előrejelzés ({now.toLocaleString("hu-HU", { month: "long" })})</p>
+                    <span className="text-xs text-slate-500">{dayOfMonth}. nap / {daysInMonth} — még {daysRemaining} nap</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 mt-1">
+                    <span className="text-lg font-bold text-purple-400">{projected.toLocaleString()} Ft</span>
+                    <span className="text-xs text-slate-500">várható havi bevétel</span>
+                    <span className="text-xs text-green-400">Jelenlegi: {(stats.month_revenue || 0).toLocaleString()} Ft</span>
+                    <span className="text-xs text-slate-500">Napi átlag: {Math.round(dailyAvg).toLocaleString()} Ft</span>
+                  </div>
+                  {/* Progress bars */}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                        <div className="bg-slate-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-[10px] text-slate-500 w-8 text-right">{progress}%</span>
+                      <span className="text-[10px] text-slate-600">idő</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                        <div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: `${revenueProgress}%` }} />
+                      </div>
+                      <span className="text-[10px] text-purple-400 w-8 text-right">{revenueProgress}%</span>
+                      <span className="text-[10px] text-slate-600">bevétel</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Low Stock Alert */}
       {lowStockItems.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5" data-testid="dashboard-low-stock-alert">
@@ -851,8 +1062,8 @@ export const Dashboard = () => {
                 /* Worker-based view - responsive columns */
                 <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
                   {workers.slice(0, 2).map((worker) => {
-                    const workerJobs = todayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
-                    const unassignedJobs = todayJobs.filter(j => !j.worker_id && !j.worker_name);
+                    const workerJobs = filteredTodayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
+                    const unassignedJobs = filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name);
                     
                     return (
                       <div key={worker.worker_id} className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
@@ -970,9 +1181,24 @@ export const Dashboard = () => {
                                     </>
                                   )}
                                   {job.status === "kesz" && job.payment_method && (
-                                    <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
-                                      {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
-                                    </Badge>
+                                    <>
+                                      <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
+                                        {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
+                                      </Badge>
+                                      {invoiceConfigured && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className={`h-8 sm:h-7 text-xs px-2 ${job.invoice_number ? 'border-green-500/40 text-green-400' : 'border-amber-500/40 text-amber-400 hover:bg-amber-500/10'}`}
+                                          onClick={() => !job.invoice_number && openInvoiceDialog(job)}
+                                          title={job.invoice_number ? `Számla: ${job.invoice_number}` : "Számla kiállítása"}
+                                          disabled={!!job.invoice_number}
+                                        >
+                                          <Receipt className="w-3.5 h-3.5 mr-1" />
+                                          {job.invoice_number ? "Számlázva" : "Számla"}
+                                        </Button>
+                                      )}
+                                    </>
                                   )}
                                   {job.status === "nem_jott_el" && (
                                     <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs">
@@ -992,9 +1218,9 @@ export const Dashboard = () => {
                       </div>
                     );
                   })}
-                  
+
                   {/* Unassigned jobs section - if there are any */}
-                  {todayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
+                  {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
                     <div className="md:col-span-2 bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden">
                       <div className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-b border-orange-500/30 px-4 py-3">
                         <div className="flex items-center justify-between">
@@ -1005,12 +1231,12 @@ export const Dashboard = () => {
                             <span className="text-white font-semibold">Hozzárendelésre vár</span>
                           </div>
                           <Badge className="bg-orange-500/20 text-orange-300 text-xs">
-                            {todayJobs.filter(j => !j.worker_id && !j.worker_name).length} munka
+                            {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length} munka
                           </Badge>
                         </div>
                       </div>
                       <div className="p-2 sm:p-3 space-y-2">
-                        {todayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
+                        {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
                           <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-orange-500/30 transition-colors">
                             {/* Mobile-optimized layout */}
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
@@ -1251,16 +1477,16 @@ export const Dashboard = () => {
                       Utána képek
                     </Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {IMAGE_SLOTS_AFTER.map((slot) => {
+                      {IMAGE_SLOTS_AFTER.filter(s => s.category !== "handover").map((slot) => {
                         const imageUrl = getSlotImage(selectedJob, 'after', slot.id);
                         return (
                           <div key={slot.id} className="relative">
                             <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 bg-slate-800/50'} overflow-hidden`}>
                               {imageUrl ? (
                                 <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
-                                  <img 
-                                    src={imageUrl} 
-                                    alt={slot.label} 
+                                  <img
+                                    src={imageUrl}
+                                    alt={slot.label}
                                     className="w-full h-full object-contain bg-slate-900"
                                     onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
                                     loading="lazy"
@@ -1279,7 +1505,7 @@ export const Dashboard = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <button 
+                                <button
                                   onClick={() => handleSlotUploadClick(slot.id, 'after')}
                                   disabled={uploading === slot.id}
                                   className="w-full h-full flex flex-col items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
@@ -1300,6 +1526,66 @@ export const Dashboard = () => {
                       })}
                     </div>
                   </div>
+
+                  {/* Handover / Átadás-átvétel section */}
+                  {(() => {
+                    const handoverSlot = IMAGE_SLOTS_AFTER.find(s => s.category === "handover");
+                    if (!handoverSlot) return null;
+                    const imageUrl = getSlotImage(selectedJob, 'after', handoverSlot.id);
+                    return (
+                      <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl p-4">
+                        <Label className="text-amber-400 text-lg font-semibold flex items-center gap-2 mb-4">
+                          <ArrowLeftRight className="w-5 h-5" />
+                          Átadás-átvétel dokumentáció
+                        </Label>
+                        <p className="text-slate-400 text-xs mb-3">
+                          Készíts képet az autó átadásakor — a kép a munka lezárásakor az ügyfélnek is megmutatható.
+                        </p>
+                        <div className="max-w-xs">
+                          <div className={`aspect-[4/3] rounded-lg border-2 border-dashed ${imageUrl ? 'border-amber-500/50 bg-amber-500/5' : 'border-amber-500/30 bg-slate-800/50'} overflow-hidden`}>
+                            {imageUrl ? (
+                              <div className="relative w-full h-full group cursor-pointer" onClick={() => setFullscreenImage(imageUrl)}>
+                                <img
+                                  src={imageUrl}
+                                  alt={handoverSlot.label}
+                                  className="w-full h-full object-contain bg-slate-900"
+                                  onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="75"><rect fill="%23374151" width="100" height="75"/><text x="50%" y="50%" fill="%239CA3AF" font-size="10" text-anchor="middle" dy=".3em">Hiba</text></svg>'; }}
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                                  <button onClick={(e) => { e.stopPropagation(); setFullscreenImage(imageUrl); }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 pointer-events-auto">
+                                    <ZoomIn className="w-4 h-4 text-white" />
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedJob.job_id, 'after', handoverSlot.id); }} className="p-2 bg-red-500/80 rounded-full hover:bg-red-500 pointer-events-auto">
+                                    <X className="w-4 h-4 text-white" />
+                                  </button>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 pointer-events-none">
+                                  <Check className="w-3 h-3 text-amber-400 inline mr-1" />
+                                  <span className="text-[10px] text-white">Átadás-átvétel</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleSlotUploadClick(handoverSlot.id, 'after')}
+                                disabled={uploading === handoverSlot.id}
+                                className="w-full h-full flex flex-col items-center justify-center text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              >
+                                {uploading === handoverSlot.id ? (
+                                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-500/50 border-t-amber-400" />
+                                ) : (
+                                  <>
+                                    <Camera className="w-8 h-8 mb-2" />
+                                    <span className="text-xs text-center px-2">Kép feltöltése</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </TabsContent>
 
                 {/* Comparison View */}
@@ -1409,6 +1695,106 @@ export const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Invoice Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="bg-slate-900 border-amber-500/30 text-white max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <Receipt className="w-5 h-5" />
+              Számla / Nyugta kiállítása
+            </DialogTitle>
+            <p className="text-slate-400 text-sm pt-1">
+              Tölts ki annyi adatot, amennyit meg tudsz adni. Adószám megadásával számla, anélkül nyugta készül.
+            </p>
+          </DialogHeader>
+          {invoiceJob && (
+            <div className="space-y-4">
+              {/* Job summary */}
+              <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-semibold">{invoiceJob.customer_name} · {invoiceJob.plate_number}</p>
+                    <p className="text-slate-400 text-sm">{invoiceJob.service_name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-green-400 font-bold text-lg">{invoiceJob.price?.toLocaleString()} Ft</p>
+                    <p className="text-slate-500 text-xs">
+                      {invoiceJob.payment_method === "keszpenz" ? "💵 Készpénz" : invoiceJob.payment_method === "kartya" ? "💳 Kártya" : "🏦 Átutalás"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-slate-300">Vevő neve *</Label>
+                <Input value={invoiceForm.buyer_name} onChange={e => setInvoiceForm(f => ({...f, buyer_name: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Vevő teljes neve" />
+              </div>
+              <div>
+                <Label className="text-slate-300">
+                  Adószám
+                  <span className="ml-2 text-xs text-amber-400">→ ha megadod, számla készül (nem nyugta)</span>
+                </Label>
+                <Input value={invoiceForm.buyer_tax_number} onChange={e => setInvoiceForm(f => ({...f, buyer_tax_number: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="12345678-1-00" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Email <span className="text-slate-500 font-normal">(opcionális)</span></Label>
+                <Input type="email" value={invoiceForm.buyer_email} onChange={e => setInvoiceForm(f => ({...f, buyer_email: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Az ügyfél erre kapja a számlát" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Cím <span className="text-slate-500 font-normal">(opcionális)</span></Label>
+                <Input value={invoiceForm.buyer_address} onChange={e => setInvoiceForm(f => ({...f, buyer_address: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" placeholder="Irányítószám, város, utca" />
+              </div>
+              <div>
+                <Label className="text-slate-300 mb-2 block">Számlázási fiók</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "auto", label: "🤖 Automatikus" },
+                    { value: "budapest", label: "🏙️ Budapest" },
+                    { value: "debrecen_private", label: "👤 Debrecen – Magánszemély" },
+                    { value: "debrecen_company", label: "🏢 Debrecen – Céges" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setInvoiceForm(f => ({...f, billing_entity: opt.value}))}
+                      className={`p-2 rounded-lg border text-xs text-left transition-all ${
+                        invoiceForm.billing_entity === opt.value
+                          ? 'border-amber-500 bg-amber-500/10 text-white'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label className="text-slate-300">Megjegyzés</Label>
+                <Input value={invoiceForm.comment} onChange={e => setInvoiceForm(f => ({...f, comment: e.target.value}))} className="bg-slate-950 border-slate-700 text-white" />
+              </div>
+
+              <p className="text-slate-500 text-xs">
+                ÁFA: 27%. {invoiceForm.buyer_tax_number ? "Adószám megadva → számla lesz kiállítva." : "Adószám nélkül → nyugta kerül kiállításra."}
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
+                <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} className="border-slate-700 text-slate-400">
+                  Kihagyás
+                </Button>
+                <Button
+                  onClick={handleCreateInvoice}
+                  disabled={invoiceLoading || !invoiceForm.buyer_name}
+                  className="bg-amber-600 hover:bg-amber-500"
+                >
+                  {invoiceLoading ? <span className="animate-spin mr-1">⏳</span> : <Receipt className="w-4 h-4 mr-1" />}
+                  {invoiceForm.buyer_tax_number ? "Számla kiállítása" : "Nyugta kiállítása"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Job Dialog */}
       <Dialog open={editJobOpen} onOpenChange={setEditJobOpen}>

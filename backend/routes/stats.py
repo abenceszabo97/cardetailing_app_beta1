@@ -3,6 +3,7 @@ Statistics Routes
 """
 from fastapi import APIRouter, Depends
 from typing import Optional
+import re
 from datetime import datetime, timezone, timedelta
 from dependencies import get_current_user
 from database import db
@@ -36,30 +37,52 @@ async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str
         if worker:
             query_base["worker_id"] = worker["worker_id"]
     
-    # Get today's completed jobs using regex to match date prefix
+    # Get today's completed jobs using MongoDB aggregation pipeline
     today_query = {
         **query_base,
         "status": "kesz",
-        "date": {"$regex": f"^{date_str}"}
+        "date": {"$regex": f"^{re.escape(date_str)}"}
     }
-    today_jobs = await db.jobs.find(today_query, {"_id": 0}).to_list(1000)
-    today_cars = len(today_jobs)
-    today_revenue = sum(j.get("price", 0) for j in today_jobs)
-    today_cash = sum(j.get("price", 0) for j in today_jobs if j.get("payment_method") == "keszpenz")
-    today_card = sum(j.get("price", 0) for j in today_jobs if j.get("payment_method") == "kartya")
-    
-    # Get month's completed jobs
+    today_pipeline = [
+        {"$match": today_query},
+        {"$group": {
+            "_id": None,
+            "count": {"$sum": 1},
+            "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
+            "cash": {"$sum": {"$cond": [{"$eq": ["$payment_method", "keszpenz"]}, {"$ifNull": ["$price", 0]}, 0]}},
+            "card": {"$sum": {"$cond": [{"$in": ["$payment_method", ["kartya", "bankkartya"]]}, {"$ifNull": ["$price", 0]}, 0]}},
+        }}
+    ]
+    today_agg = await db.jobs.aggregate(today_pipeline).to_list(1)
+    today_result = today_agg[0] if today_agg else {}
+    today_cars = today_result.get("count", 0)
+    today_revenue = today_result.get("revenue", 0)
+    today_cash = today_result.get("cash", 0)
+    today_card = today_result.get("card", 0)
+
+    # Get month's completed jobs using MongoDB aggregation pipeline
     month_query = {
         **query_base,
         "status": "kesz",
-        "date": {"$regex": f"^{month_str}"}
+        "date": {"$regex": f"^{re.escape(month_str)}"}
     }
-    month_jobs = await db.jobs.find(month_query, {"_id": 0}).to_list(10000)
-    month_cars = len(month_jobs)
-    month_revenue = sum(j.get("price", 0) for j in month_jobs)
-    month_cash = sum(j.get("price", 0) for j in month_jobs if j.get("payment_method") == "keszpenz")
-    month_card = sum(j.get("price", 0) for j in month_jobs if j.get("payment_method") == "kartya")
-    
+    month_pipeline = [
+        {"$match": month_query},
+        {"$group": {
+            "_id": None,
+            "count": {"$sum": 1},
+            "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
+            "cash": {"$sum": {"$cond": [{"$eq": ["$payment_method", "keszpenz"]}, {"$ifNull": ["$price", 0]}, 0]}},
+            "card": {"$sum": {"$cond": [{"$in": ["$payment_method", ["kartya", "bankkartya"]]}, {"$ifNull": ["$price", 0]}, 0]}},
+        }}
+    ]
+    month_agg = await db.jobs.aggregate(month_pipeline).to_list(1)
+    month_result = month_agg[0] if month_agg else {}
+    month_cars = month_result.get("count", 0)
+    month_revenue = month_result.get("revenue", 0)
+    month_cash = month_result.get("cash", 0)
+    month_card = month_result.get("card", 0)
+
     return {
         "today_cars": today_cars,
         "today_revenue": today_revenue,
@@ -74,12 +97,12 @@ async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str
         "today_cancelled": await db.jobs.count_documents({
             **query_base,
             "status": {"$in": ["nem_jott_el", "lemondta"]},
-            "date": {"$regex": f"^{date_str}"}
+            "date": {"$regex": f"^{re.escape(date_str)}"}
         }),
         "month_cancelled": await db.jobs.count_documents({
             **query_base,
             "status": {"$in": ["nem_jott_el", "lemondta"]},
-            "date": {"$regex": f"^{month_str}"}
+            "date": {"$regex": f"^{re.escape(month_str)}"}
         })
     }
 
@@ -89,12 +112,12 @@ async def get_daily_stats(location: Optional[str] = None, user: User = Depends(g
     today = datetime.now(timezone.utc)
     month_str = today.strftime("%Y-%m")  # e.g., "2025-03"
     
-    query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
+    query = {"status": "kesz", "date": {"$regex": f"^{re.escape(month_str)}"}}
     if location:
         query["location"] = location
-    
+
     jobs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
-    
+
     daily_stats = {}
     for job in jobs:
         date_str = job.get("date", "")[:10]
@@ -132,12 +155,12 @@ async def get_worker_stats(location: Optional[str] = None, user: User = Depends(
     today = datetime.now(timezone.utc)
     month_str = today.strftime("%Y-%m")  # e.g., "2025-03"
     
-    query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
+    query = {"status": "kesz", "date": {"$regex": f"^{re.escape(month_str)}"}}
     if location:
         query["location"] = location
-    
+
     jobs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
-    
+
     worker_stats = {}
     for job in jobs:
         worker_id = job.get("worker_id")
@@ -187,9 +210,9 @@ async def get_location_stats(user: User = Depends(get_current_user)):
     today = datetime.now(timezone.utc)
     month_str = today.strftime("%Y-%m")
     
-    query = {"status": "kesz", "date": {"$regex": f"^{month_str}"}}
+    query = {"status": "kesz", "date": {"$regex": f"^{re.escape(month_str)}"}}
     jobs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
-    
+
     location_stats = {}
     for job in jobs:
         loc = job.get("location")
@@ -218,13 +241,14 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
     if location:
         query_base["location"] = location
     
-    current_month_query = {**query_base, "date": {"$regex": f"^{month_str}"}}
+    current_month_query = {**query_base, "date": {"$regex": f"^{re.escape(month_str)}"}}
     current_jobs = await db.jobs.find(current_month_query, {"_id": 0}).to_list(10000)
-    
-    prev_month_query = {**query_base, "date": {"$regex": f"^{prev_month_str}"}}
+
+    prev_month_query = {**query_base, "date": {"$regex": f"^{re.escape(prev_month_str)}"}}
     prev_jobs = await db.jobs.find(prev_month_query, {"_id": 0}).to_list(10000)
-    
-    all_jobs = await db.jobs.find(query_base, {"_id": 0}).to_list(50000)
+
+    # Limit to 5000 max; used for per-customer and per-worker breakdowns
+    all_jobs = await db.jobs.find(query_base, {"_id": 0}).to_list(5000)
     
     current_cars = len(current_jobs)
     current_revenue = sum(j.get("price", 0) for j in current_jobs)
@@ -313,6 +337,161 @@ async def get_advanced_stats(location: Optional[str] = None, user: User = Depend
 
 
 
+@router.get("/stats/forecast")
+async def get_revenue_forecast(location: Optional[str] = None, user: User = Depends(get_current_user)):
+    """
+    Bevételi előrejelzés a következő hónapra lineáris regresszióval.
+    Az utolsó 6 hónap adatait használja.
+    """
+    today = datetime.now(timezone.utc)
+
+    # Collect last 6 months of monthly revenue
+    months_data = []
+    for i in range(6, 0, -1):
+        # Calculate month offset
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        month_str = f"{year}-{month:02d}"
+
+        query = {"status": "kesz", "date": {"$regex": f"^{re.escape(month_str)}"}}
+        if location:
+            query["location"] = location
+
+        jobs = await db.jobs.find(query, {"price": 1, "_id": 0}).to_list(10000)
+        revenue = sum(j.get("price", 0) for j in jobs)
+        cars = len(jobs)
+        months_data.append({
+            "month": month_str,
+            "revenue": revenue,
+            "cars": cars,
+            "index": 6 - i  # 0..5
+        })
+
+    # Also get current (partial) month
+    current_month_str = today.strftime("%Y-%m")
+    current_query = {"status": "kesz", "date": {"$regex": f"^{re.escape(current_month_str)}"}}
+    if location:
+        current_query["location"] = location
+    current_jobs = await db.jobs.find(current_query, {"price": 1, "_id": 0}).to_list(10000)
+    current_revenue = sum(j.get("price", 0) for j in current_jobs)
+    current_cars = len(current_jobs)
+
+    # Linear regression on revenue (simple least squares)
+    n = len(months_data)
+    if n < 2:
+        return {"error": "Nincs elég adat az előrejelzéshez (minimum 2 hónap szükséges)"}
+
+    x_values = [d["index"] for d in months_data]
+    y_values = [d["revenue"] for d in months_data]
+
+    x_mean = sum(x_values) / n
+    y_mean = sum(y_values) / n
+
+    numerator = sum((x_values[i] - x_mean) * (y_values[i] - y_mean) for i in range(n))
+    denominator = sum((x_values[i] - x_mean) ** 2 for i in range(n))
+
+    slope = numerator / denominator if denominator != 0 else 0
+    intercept = y_mean - slope * x_mean
+
+    # Predict next month (index = 6)
+    predicted_revenue = max(0, slope * 6 + intercept)
+
+    # Cars: same regression
+    y_cars = [d["cars"] for d in months_data]
+    y_cars_mean = sum(y_cars) / n
+    num_cars = sum((x_values[i] - x_mean) * (y_cars[i] - y_cars_mean) for i in range(n))
+    slope_cars = num_cars / denominator if denominator != 0 else 0
+    intercept_cars = y_cars_mean - slope_cars * x_mean
+    predicted_cars = max(0, slope_cars * 6 + intercept_cars)
+
+    # Trend direction
+    recent_avg = sum(y_values[3:]) / 3 if len(y_values) >= 3 else y_mean
+    old_avg = sum(y_values[:3]) / 3 if len(y_values) >= 3 else y_mean
+    trend = "up" if recent_avg > old_avg else ("down" if recent_avg < old_avg else "stable")
+
+    # Next month label
+    nm = today.month + 1
+    ny = today.year
+    if nm > 12:
+        nm = 1
+        ny += 1
+    next_month_str = f"{ny}-{nm:02d}"
+
+    MONTH_NAMES = {
+        "01": "Január", "02": "Február", "03": "Március", "04": "Április",
+        "05": "Május", "06": "Június", "07": "Július", "08": "Augusztus",
+        "09": "Szeptember", "10": "Október", "11": "November", "12": "December"
+    }
+    next_month_name = f"{ny}. {MONTH_NAMES[f'{nm:02d}']}"
+
+    # Weighted moving average (recent months count 2x more)
+    weights = [1, 1, 1, 2, 2, 3]  # ascending weight for last 6 months
+    w_sum = sum(weights[:n])
+    wma_revenue = sum(y_values[i] * weights[i] for i in range(n)) / w_sum if w_sum else y_mean
+    wma_cars = sum(y_cars[i] * weights[i] for i in range(n)) / w_sum if w_sum else y_cars_mean
+
+    # Blend linear regression + weighted moving average (50/50)
+    predicted_revenue = max(0, (predicted_revenue + wma_revenue) / 2)
+    predicted_cars = max(0, (predicted_cars + wma_cars) / 2)
+
+    # Standard deviation for pessimistic/optimistic range
+    std_rev = (sum((v - y_mean) ** 2 for v in y_values) / n) ** 0.5
+    optimistic_revenue = round(predicted_revenue + std_rev)
+    pessimistic_revenue = max(0, round(predicted_revenue - std_rev))
+
+    # Already-confirmed bookings for next month
+    next_bookings_query = {
+        "status": {"$in": ["foglalt", "visszaigazolva"]},
+        "date": {"$regex": f"^{re.escape(next_month_str)}"}
+    }
+    if location:
+        next_bookings_query["location"] = location
+    next_bookings = await db.bookings.find(next_bookings_query, {"price": 1, "_id": 0}).to_list(500)
+    confirmed_next_revenue = sum(b.get("price", 0) for b in next_bookings)
+    confirmed_next_cars = len(next_bookings)
+
+    # Current month projection (extrapolate from days passed)
+    days_in_month = 30  # approximate
+    days_passed = max(1, today.day)
+    if days_passed < days_in_month and current_revenue > 0:
+        projected_current = round(current_revenue / days_passed * days_in_month)
+    else:
+        projected_current = current_revenue
+
+    # Confidence: higher when variance is low
+    if y_mean > 0:
+        variance = sum((v - y_mean) ** 2 for v in y_values) / n
+        cv = (variance ** 0.5) / y_mean  # coefficient of variation
+        confidence = max(40, min(95, round(100 - cv * 100)))
+    else:
+        confidence = 50
+
+    return {
+        "next_month": next_month_str,
+        "next_month_name": next_month_name,
+        "predicted_revenue": round(predicted_revenue),
+        "predicted_cars": round(predicted_cars),
+        "optimistic_revenue": optimistic_revenue,
+        "pessimistic_revenue": pessimistic_revenue,
+        "confirmed_next_revenue": confirmed_next_revenue,
+        "confirmed_next_cars": confirmed_next_cars,
+        "projected_current_revenue": projected_current,
+        "trend": trend,
+        "confidence": confidence,
+        "current_month": {
+            "month": current_month_str,
+            "revenue": current_revenue,
+            "cars": current_cars,
+            "days_passed": today.day,
+        },
+        "history": months_data,
+        "slope": round(slope),
+    }
+
+
 @router.get("/stats/report")
 async def get_report_data(
     period: str = "daily",
@@ -335,7 +514,7 @@ async def get_report_data(
     if period == "daily":
         start_date = date
         end_date = date
-        date_regex = f"^{date}"
+        date_regex = f"^{re.escape(date)}"
     elif period == "weekly":
         weekday = target.weekday()
         monday = target - timedelta(days=weekday)
@@ -350,11 +529,11 @@ async def get_report_data(
         else:
             last_day = datetime(target.year, target.month + 1, 1) - timedelta(days=1)
         end_date = last_day.strftime("%Y-%m-%d")
-        date_regex = f"^{target.strftime('%Y-%m')}"
+        date_regex = f"^{re.escape(target.strftime('%Y-%m'))}"
     else:
         start_date = date
         end_date = date
-        date_regex = f"^{date}"
+        date_regex = f"^{re.escape(date)}"
     
     query = {"status": "kesz"}
     if location:
@@ -365,8 +544,9 @@ async def get_report_data(
     else:
         query["date"] = {"$gte": start_date, "$lte": end_date + "T23:59:59"}
     
-    jobs = await db.jobs.find(query, {"_id": 0}).to_list(50000)
-    
+    # Limit to 5000 max; used for per-worker and per-service breakdown in report
+    jobs = await db.jobs.find(query, {"_id": 0}).to_list(5000)
+
     total_cars = len(jobs)
     total_revenue = sum(j.get("price", 0) for j in jobs)
     cash_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") == "keszpenz")

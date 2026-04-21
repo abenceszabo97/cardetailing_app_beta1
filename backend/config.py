@@ -29,6 +29,9 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 
+# Booking frontend base URL (for self-service links in emails)
+BOOKING_FRONTEND_URL = os.environ.get("BOOKING_FRONTEND_URL", "https://xclean.hu/foglalas")
+
 # JWT Settings
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "xclean-secret-key-change-in-production-2024")
 JWT_ALGORITHM = "HS256"
