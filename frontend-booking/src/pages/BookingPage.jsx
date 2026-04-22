@@ -156,9 +156,24 @@ const BookingPage = () => {
   // Form state
   const [form, setForm] = useState({
     customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
-    address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
+    address: "", address_zip: "", address_city: "", address_street: "",
+    service_zip: "", service_city: "", service_street: "",
+    invoice_name: "", invoice_tax_number: "", invoice_address: "",
     worker_id: "", location: "Debrecen", date: "", time_slot: "", notes: ""
   });
+  const parseAddressParts = (addressValue) => {
+    if (!addressValue || typeof addressValue !== "string") {
+      return { zip: "", city: "", street: "" };
+    }
+    const match = addressValue.trim().match(/^(\d{4})\s+([^,]+),?\s*(.*)$/);
+    if (!match) return { zip: "", city: "", street: addressValue.trim() };
+    return {
+      zip: match[1] || "",
+      city: (match[2] || "").trim(),
+      street: (match[3] || "").trim(),
+    };
+  };
+
   
   const [showInvoice, setShowInvoice] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -340,6 +355,7 @@ const BookingPage = () => {
       
       const response = await axios.get(`${API}/bookings/lookup-plate/${encodeURIComponent(plate)}`);
       if (response.data.found) {
+        const parsedAddress = parseAddressParts(response.data.address || "");
         setCustomerFound(response.data);
         setForm(prev => ({
           ...prev,
@@ -347,7 +363,10 @@ const BookingPage = () => {
           phone: response.data.phone || prev.phone,
           email: response.data.email || prev.email,
           car_type: response.data.car_type || prev.car_type,
-          address: response.data.address || prev.address
+          address: response.data.address || prev.address,
+          address_zip: parsedAddress.zip || prev.address_zip,
+          address_city: parsedAddress.city || prev.address_city,
+          address_street: parsedAddress.street || prev.address_street
         }));
         toast.success("Visszatérő ügyfél! Adatok betöltve.");
       } else {
@@ -447,7 +466,12 @@ const BookingPage = () => {
       return selectedPromotion || (selectedSize && selectedCategory === "poliroz" && selectedPolishingType) || (selectedSize && selectedCategory && selectedPackage && selectedCategory !== "poliroz");
     }
     if (step === 2) return form.date && form.time_slot;
-    if (step === 3) return form.customer_name && form.plate_number && form.email && form.phone && isValidHunPhone(form.phone) && !isBlacklisted;
+    if (step === 3) {
+      const personalAddressOk = !!(form.address_zip && form.address_city && form.address_street);
+      const budapestServiceAddressOk =
+        form.location !== "Budapest" || !!(form.service_zip && form.service_city && form.service_street);
+      return form.customer_name && form.plate_number && form.email && form.phone && isValidHunPhone(form.phone) && personalAddressOk && budapestServiceAddressOk && !isBlacklisted;
+    }
     return true;
   };
 
@@ -471,8 +495,18 @@ const BookingPage = () => {
         serviceName = `${selectedSize} - ${selectedCategory === 'kulso' ? 'Külső' : selectedCategory === 'belso' ? 'Belső' : 'Külső+Belső'} ${selectedPackage}`;
       }
       
+      const personalAddress = `${form.address_zip} ${form.address_city}, ${form.address_street}`.trim();
+      const serviceAddress = form.location === "Budapest"
+        ? `${form.service_zip} ${form.service_city}, ${form.service_street}`.trim()
+        : "";
+      const noteWithServiceAddress = serviceAddress
+        ? `[Kiszállási cím] ${serviceAddress}${form.notes ? `\n${form.notes}` : ""}`
+        : form.notes;
+
       const bookingData = {
         ...form,
+        address: personalAddress,
+        notes: noteWithServiceAddress,
         car_type: form.car_type || CAR_SIZE_INFO[selectedSize]?.description || selectedSize,
         service_id: selectedPromotion ? `promo_${selectedPromotion.id}` : `dynamic_${selectedSize}_${selectedCategory}_${selectedPackage}`,
         service_name: serviceName,
@@ -512,7 +546,9 @@ const BookingPage = () => {
     setCleaningPackage("Pro");
     setForm({
       customer_name: "", car_type: "", plate_number: "", email: "", phone: "",
-      address: "", invoice_name: "", invoice_tax_number: "", invoice_address: "",
+      address: "", address_zip: "", address_city: "", address_street: "",
+      service_zip: "", service_city: "", service_street: "",
+      invoice_name: "", invoice_tax_number: "", invoice_address: "",
       worker_id: "", location: "Debrecen", date: "", time_slot: "", notes: ""
     });
   };
@@ -1419,8 +1455,55 @@ const BookingPage = () => {
                   )}
                 </div>
               </div>
-              <Input placeholder="Lakcím" value={form.address} onChange={e => set("address", e.target.value)}
-                className="bg-slate-800/50 border-slate-700 text-white" />
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300">Lakcím <span className="text-red-400">*</span></label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Input
+                    placeholder="Irányítószám *"
+                    value={form.address_zip}
+                    onChange={e => set("address_zip", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                  />
+                  <Input
+                    placeholder="Település *"
+                    value={form.address_city}
+                    onChange={e => set("address_city", e.target.value)}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                  />
+                  <Input
+                    placeholder="Utca, házszám *"
+                    value={form.address_street}
+                    onChange={e => set("address_street", e.target.value)}
+                    className="bg-slate-800/50 border-slate-700 text-white sm:col-span-1"
+                  />
+                </div>
+              </div>
+
+              {form.location === "Budapest" && (
+                <div className="space-y-2 p-3 rounded-xl border border-blue-500/30 bg-blue-500/5">
+                  <label className="text-sm text-blue-300 font-medium">Kiszállási cím (Budapest) <span className="text-red-400">*</span></label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Input
+                      placeholder="Irányítószám *"
+                      value={form.service_zip}
+                      onChange={e => set("service_zip", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="bg-slate-800/50 border-slate-700 text-white"
+                    />
+                    <Input
+                      placeholder="Település *"
+                      value={form.service_city}
+                      onChange={e => set("service_city", e.target.value)}
+                      className="bg-slate-800/50 border-slate-700 text-white"
+                    />
+                    <Input
+                      placeholder="Utca, házszám *"
+                      value={form.service_street}
+                      onChange={e => set("service_street", e.target.value)}
+                      className="bg-slate-800/50 border-slate-700 text-white"
+                    />
+                  </div>
+                </div>
+              )}
               
               <button
                 onClick={() => setShowInvoice(!showInvoice)}

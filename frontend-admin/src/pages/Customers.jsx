@@ -78,7 +78,17 @@ export const Customers = () => {
     setHistoryLoading(true);
     try {
       const res = await axios.get(`${API}/customers/${customer.customer_id}`, { withCredentials: true });
-      setHistoryJobs(res.data.jobs || []);
+      const jobs = res.data.jobs || [];
+      const recalculatedTotal = jobs.reduce((sum, job) => {
+        const status = job?.status;
+        if (status === "kesz" || !status) return sum + (Number(job?.price) || 0);
+        return sum;
+      }, 0);
+      setHistoryJobs(jobs);
+      setHistoryCustomer({
+        ...(res.data.customer || customer),
+        total_spent: recalculatedTotal,
+      });
     } catch {
       setHistoryJobs([]);
     } finally {

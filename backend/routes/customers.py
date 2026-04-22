@@ -92,6 +92,14 @@ async def get_customer(customer_id: str, user: User = Depends(get_current_user))
                 })
     
     unique_jobs.sort(key=lambda x: x.get("date", ""), reverse=True)
+
+    # Recalculate total spent from historical items to avoid stale counters
+    recalculated_total = sum(
+        (j.get("price", 0) or 0)
+        for j in unique_jobs
+        if (j.get("status") == "kesz") or j.get("status") is None
+    )
+    customer["total_spent"] = recalculated_total
     
     return {"customer": customer, "jobs": unique_jobs}
 

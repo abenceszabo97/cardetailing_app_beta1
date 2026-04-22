@@ -1845,6 +1845,52 @@ export const Workers = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Debrecen Service Commission Section */}
+          {workerStats.filter(w => w.location === "Debrecen").length > 0 && (
+            <Card className="glass-card border-green-500/30">
+              <CardHeader>
+                <CardTitle className="text-lg text-white font-['Manrope'] flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-green-400" />
+                  Debrecen – Szolgáltatás alapú jutalék (1000 Ft / szolgáltatás)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {workerStats.filter(w => w.location === "Debrecen").map(worker => {
+                    const serviceCount = worker.services_completed ?? worker.cars_completed ?? 0;
+                    const commission = serviceCount * 1000;
+                    return (
+                      <div key={worker.worker_id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-700 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-semibold text-base">{worker.name}</span>
+                          <span className="text-xs text-slate-500">{serviceCount} szolgáltatás</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Elvégzett szolgáltatás</p>
+                            <p className="text-blue-400 font-semibold">{serviceCount} db</p>
+                          </div>
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Bevétel</p>
+                            <p className="text-white font-semibold">{worker.revenue.toLocaleString()} Ft</p>
+                          </div>
+                          <div className="bg-slate-900/50 rounded-lg p-2 text-center">
+                            <p className="text-slate-500 text-xs mb-1">Szorzó</p>
+                            <p className="text-green-400 font-semibold">1000 Ft / db</p>
+                          </div>
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center">
+                            <p className="text-green-400 text-xs mb-1">Jutalék</p>
+                            <p className="text-green-400 font-bold">{commission.toLocaleString()} Ft</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Absence Management Tab */}
