@@ -116,7 +116,7 @@ export const Statistics = () => {
 
         const cashTotal = jobs.filter(j => j.payment_method === 'keszpenz').reduce((sum, j) => sum + (j.price || 0), 0);
         const cardTotal = jobs.filter(j => ['kartya', 'bankkartya'].includes(j.payment_method)).reduce((sum, j) => sum + (j.price || 0), 0);
-        const transferTotal = jobs.filter(j => ['utalas', 'atutalas', 'banki_atutalas'].includes(j.payment_method)).reduce((sum, j) => sum + (j.price || 0), 0);
+        const transferTotal = jobs.filter(j => ['atutalas', 'utalas', 'banki_atutalas'].includes(j.payment_method)).reduce((sum, j) => sum + (j.price || 0), 0);
 
         setHistoryStats({
           date: date,
@@ -216,7 +216,7 @@ export const Statistics = () => {
           ["Osszes bevetel", `${report.summary.total_revenue.toLocaleString()} Ft`],
           ["Keszpenz bevetel", `${report.summary.cash_revenue.toLocaleString()} Ft`],
           ["Kartya bevetel", `${report.summary.card_revenue.toLocaleString()} Ft`],
-          ["Utalas bevetel", `${(report.summary.transfer_revenue || 0).toLocaleString()} Ft`],
+          ["Átutalás bevétel", `${(report.summary.transfer_revenue || 0).toLocaleString()} Ft`],
           ["Atlag bevetel / auto", report.summary.total_cars > 0 ? `${Math.round(report.summary.total_revenue / report.summary.total_cars).toLocaleString()} Ft` : "0 Ft"],
         ],
         theme: "striped",
@@ -372,7 +372,7 @@ export const Statistics = () => {
       const rows = [
         [`X-CLEAN Havi statisztika – ${location} – exportálva: ${now}`],
         [],
-        ["Hónap", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Utalás (Ft)"],
+        ["Hónap", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Átutalás (Ft)"],
         ...monthlyStats.map(m => [
           m.month,
           m.count,
@@ -397,7 +397,7 @@ export const Statistics = () => {
       const rows2 = [
         [`X-CLEAN Dolgozói statisztika – ${location} – exportálva: ${now}`],
         [],
-        ["Dolgozó", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Utalás (Ft)", "Jutalék (Ft)"],
+        ["Dolgozó", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Átutalás (Ft)", "Jutalék (Ft)"],
         ...workerStats.map(w => [
           w.worker_name || w.name || "",
           w.cars || w.count || 0,
@@ -605,7 +605,7 @@ export const Statistics = () => {
               </Card>
               <Card className="glass-card border-orange-500/30">
                 <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-orange-400">Utalás</p>
+                  <p className="text-[10px] sm:text-xs text-orange-400">Átutalás</p>
                   <p className="text-base sm:text-xl font-bold text-purple-300">{(historyStats.transfer_revenue || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
                 </CardContent>
               </Card>
@@ -644,7 +644,7 @@ export const Statistics = () => {
               </Card>
               <Card className="glass-card">
                 <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-slate-400">Mai utalás</p>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai átutalás</p>
                   <p className="text-base sm:text-xl font-bold text-purple-300">{(dashboardStats.today_transfer || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
                 </CardContent>
               </Card>
@@ -674,7 +674,7 @@ export const Statistics = () => {
               </Card>
               <Card className="glass-card">
                 <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-slate-400">Havi utalás</p>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi átutalás</p>
                   <p className="text-base sm:text-xl font-bold text-purple-300">{(dashboardStats.month_transfer || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
                 </CardContent>
               </Card>

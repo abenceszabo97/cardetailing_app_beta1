@@ -2,7 +2,7 @@
 Statistics Routes
 """
 from fastapi import APIRouter, Depends
-from typing import Optional
+from typing import Optional, List, Dict
 import re
 from datetime import datetime, timezone, timedelta
 from dependencies import get_current_user
@@ -19,6 +19,39 @@ def _service_units_for_job(job: dict) -> int:
     if isinstance(extras, list):
         units += len(extras)
     return units
+
+
+def _service_rows_for_job(job: dict, services_by_id: Dict[str, dict]) -> List[dict]:
+    """Expand one job into service rows (base + extras) for consistent service analytics."""
+    rows = []
+    total_price = float(job.get("price", 0) or 0)
+    extras = job.get("extras") or []
+    extras_price = float(job.get("extras_price", 0) or 0)
+
+    base_id = job.get("service_id")
+    base_name = job.get("service_name") or "Ismeretlen"
+    base_revenue = max(0.0, total_price - extras_price)
+    if base_id or base_name:
+        rows.append({
+            "service_id": base_id or f"name::{base_name}",
+            "service_name": base_name,
+            "revenue": base_revenue
+        })
+
+    if isinstance(extras, list):
+        for extra_id in extras:
+            sid = extra_id if isinstance(extra_id, str) else (extra_id.get("service_id") if isinstance(extra_id, dict) else None)
+            if not sid:
+                continue
+            svc = services_by_id.get(sid, {})
+            extra_name = svc.get("name") or (extra_id.get("name") if isinstance(extra_id, dict) else sid)
+            extra_revenue = float(svc.get("price") or svc.get("min_price") or 0)
+            rows.append({
+                "service_id": sid,
+                "service_name": extra_name,
+                "revenue": extra_revenue
+            })
+    return rows
 
 @router.get("/stats/dashboard")
 async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -208,20 +241,22 @@ async def get_service_stats(location: Optional[str] = None, user: User = Depends
     
     jobs = await db.jobs.find(query, {"_id": 0}).to_list(10000)
     
+    service_docs = await db.services.find({}, {"_id": 0, "service_id": 1, "name": 1, "price": 1, "min_price": 1}).to_list(2000)
+    services_by_id = {s["service_id"]: s for s in service_docs if s.get("service_id")}
+
     service_stats = {}
     for job in jobs:
-        service_id = job.get("service_id")
-        if not service_id:
-            continue
-        if service_id not in service_stats:
-            service_stats[service_id] = {
-                "service_id": service_id,
-                "service_name": job.get("service_name", "Ismeretlen"),
-                "count": 0,
-                "revenue": 0
-            }
-        service_stats[service_id]["count"] += 1
-        service_stats[service_id]["revenue"] += job["price"]
+        for row in _service_rows_for_job(job, services_by_id):
+            service_id = row["service_id"]
+            if service_id not in service_stats:
+                service_stats[service_id] = {
+                    "service_id": service_id,
+                    "service_name": row["service_name"],
+                    "count": 0,
+                    "revenue": 0
+                }
+            service_stats[service_id]["count"] += 1
+            service_stats[service_id]["revenue"] += row["revenue"]
     
     return sorted(service_stats.values(), key=lambda x: x["count"], reverse=True)
 
@@ -574,6 +609,9 @@ async def get_report_data(
     card_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") in ["kartya", "bankkartya"])
     transfer_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") in ["utalas", "atutalas", "banki_atutalas"])
     
+    service_docs = await db.services.find({}, {"_id": 0, "service_id": 1, "name": 1, "price": 1, "min_price": 1}).to_list(2000)
+    services_by_id = {s["service_id"]: s for s in service_docs if s.get("service_id")}
+
     worker_map = {}
     for job in jobs:
         wid = job.get("worker_id")
@@ -591,8 +629,9 @@ async def get_report_data(
             w["transfer"] += job.get("price", 0)
         else:
             w["card"] += job.get("price", 0)
-        sname = job.get("service_name", "Ismeretlen")
-        w["services"][sname] = w["services"].get(sname, 0) + 1
+        for row in _service_rows_for_job(job, services_by_id):
+            sname = row["service_name"]
+            w["services"][sname] = w["services"].get(sname, 0) + 1
     
     worker_breakdown = []
     for w in worker_map.values():
@@ -612,14 +651,12 @@ async def get_report_data(
     
     service_map = {}
     for job in jobs:
-        sid = job.get("service_id")
-        sname = job.get("service_name", "Ismeretlen")
-        if not sid:
-            continue
-        if sid not in service_map:
-            service_map[sid] = {"service_id": sid, "name": sname, "count": 0, "revenue": 0}
-        service_map[sid]["count"] += 1
-        service_map[sid]["revenue"] += job.get("price", 0)
+        for row in _service_rows_for_job(job, services_by_id):
+            sid = row["service_id"]
+            if sid not in service_map:
+                service_map[sid] = {"service_id": sid, "name": row["service_name"], "count": 0, "revenue": 0}
+            service_map[sid]["count"] += 1
+            service_map[sid]["revenue"] += row["revenue"]
     
     service_breakdown = sorted(service_map.values(), key=lambda x: x["count"], reverse=True)
     

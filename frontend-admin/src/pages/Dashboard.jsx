@@ -48,8 +48,7 @@ import {
   AlertTriangle,
   Package,
   FileText,
-  Receipt,
-  Search
+  Receipt
 } from "lucide-react";
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -130,7 +129,6 @@ export const Dashboard = () => {
   const [invoiceJob, setInvoiceJob] = useState(null);
   const [invoiceForm, setInvoiceForm] = useState({ buyer_name: "", buyer_email: "", buyer_address: "", buyer_tax_number: "", comment: "", billing_entity: "auto" });
   const [invoiceLoading, setInvoiceLoading] = useState(false);
-  const [jobSearch, setJobSearch] = useState("");
   const [invoiceConfigured, setInvoiceConfigured] = useState(false);
   const [highlightedJobId, setHighlightedJobId] = useState(null);
 
@@ -380,6 +378,11 @@ export const Dashboard = () => {
 
   // Handle edit job
   const handleEditJob = (job) => {
+    const additionalServiceIds = Array.isArray(job.extras)
+      ? job.extras
+          .map((item) => (typeof item === "string" ? item : (item?.service_id || item?.name || "")))
+          .filter((id) => id && id !== job.service_id)
+      : [];
     setEditJob({
       ...job,
       service_id: job.service_id || "",
@@ -388,7 +391,8 @@ export const Dashboard = () => {
       notes: job.notes || "",
       time_slot: job.time_slot || "",
       car_type: job.car_type || "",
-      phone: job.phone || ""
+      phone: job.phone || "",
+      additional_service_ids: additionalServiceIds
     });
     setEditJobOpen(true);
   };
@@ -399,17 +403,26 @@ export const Dashboard = () => {
     try {
       const selectedService = services.find(s => s.service_id === editJob.service_id);
       const selectedWorker = workers.find(w => w.worker_id === editJob.worker_id);
+      const additionalServiceIds = (editJob.additional_service_ids || []).filter((id) => id && id !== editJob.service_id);
+      const additionalServices = services.filter((s) => additionalServiceIds.includes(s.service_id));
+      const combinedServiceName = [
+        selectedService?.name || editJob.service_name,
+        ...additionalServices.map((s) => s.name),
+      ].filter(Boolean).join(" + ");
+      const extrasPrice = additionalServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       
       await axios.put(`${API}/jobs/${editJob.job_id}`, {
         service_id: editJob.service_id,
-        service_name: selectedService?.name || editJob.service_name,
+        service_name: combinedServiceName,
         worker_id: editJob.worker_id,
         worker_name: selectedWorker?.name || editJob.worker_name,
         price: parseFloat(editJob.price) || 0,
         notes: editJob.notes,
         time_slot: editJob.time_slot,
         car_type: editJob.car_type,
-        phone: editJob.phone
+        phone: editJob.phone,
+        extras: additionalServiceIds,
+        extras_price: extrasPrice
       }, { withCredentials: true });
       
       toast.success("Munka frissítve!");
@@ -624,14 +637,14 @@ export const Dashboard = () => {
   const getPaymentMethodBadgeClass = (paymentMethod) => {
     if (paymentMethod === "keszpenz") return "bg-green-500/20 text-green-400";
     if (paymentMethod === "kartya" || paymentMethod === "bankkartya") return "bg-blue-500/20 text-blue-400";
-    if (paymentMethod === "utalas" || paymentMethod === "atutalas" || paymentMethod === "banki_atutalas") return "bg-purple-500/20 text-purple-300";
+    if (paymentMethod === "atutalas" || paymentMethod === "utalas" || paymentMethod === "banki_atutalas") return "bg-purple-500/20 text-purple-300";
     return "bg-slate-500/20 text-slate-300";
   };
 
   const getPaymentMethodLabel = (paymentMethod) => {
     if (paymentMethod === "keszpenz") return "💵 Készpénz";
     if (paymentMethod === "kartya" || paymentMethod === "bankkartya") return "💳 Kártya";
-    if (paymentMethod === "utalas" || paymentMethod === "atutalas" || paymentMethod === "banki_atutalas") return "🏦 Utalás";
+    if (paymentMethod === "atutalas" || paymentMethod === "utalas" || paymentMethod === "banki_atutalas") return "🏦 Átutalás";
     return paymentMethod || "—";
   };
 
@@ -662,13 +675,9 @@ export const Dashboard = () => {
     );
   }
 
-  const filteredTodayJobs = jobSearch.trim()
-    ? todayJobs.filter(j => {
-        const q = jobSearch.toLowerCase();
-        return j.plate_number?.toLowerCase().includes(q) || j.customer_name?.toLowerCase().includes(q);
-      })
-    : todayJobs;
+  const filteredTodayJobs = todayJobs;
   const unassignedJobs = filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name);
+  const useLargeWorkerCardTypography = workers.length <= 2;
 
   return (
     <div className="space-y-4 sm:space-y-6" data-testid="dashboard">
@@ -682,25 +691,6 @@ export const Dashboard = () => {
           <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
             <MapPin className="w-4 h-4 text-green-400" />
             <span className="text-sm text-white">{selectedLocation === "all" ? "Összes" : selectedLocation}</span>
-          </div>
-
-          {/* Search bar */}
-          <div className="relative flex-1 sm:flex-none sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <Input
-              placeholder="Rendszám, ügyfél..."
-              value={jobSearch}
-              onChange={e => setJobSearch(e.target.value)}
-              className="pl-9 pr-8 bg-slate-900 border-slate-700 text-white h-9 text-sm"
-            />
-            {jobSearch && (
-              <button
-                onClick={() => setJobSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
           <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
@@ -950,7 +940,7 @@ export const Dashboard = () => {
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai utalás</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Mai átutalás</p>
                 <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.today_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -1002,7 +992,7 @@ export const Dashboard = () => {
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi utalás</p>
+                <p className="text-[10px] sm:text-xs text-slate-400">Havi átutalás</p>
                 <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.month_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
@@ -1146,7 +1136,7 @@ export const Dashboard = () => {
                               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/30 flex items-center justify-center">
                                 <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
                               </div>
-                              <span className="text-white font-semibold text-sm sm:text-base">{worker.name}</span>
+                              <span className={`text-white font-semibold ${useLargeWorkerCardTypography ? "text-base sm:text-lg" : "text-sm sm:text-base"}`}>{worker.name}</span>
                             </div>
                             <Badge className="bg-slate-800 text-slate-300 text-xs">
                               {workerJobs.length} munka
@@ -1171,18 +1161,18 @@ export const Dashboard = () => {
                                   <div className="flex-1 min-w-0">
                                     {/* Header row with plate and status */}
                                     <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
-                                      <span className="font-bold text-white text-sm sm:text-base">{job.plate_number}</span>
+                                      <span className={`font-bold text-white ${useLargeWorkerCardTypography ? "text-base sm:text-lg" : "text-sm sm:text-base"}`}>{job.plate_number}</span>
                                       {getStatusBadge(job.status)}
                                       {/* Price on mobile - inline */}
-                                      <span className="text-green-400 font-semibold text-sm sm:hidden ml-auto">{job.price?.toLocaleString()} Ft</span>
+                                      <span className={`text-green-400 font-semibold sm:hidden ml-auto ${useLargeWorkerCardTypography ? "text-base" : "text-sm"}`}>{job.price?.toLocaleString()} Ft</span>
                                     </div>
                                     
                                     {/* Customer and service info */}
-                                    <p className="text-slate-400 text-xs sm:text-sm mt-1">{job.customer_name}</p>
-                                    <p className="text-slate-400 text-xs truncate">{job.service_name}</p>
+                                    <p className={`text-slate-400 mt-1 ${useLargeWorkerCardTypography ? "text-sm sm:text-base" : "text-xs sm:text-sm"}`}>{job.customer_name}</p>
+                                    <p className={`text-slate-400 truncate ${useLargeWorkerCardTypography ? "text-sm" : "text-xs"}`}>{job.service_name}</p>
                                     
                                     {/* Details row - horizontal on mobile */}
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-400">
+                                    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-slate-400 ${useLargeWorkerCardTypography ? "text-sm" : "text-xs"}`}>
                                       {job.time_slot && (
                                         <div className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
@@ -1206,7 +1196,7 @@ export const Dashboard = () => {
                                   
                                   {/* Desktop price */}
                                   <div className="hidden sm:flex flex-col items-end gap-1">
-                                    <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
+                                    <span className={`text-green-400 font-semibold ${useLargeWorkerCardTypography ? "text-base" : "text-sm"}`}>{job.price?.toLocaleString()} Ft</span>
                                   </div>
                                 </div>
                                 
@@ -1246,9 +1236,9 @@ export const Dashboard = () => {
                                         <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
                                         Kártya
                                       </Button>
-                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-purple-600 hover:bg-purple-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "utalas")}>
+                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-purple-600 hover:bg-purple-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "atutalas")}>
                                     <Landmark className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                    Utalás
+                                    Átutalás
                                   </Button>
                                     </>
                                   )}
@@ -1393,9 +1383,9 @@ export const Dashboard = () => {
                                     <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
                                     Kártya
                                   </Button>
-                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-purple-600 hover:bg-purple-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "utalas")}>
+                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-purple-600 hover:bg-purple-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "atutalas")}>
                                     <Landmark className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                    Utalás
+                                    Átutalás
                                   </Button>
                                 </>
                               )}
@@ -1869,11 +1859,14 @@ export const Dashboard = () => {
                 <Label className="text-slate-300">Szolgáltatás</Label>
                 <Select value={editJob.service_id} onValueChange={(v) => {
                   const service = services.find(s => s.service_id === v);
+                  const selectedAdditional = services.filter(s => (editJob.additional_service_ids || []).includes(s.service_id) && s.service_id !== v);
+                  const additionalTotal = selectedAdditional.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
                   setEditJob(prev => ({ 
                     ...prev, 
                     service_id: v,
                     service_name: service?.name || prev.service_name,
-                    price: service?.price || prev.price
+                    additional_service_ids: (prev.additional_service_ids || []).filter(id => id !== v),
+                    price: (Number(service?.price) || 0) + additionalTotal
                   }));
                 }}>
                   <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
@@ -1887,6 +1880,44 @@ export const Dashboard = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Additional services (multi-select) */}
+              <div>
+                <Label className="text-slate-300">További szolgáltatások (több is választható)</Label>
+                <div className="mt-2 max-h-36 overflow-y-auto space-y-2 p-3 rounded-lg border border-slate-700 bg-slate-950/50">
+                  {services
+                    .filter((service) => service.service_id !== editJob.service_id)
+                    .map((service) => {
+                      const checked = (editJob.additional_service_ids || []).includes(service.service_id);
+                      return (
+                        <label key={service.service_id} className="flex items-center justify-between gap-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(isChecked) => {
+                                const current = editJob.additional_service_ids || [];
+                                const nextIds = isChecked
+                                  ? [...current, service.service_id]
+                                  : current.filter((id) => id !== service.service_id);
+                                const primaryPrice = Number(services.find((s) => s.service_id === editJob.service_id)?.price) || 0;
+                                const extrasTotal = services
+                                  .filter((s) => nextIds.includes(s.service_id))
+                                  .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                                setEditJob((prev) => ({
+                                  ...prev,
+                                  additional_service_ids: nextIds,
+                                  price: primaryPrice + extrasTotal,
+                                }));
+                              }}
+                            />
+                            <span className="text-slate-200">{service.name}</span>
+                          </div>
+                          <span className="text-green-400">{service.price?.toLocaleString()} Ft</span>
+                        </label>
+                      );
+                    })}
+                </div>
               </div>
 
               {/* Worker */}

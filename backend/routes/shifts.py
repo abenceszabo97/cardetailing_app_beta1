@@ -172,7 +172,7 @@ async def get_worker_monthly_stats(month: Optional[str] = None, location: Option
         services_count = sum(1 + _extras_count(j) for j in worker_jobs)
         revenue = sum(j.get("price", 0) for j in worker_jobs)
         cash = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") == "keszpenz")
-        card = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") in ("kartya", "utalas"))
+        card = sum(j.get("price", 0) for j in worker_jobs if j.get("payment_method") in ("kartya", "atutalas", "utalas", "bankkartya", "banki_atutalas"))
 
         result.append({
             "worker_id": wid,

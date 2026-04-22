@@ -15,6 +15,17 @@ from routes.events import publish_event
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+def _normalize_payment_method(value: Optional[str]) -> Optional[str]:
+    """Normalize payment method aliases to canonical values."""
+    if not value:
+        return value
+    method = str(value).strip().lower()
+    if method in {"utalas", "atutalas", "banki_atutalas"}:
+        return "atutalas"
+    if method in {"kartya", "bankkartya"}:
+        return "kartya"
+    return method
+
 
 async def _send_review_email_for_booking(booking_id: str, booking: dict):
     """
@@ -258,6 +269,8 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
 async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_current_user)):
     """Update job - also handles booking to job conversion"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "payment_method" in update_data:
+        update_data["payment_method"] = _normalize_payment_method(update_data.get("payment_method"))
     
     # Check if this is a booking reference (starts with bkg_)
     if job_id.startswith("bkg_"):
@@ -294,6 +307,20 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     booking_sync["worker_id"] = update_data["worker_id"]
                 if "worker_name" in update_data:
                     booking_sync["worker_name"] = update_data["worker_name"]
+                if "time_slot" in update_data:
+                    booking_sync["time_slot"] = update_data["time_slot"]
+                if "car_type" in update_data:
+                    booking_sync["car_type"] = update_data["car_type"]
+                if "phone" in update_data:
+                    booking_sync["phone"] = update_data["phone"]
+                if "notes" in update_data:
+                    booking_sync["notes"] = update_data["notes"]
+                if "payment_method" in update_data:
+                    booking_sync["payment_method"] = update_data["payment_method"]
+                if "extras" in update_data:
+                    booking_sync["extras"] = update_data["extras"]
+                if "extras_price" in update_data:
+                    booking_sync["extras_price"] = update_data["extras_price"]
                     
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
@@ -348,9 +375,34 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 await db.jobs.insert_one(job_data)
 
                 # Update booking status
+                booking_sync = {"status": update_data.get("status", "folyamatban")}
+                if "price" in update_data:
+                    booking_sync["price"] = update_data["price"]
+                if "service_id" in update_data:
+                    booking_sync["service_id"] = update_data["service_id"]
+                if "service_name" in update_data:
+                    booking_sync["service_name"] = update_data["service_name"]
+                if "worker_id" in update_data:
+                    booking_sync["worker_id"] = update_data["worker_id"]
+                if "worker_name" in update_data:
+                    booking_sync["worker_name"] = update_data["worker_name"]
+                if "time_slot" in update_data:
+                    booking_sync["time_slot"] = update_data["time_slot"]
+                if "car_type" in update_data:
+                    booking_sync["car_type"] = update_data["car_type"]
+                if "phone" in update_data:
+                    booking_sync["phone"] = update_data["phone"]
+                if "notes" in update_data:
+                    booking_sync["notes"] = update_data["notes"]
+                if "payment_method" in update_data:
+                    booking_sync["payment_method"] = update_data["payment_method"]
+                if "extras" in update_data:
+                    booking_sync["extras"] = update_data["extras"]
+                if "extras_price" in update_data:
+                    booking_sync["extras_price"] = update_data["extras_price"]
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
-                    {"$set": {"status": update_data.get("status", "folyamatban")}}
+                    {"$set": booking_sync}
                 )
 
                 if update_data.get("status") == "kesz" and update_data.get("payment_method"):
@@ -388,6 +440,12 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 booking_update["notes"] = update_data["notes"]
             if "status" in update_data:
                 booking_update["status"] = update_data["status"]
+            if "payment_method" in update_data:
+                booking_update["payment_method"] = update_data["payment_method"]
+            if "extras" in update_data:
+                booking_update["extras"] = update_data["extras"]
+            if "extras_price" in update_data:
+                booking_update["extras_price"] = update_data["extras_price"]
             
             if booking_update:
                 await db.bookings.update_one(
@@ -437,6 +495,18 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
             booking_sync["worker_name"] = update_data["worker_name"]
         if "payment_method" in update_data:
             booking_sync["payment_method"] = update_data["payment_method"]
+        if "time_slot" in update_data:
+            booking_sync["time_slot"] = update_data["time_slot"]
+        if "car_type" in update_data:
+            booking_sync["car_type"] = update_data["car_type"]
+        if "phone" in update_data:
+            booking_sync["phone"] = update_data["phone"]
+        if "notes" in update_data:
+            booking_sync["notes"] = update_data["notes"]
+        if "extras" in update_data:
+            booking_sync["extras"] = update_data["extras"]
+        if "extras_price" in update_data:
+            booking_sync["extras_price"] = update_data["extras_price"]
         if booking_sync:
             await db.bookings.update_one(
                 {"booking_id": job["booking_id"]},

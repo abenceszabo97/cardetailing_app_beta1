@@ -95,7 +95,25 @@ class SellerUpdate(BaseModel):
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _payment_label(method: str) -> str:
-    return {"keszpenz": "Készpénz", "kartya": "Bankkártya", "atutalas": "Átutalás"}.get(method, "Készpénz")
+    return {
+        "keszpenz": "Készpénz",
+        "kartya": "Bankkártya",
+        "bankkartya": "Bankkártya",
+        "utalas": "Átutalás",
+        "atutalas": "Átutalás",
+        "banki_atutalas": "Átutalás",
+    }.get(method, "Készpénz")
+
+
+def _normalize_payment_method(value: Optional[str]) -> str:
+    if not value:
+        return "keszpenz"
+    method = str(value).strip().lower()
+    if method in {"utalas", "atutalas", "banki_atutalas"}:
+        return "atutalas"
+    if method in {"bankkartya", "kartya"}:
+        return "kartya"
+    return method
 
 
 def _build_invoice_xml(api_key: str, job: dict, data: InvoiceCreate, is_receipt: bool) -> str:
@@ -305,6 +323,9 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
         api_key = await resolve_api_key(location, is_company)
         if not api_key:
             raise HTTPException(status_code=400, detail="Számlázz.hu API kulcs nincs beállítva ehhez a telephely/ügyfél kombinációhoz. Menj a Beállítások oldalra.")
+
+    normalized_payment_method = _normalize_payment_method(data.payment_method)
+    data = data.model_copy(update={"payment_method": normalized_payment_method})
 
     xml_payload = _build_invoice_xml(api_key, job, data, is_receipt)
 

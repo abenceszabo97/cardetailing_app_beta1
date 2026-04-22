@@ -19,6 +19,17 @@ from models.customer import Customer
 router = APIRouter()
 LOCAL_TZ = ZoneInfo("Europe/Budapest")
 
+def _normalize_payment_method(value: Optional[str]) -> Optional[str]:
+    """Normalize payment method aliases to canonical values."""
+    if not value:
+        return value
+    method = str(value).strip().lower()
+    if method in {"utalas", "atutalas", "banki_atutalas"}:
+        return "atutalas"
+    if method in {"kartya", "bankkartya"}:
+        return "kartya"
+    return method
+
 def time_to_minutes(time_str: str) -> int:
     """Convert HH:MM to minutes from midnight"""
     parts = time_str.split(":")
@@ -546,6 +557,8 @@ async def get_booking(booking_id: str, user: User = Depends(get_current_user)):
 @router.put("/bookings/{booking_id}")
 async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depends(get_current_user)):
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "payment_method" in update_data:
+        update_data["payment_method"] = _normalize_payment_method(update_data.get("payment_method"))
     if "worker_id" in update_data:
         worker = await db.workers.find_one({"worker_id": update_data["worker_id"]}, {"_id": 0})
         if worker:

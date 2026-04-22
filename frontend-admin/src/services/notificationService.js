@@ -141,8 +141,8 @@ export const notifyPayment = (jobInfo, paymentMethod) => {
   const methodLabel =
     paymentMethod === 'keszpenz'
       ? '💵 Készpénz'
-      : (paymentMethod === 'utalas' || paymentMethod === 'atutalas' || paymentMethod === 'banki_atutalas')
-        ? '🏦 Utalás'
+      : (paymentMethod === 'atutalas' || paymentMethod === 'utalas' || paymentMethod === 'banki_atutalas')
+        ? '🏦 Átutalás'
         : '💳 Kártya';
   
   return showNotification(

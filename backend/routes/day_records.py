@@ -110,7 +110,7 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
     total_cars = len(jobs)
     cash_total = sum(j["price"] for j in jobs if j.get("payment_method") == "keszpenz")
     card_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("kartya", "bankkartya"))
-    transfer_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("utalas", "atutalas"))
+    transfer_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("atutalas", "utalas", "banki_atutalas"))
     
     withdrawals = record.get("withdrawals", [])
     total_withdrawals = sum(w.get("amount", 0) for w in withdrawals)

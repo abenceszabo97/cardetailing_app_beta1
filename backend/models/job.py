@@ -96,5 +96,10 @@ class JobUpdate(BaseModel):
     service_id: Optional[str] = None
     service_name: Optional[str] = None
     price: Optional[float] = None
+    time_slot: Optional[str] = None
+    car_type: Optional[str] = None
+    phone: Optional[str] = None
+    extras: Optional[List[str]] = None
+    extras_price: Optional[float] = None
     images_before: Optional[Dict[str, str]] = None
     images_after: Optional[Dict[str, str]] = None

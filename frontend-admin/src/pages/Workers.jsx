@@ -1759,7 +1759,7 @@ export const Workers = () => {
                             <p className="text-green-400 font-semibold">{(worker.cash || 0).toLocaleString()} Ft</p>
                           </div>
                           <div className="bg-slate-900/50 rounded-lg p-2 text-center">
-                            <p className="text-slate-500 text-xs mb-1">Kártya/Utalás</p>
+                            <p className="text-slate-500 text-xs mb-1">Kártya/Átutalás</p>
                             <p className="text-blue-400 font-semibold">{(worker.card || 0).toLocaleString()} Ft</p>
                           </div>
                           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-center">
