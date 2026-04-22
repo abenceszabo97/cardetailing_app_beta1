@@ -28,6 +28,7 @@ import {
   Car,
   Calendar,
   TrendingUp,
+  Sparkles,
   Plus,
   Clock,
   User,
@@ -901,7 +902,7 @@ export const Dashboard = () => {
                 <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.today_services || 0}</p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
           </CardContent>
@@ -927,7 +928,7 @@ export const Dashboard = () => {
                 <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.month_services || 0}</p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
           </CardContent>
@@ -949,11 +950,24 @@ export const Dashboard = () => {
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-[10px] sm:text-xs text-slate-400">Mai utalás</p>
+                <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.today_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+              </div>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card kpi-card">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
                 <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.month_cars}</p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                <Car className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
             </div>
           </CardContent>
@@ -980,6 +994,19 @@ export const Dashboard = () => {
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                 <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card kpi-card">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-slate-400">Havi utalás</p>
+                <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.month_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+              </div>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
               </div>
             </div>
           </CardContent>
