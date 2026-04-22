@@ -701,6 +701,51 @@ export const Workers = () => {
     }
   };
 
+  const parseTimeToMinutes = (timeValue) => {
+    if (!timeValue || typeof timeValue !== "string" || !timeValue.includes(":")) return 0;
+    const [h, m] = timeValue.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+    return h * 60 + m;
+  };
+
+  const getNetShiftSummary = (shift) => {
+    if (!shift?.start_time || !shift?.end_time || shift.shift_type !== "normal") {
+      return { range: getShiftTypeMeta(shift?.shift_type).label, net: "", lunch: "" };
+    }
+
+    try {
+      const start = new Date(shift.start_time);
+      const end = new Date(shift.end_time);
+      const grossMinutes = Math.max(0, Math.round((end - start) / 60000));
+
+      let lunchMinutes = 0;
+      let lunchLabel = "";
+      if (shift.lunch_start && shift.lunch_end) {
+        const lunchStart = parseTimeToMinutes(shift.lunch_start);
+        const lunchEnd = parseTimeToMinutes(shift.lunch_end);
+        lunchMinutes = Math.max(0, lunchEnd - lunchStart);
+        lunchLabel = `${shift.lunch_start}-${shift.lunch_end}`;
+      }
+
+      const netMinutes = Math.max(0, grossMinutes - lunchMinutes);
+      const netH = Math.floor(netMinutes / 60);
+      const netM = netMinutes % 60;
+      const netLabel = netM === 0 ? `${netH}ó` : `${netH}ó ${netM}p`;
+
+      return {
+        range: `${format(start, "HH:mm")}-${format(end, "HH:mm")}`,
+        net: `Nettó: ${netLabel}`,
+        lunch: lunchLabel ? `Ebéd: ${lunchLabel}` : "Ebéd: nincs",
+      };
+    } catch {
+      return {
+        range: `${format(new Date(shift.start_time), "HH:mm")}-${format(new Date(shift.end_time), "HH:mm")}`,
+        net: "",
+        lunch: shift.lunch_start && shift.lunch_end ? `Ebéd: ${shift.lunch_start}-${shift.lunch_end}` : "Ebéd: nincs",
+      };
+    }
+  };
+
   const navigate = (direction) => {
     if (calendarView === "month") {
       setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
@@ -1301,16 +1346,19 @@ export const Workers = () => {
                           <div className="space-y-1">
                             {dayShifts.slice(0, 3).map((shift) => {
                               const typeMeta = getShiftTypeMeta(shift.shift_type);
+                              const shiftSummary = getNetShiftSummary(shift);
                               return (
                                 <div 
                                   key={shift.shift_id}
                                   onClick={(e) => { e.stopPropagation(); handleEditShift(shift); }}
                                   className={`${typeMeta.card} border text-[11px] p-1.5 rounded group relative hover:ring-1 hover:ring-white/30`}
-                                  title={`${shift.worker_name} · ${typeMeta.label} · ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`}
+                                  title={`${shift.worker_name} · ${typeMeta.label} · ${shiftSummary.range}${shiftSummary.net ? ` · ${shiftSummary.net}` : ""} · ${shiftSummary.lunch}`}
                                 >
-                                  <div className="font-medium truncate hidden lg:block">{shift.worker_name}</div>
-                                  <div className="font-medium truncate lg:hidden">{shift.worker_name?.split(' ')[0]}</div>
-                                  <div className="text-[10px] opacity-90 truncate">{formatShiftDuration(shift)}</div>
+                                  <div className="font-medium truncate">{shift.worker_name}</div>
+                                  <div className="text-[10px] opacity-90 truncate">{shiftSummary.range}</div>
+                                  {shift.shift_type === "normal" && (
+                                    <div className="text-[10px] opacity-80 truncate">{shiftSummary.net} · {shiftSummary.lunch}</div>
+                                  )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setDeleteShiftId(shift.shift_id); }}
                                     className="absolute right-0 top-0 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"

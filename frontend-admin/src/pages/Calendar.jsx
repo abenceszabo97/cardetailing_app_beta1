@@ -323,6 +323,9 @@ const Calendar = () => {
     return bookings.filter(b => b.date === dateStr && (selectedWorker === "all" || b.worker_id === selectedWorker));
   };
 
+  const getServiceLabel = (booking) => booking?.service_name || booking?.service || "—";
+  const getNotesLabel = (booking) => (booking?.notes && booking.notes.trim().length > 0 ? booking.notes : null);
+
   const getBookingsForSlot = (date, hour) => {
     const dateStr = format(date, "yyyy-MM-dd");
     const hourStr = `${hour.toString().padStart(2, "0")}:`;
@@ -393,11 +396,12 @@ const Calendar = () => {
                       className={`p-2 rounded-lg border cursor-grab active:cursor-grabbing text-xs select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                       onClick={() => openBookingDetails(booking)}
                     >
-                      <div className="font-medium">{booking.customer_name}</div>
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <span>{booking.time_slot}</span>
-                        <span>{booking.plate_number}</span>
-                      </div>
+                      <div className="font-medium truncate">{booking.customer_name}</div>
+                      <div className="text-slate-300 truncate">{booking.plate_number}</div>
+                      <div className="text-slate-400 truncate">{getServiceLabel(booking)}</div>
+                      {getNotesLabel(booking) && (
+                        <div className="text-slate-500 truncate">Megj.: {getNotesLabel(booking)}</div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -477,8 +481,12 @@ const Calendar = () => {
                             className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 select-none ${STATUS_COLORS[booking.status]} ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                             onClick={() => openBookingDetails(booking)}
                           >
-                            <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                            <div className="font-medium truncate">{booking.customer_name}</div>
                             <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
+                            <div className="text-slate-400 truncate text-[10px]">{getServiceLabel(booking)}</div>
+                            {getNotesLabel(booking) && (
+                              <div className="text-slate-500 truncate text-[10px]">Megj.: {getNotesLabel(booking)}</div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -495,8 +503,12 @@ const Calendar = () => {
                           className={`p-1.5 rounded text-xs cursor-grab active:cursor-grabbing mb-1 border-orange-500/30 bg-orange-500/10 text-orange-300 select-none ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                           onClick={() => openBookingDetails(booking)}
                         >
-                          <div className="font-medium truncate">{booking.time_slot} {booking.customer_name?.split(' ')[0]}</div>
+                          <div className="font-medium truncate">{booking.customer_name}</div>
                           <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
+                          <div className="text-orange-400/70 truncate text-[10px]">{getServiceLabel(booking)}</div>
+                          {getNotesLabel(booking) && (
+                            <div className="text-orange-300/70 truncate text-[10px]">Megj.: {getNotesLabel(booking)}</div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -551,9 +563,12 @@ const Calendar = () => {
                           onDragEnd={handleDragEnd}
                           className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-grab active:cursor-grabbing border-l-2 select-none ${STATUS_COLORS[booking.status]} hover:brightness-110 ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
                           onClick={() => openBookingDetails(booking)}
-                          title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
+                          title={`${booking.time_slot} · ${booking.customer_name} · ${booking.plate_number} · ${getServiceLabel(booking)}${getNotesLabel(booking) ? ` · Megj.: ${getNotesLabel(booking)}` : ""}`}
                         >
-                          <div className="font-semibold truncate">{booking.plate_number}</div>
+                          <div className="font-semibold truncate">{booking.customer_name}</div>
+                          <div className="truncate">{booking.plate_number}</div>
+                          <div className="truncate text-[9px] opacity-90">{getServiceLabel(booking)}</div>
+                          {getNotesLabel(booking) && <div className="truncate text-[9px] opacity-75">Megj.: {getNotesLabel(booking)}</div>}
                         </div>
                       ))}
                       {slotBookings.length > 2 && (
@@ -596,12 +611,14 @@ const Calendar = () => {
                           <span className="font-medium">{booking.time_slot}</span>
                           <span className="text-slate-400">{booking.plate_number}</span>
                         </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span>{booking.customer_name}</span>
+                        <div className="flex items-center justify-between mt-1 gap-2">
+                          <span className="truncate">{booking.customer_name}</span>
                           {booking.worker_name && (
                             <span className="text-blue-300 text-[10px]">{booking.worker_name}</span>
                           )}
                         </div>
+                        <div className="text-slate-400 mt-1 truncate">{getServiceLabel(booking)}</div>
+                        {getNotesLabel(booking) && <div className="text-slate-500 mt-0.5 truncate">Megj.: {getNotesLabel(booking)}</div>}
                       </div>
                     ))}
                   </div>
@@ -669,9 +686,12 @@ const Calendar = () => {
                           key={booking.booking_id} 
                           className={`text-[10px] px-1 py-0.5 rounded border-l-2 truncate ${STATUS_COLORS[booking.status]}`} 
                           onClick={(e) => { e.stopPropagation(); openBookingDetails(booking); }}
-                          title={`${booking.time_slot} - ${booking.customer_name} - ${booking.plate_number}`}
+                          title={`${booking.time_slot} · ${booking.customer_name} · ${booking.plate_number} · ${getServiceLabel(booking)}${getNotesLabel(booking) ? ` · Megj.: ${getNotesLabel(booking)}` : ""}`}
                         >
-                          <span className="font-medium">{booking.time_slot}</span> {booking.plate_number}
+                          <div className="font-medium truncate">{booking.customer_name}</div>
+                          <div className="truncate">{booking.plate_number}</div>
+                          <div className="truncate opacity-90">{getServiceLabel(booking)}</div>
+                          {getNotesLabel(booking) && <div className="truncate opacity-75">Megj.: {getNotesLabel(booking)}</div>}
                         </div>
                       ))}
                       {dayBookings.length > 2 && (
