@@ -22,6 +22,8 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Skeleton } from "../components/ui/skeleton";
+import { getStatusConfig } from "../lib/statusColors";
 import {
   Car,
   Calendar,
@@ -126,6 +128,7 @@ export const Dashboard = () => {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [jobSearch, setJobSearch] = useState("");
   const [invoiceConfigured, setInvoiceConfigured] = useState(false);
+  const [highlightedJobId, setHighlightedJobId] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/invoices/status`, { withCredentials: true })
@@ -359,6 +362,7 @@ export const Dashboard = () => {
         setTimeout(() => openInvoiceDialog(jobWithPayment), 300);
       }
 
+      pulseJobCard(jobId);
       fetchData();
     } catch (error) {
       toast.error("Hiba a státusz frissítésekor");
@@ -411,6 +415,7 @@ export const Dashboard = () => {
       
       setEditJobOpen(false);
       setEditJob(null);
+      pulseJobCard(editJob.job_id);
       fetchData();
     } catch (error) {
       console.error("Edit job error:", error);
@@ -597,17 +602,8 @@ export const Dashboard = () => {
   };
 
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      kesz:           { label: "Kész",            className: "bg-green-500/20 text-green-400 border border-green-500/30" },
-      folyamatban:    { label: "Folyamatban",     className: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
-      foglalt:        { label: "Foglalt",         className: "bg-blue-500/20 text-blue-400 border border-blue-500/30" },
-      visszaigazolva: { label: "Visszaigazolva",  className: "bg-blue-500/20 text-blue-300 border border-blue-500/30" },
-      nem_jott_el:    { label: "Nem jött el",     className: "bg-slate-500/20 text-slate-400 border border-slate-700" },
-      lemondva:       { label: "Lemondva",        className: "bg-red-500/20 text-red-400 border border-red-500/30" },
-      lemondta:       { label: "Lemondva",        className: "bg-red-500/20 text-red-400 border border-red-500/30" },
-    };
-    const config = statusConfig[status] || { label: status, className: "bg-slate-700/20 text-slate-400 border border-slate-700" };
-    return <Badge className={config.className}>{config.label}</Badge>;
+    const config = getStatusConfig(status);
+    return <Badge className={`${config.bg} ${config.text} border ${config.border}`}>{config.label}</Badge>;
   };
 
   const handleServiceChange = (serviceId) => {
@@ -615,10 +611,35 @@ export const Dashboard = () => {
     setNewJob({ ...newJob, service_id: serviceId, price: service?.price || 0 });
   };
 
+  const pulseJobCard = (jobId) => {
+    if (!jobId) return;
+    setHighlightedJobId(jobId);
+    setTimeout(() => setHighlightedJobId((prev) => (prev === jobId ? null : prev)), 1400);
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-white">Betöltés...</div>
+      <div className="space-y-4 sm:space-y-6 min-h-[400px]">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <Card key={`dash-skeleton-kpi-${idx}`} className="glass-card">
+              <CardContent className="p-3 sm:p-4">
+                <Skeleton className="h-3 w-20 mb-3 bg-slate-700/40" />
+                <Skeleton className="h-7 w-24 bg-slate-700/40" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card className="glass-card">
+          <CardHeader>
+            <Skeleton className="h-6 w-32 bg-slate-700/40" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <Skeleton key={`dash-skeleton-job-${idx}`} className="h-20 w-full bg-slate-700/35" />
+            ))}
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -1070,7 +1091,10 @@ export const Dashboard = () => {
                             </div>
                           ) : (
                             workerJobs.map((job) => (
-                              <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-green-500/30 transition-colors">
+                              <div
+                                key={job.job_id}
+                                className={`bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-green-500/30 transition-colors ${highlightedJobId === job.job_id ? "job-card-highlight" : ""}`}
+                              >
                                 {/* Mobile: Stack layout, Desktop: Side by side */}
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                                   <div className="flex-1 min-w-0">
@@ -1084,10 +1108,10 @@ export const Dashboard = () => {
                                     
                                     {/* Customer and service info */}
                                     <p className="text-slate-400 text-xs sm:text-sm mt-1">{job.customer_name}</p>
-                                    <p className="text-slate-500 text-xs truncate">{job.service_name}</p>
+                                    <p className="text-slate-400 text-xs truncate">{job.service_name}</p>
                                     
                                     {/* Details row - horizontal on mobile */}
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-400">
                                       {job.time_slot && (
                                         <div className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
@@ -1109,27 +1133,20 @@ export const Dashboard = () => {
                                     </div>
                                   </div>
                                   
-                                  {/* Desktop price and image button */}
+                                  {/* Desktop price */}
                                   <div className="hidden sm:flex flex-col items-end gap-1">
                                     <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
-                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
-                                      <Image className="w-3 h-3 mr-1" />
-                                      {getImageCount(job)}
-                                    </Button>
                                   </div>
                                 </div>
                                 
-                                {/* Action buttons - improved mobile layout */}
+                                {/* Action buttons - fixed order */}
                                 <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-slate-800">
-                                  {/* Mobile image button */}
-                                  <Button variant="ghost" size="sm" className="sm:hidden h-8 text-xs text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
-                                    <Image className="w-3.5 h-3.5 mr-1" />
-                                    {getImageCount(job)}
-                                  </Button>
-                                  
-                                  {/* Edit button - icon only */}
                                   <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2" onClick={() => handleEditJob(job)} title="Szerkesztés">
                                     <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-8 sm:h-7 text-xs text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }} title="Képek">
+                                    <Image className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
+                                    {getImageCount(job)}
                                   </Button>
                                   
                                   {job.status === "foglalt" && (
@@ -1220,7 +1237,10 @@ export const Dashboard = () => {
                       </div>
                       <div className="p-2 sm:p-3 space-y-2">
                         {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
-                          <div key={job.job_id} className="bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-orange-500/30 transition-colors">
+                          <div
+                            key={job.job_id}
+                            className={`bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-orange-500/30 transition-colors ${highlightedJobId === job.job_id ? "job-card-highlight" : ""}`}
+                          >
                             {/* Mobile-optimized layout */}
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                               <div className="flex-1 min-w-0">
@@ -1231,10 +1251,10 @@ export const Dashboard = () => {
                                   <span className="text-green-400 font-semibold text-sm sm:hidden ml-auto">{job.price?.toLocaleString()} Ft</span>
                                 </div>
                                 <p className="text-slate-400 text-xs sm:text-sm mt-1">{job.customer_name}</p>
-                                <p className="text-slate-500 text-xs">{job.service_name}</p>
+                                <p className="text-slate-400 text-xs">{job.service_name}</p>
                                 
                                 {/* Details row */}
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-400">
                                   {job.time_slot && (
                                     <div className="flex items-center gap-1">
                                       <Clock className="w-3 h-3" />
@@ -1259,24 +1279,17 @@ export const Dashboard = () => {
                               {/* Desktop price */}
                               <div className="hidden sm:flex flex-col items-end gap-1">
                                 <span className="text-green-400 font-semibold text-sm">{job.price?.toLocaleString()} Ft</span>
-                                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
-                                  <Image className="w-3 h-3 mr-1" />
-                                  {getImageCount(job)}
-                                </Button>
                               </div>
                             </div>
                             
-                            {/* Action buttons - mobile optimized */}
+                            {/* Action buttons - fixed order */}
                             <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-slate-800">
-                              {/* Mobile image button */}
-                              <Button variant="ghost" size="sm" className="sm:hidden h-8 text-xs text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }}>
-                                <Image className="w-3.5 h-3.5 mr-1" />
-                                {getImageCount(job)}
-                              </Button>
-                              
-                              {/* Edit button - icon only */}
                               <Button size="sm" variant="outline" className="h-8 sm:h-7 text-xs border-slate-600 text-slate-400 hover:bg-slate-700 px-2" onClick={() => handleEditJob(job)} title="Szerkesztés">
                                 <Pencil className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 sm:h-7 text-xs text-slate-400 hover:text-white px-2" onClick={() => { setSelectedJob(job); setImageDialogOpen(true); }} title="Képek">
+                                <Image className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
+                                {getImageCount(job)}
                               </Button>
                               
                               {job.status === "foglalt" && (

@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
+import { Skeleton } from "../components/ui/skeleton";
 import { toast } from "sonner";
 import { 
   Car, MapPin, Clock, User, Phone, Mail, FileText, CheckCircle2,
@@ -166,6 +167,7 @@ const BookingPage = () => {
   const [blacklistReason, setBlacklistReason] = useState("");
   const [plateError, setPlateError] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const progressPercent = Math.round((step / 4) * 100);
 
   // Load pricing data and extras
   // Load pricing data when location changes
@@ -502,7 +504,16 @@ const BookingPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+          <Card className="w-full max-w-3xl bg-slate-900/80 border-slate-800/80 mx-4">
+            <CardHeader>
+              <Skeleton className="h-6 w-52 bg-slate-700/35" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-12 w-full bg-slate-700/30" />
+              <Skeleton className="h-28 w-full bg-slate-700/30" />
+              <Skeleton className="h-28 w-full bg-slate-700/30" />
+            </CardContent>
+          </Card>
         )}
       </div>
     );
@@ -588,18 +599,30 @@ const BookingPage = () => {
             { num: 4, label: "Összegzés", icon: CheckCircle2 }
           ].map((s, i) => (
             <div key={s.num} className="flex items-center">
-              <div className={`flex flex-col items-center ${step >= s.num ? 'opacity-100' : 'opacity-40'}`}>
+              <div className={`flex flex-col items-center ${step >= s.num ? 'opacity-100' : 'opacity-45'}`}>
                 <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all ${
                   step >= s.num ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg' : 'bg-slate-800'
                 }`}>
-                  <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${step >= s.num ? 'text-white' : 'text-slate-500'}`} />
+                  <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${step >= s.num ? 'text-white' : 'text-slate-400'}`} />
                 </div>
-                <span className={`text-xs mt-1 hidden sm:block ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.label}</span>
-                <span className={`text-xs mt-1 sm:hidden ${step >= s.num ? 'text-green-400' : 'text-slate-600'}`}>{s.num}</span>
+                <span className={`text-xs mt-1 hidden sm:block ${step >= s.num ? 'text-green-400' : 'text-slate-500'}`}>{s.label}</span>
+                <span className={`text-xs mt-1 sm:hidden ${step >= s.num ? 'text-green-400' : 'text-slate-500'}`}>{s.num}</span>
               </div>
               {i < 3 && <div className={`w-4 sm:w-8 h-0.5 mx-1 ${step > s.num ? 'bg-green-500' : 'bg-slate-800'}`} />}
             </div>
           ))}
+        </div>
+        <div className="mb-6">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-slate-400">Előrehaladás</span>
+            <span className="text-green-400 font-semibold">{progressPercent}%</span>
+          </div>
+          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
 
         {/* Step 1: Car Size, Category, Package Selection */}
@@ -1191,8 +1214,10 @@ const BookingPage = () => {
                   </label>
                   
                   {loadingSlots ? (
-                    <div className="text-center py-8">
-                      <Loader2 className="w-8 h-8 mx-auto text-green-400 animate-spin" />
+                    <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+                      {Array.from({ length: 10 }).map((_, idx) => (
+                        <Skeleton key={`slot-skeleton-${idx}`} className="h-14 rounded-xl bg-slate-700/30" />
+                      ))}
                     </div>
                   ) : (
                     <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
