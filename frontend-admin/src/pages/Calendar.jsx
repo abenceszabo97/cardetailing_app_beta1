@@ -121,6 +121,16 @@ const Calendar = () => {
     return () => clearInterval(pollInterval);
   }, []);
 
+  // Global realtime refresh (dispatched from App-level SSE connection)
+  useEffect(() => {
+    const handleDataChanged = () => fetchData();
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => {
+      window.removeEventListener("xclean:data-changed", handleDataChanged);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, location, view]);
+
   useEffect(() => {
     axios.get(`${API}/services`, { withCredentials: true }).then(r => setServices(r.data)).catch(() => {});
   }, []);

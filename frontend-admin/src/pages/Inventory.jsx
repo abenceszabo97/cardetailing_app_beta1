@@ -75,6 +75,13 @@ export const Inventory = () => {
     fetchInventory();
   }, [selectedLocation, locationForApi]);
 
+  useEffect(() => {
+    const handleDataChanged = () => fetchInventory();
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocation, locationForApi]);
+
   const handleCreateItem = async () => {
     try {
       await axios.post(`${API}/inventory`, newItem, { withCredentials: true });

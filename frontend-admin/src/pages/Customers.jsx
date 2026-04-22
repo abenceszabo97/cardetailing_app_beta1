@@ -134,6 +134,16 @@ export const Customers = () => {
   }, [selectedLocation, locationForApi]);
 
   useEffect(() => {
+    const handleDataChanged = () => {
+      fetchCustomers();
+      fetchBlacklist();
+    };
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocation, locationForApi]);
+
+  useEffect(() => {
     const filtered = customers.filter(c => 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.plate_number.toLowerCase().includes(searchTerm.toLowerCase()) ||

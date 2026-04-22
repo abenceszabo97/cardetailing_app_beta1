@@ -502,6 +502,17 @@ export const Workers = () => {
     }
   };
 
+  useEffect(() => {
+    const handleDataChanged = () => {
+      fetchData();
+      if (viewMode === "stats") fetchWorkerStats(statsLocation);
+      if (viewMode === "absences") fetchAbsences();
+    };
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocation, viewMode, statsMonth, statsLocation]);
+
   const handleAddAbsence = async () => {
     if (!absenceForm.worker_id || !absenceForm.date) return;
     setAddingAbsence(true);

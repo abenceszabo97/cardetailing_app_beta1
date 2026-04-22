@@ -104,6 +104,13 @@ export const DayManagement = () => {
     fetchData();
   }, [dayLoc]);
 
+  useEffect(() => {
+    const handleDataChanged = () => fetchData();
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayLoc]);
+
   const handleOpenDay = async () => {
     try {
       await axios.post(`${API}/day-records/open`, {

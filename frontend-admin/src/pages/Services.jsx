@@ -153,6 +153,17 @@ export const Services = () => {
     fetchExtras();
   }, [servicesLoc]);
 
+  useEffect(() => {
+    const handleDataChanged = () => {
+      fetchServices(servicesLoc);
+      fetchPromotions(servicesLoc);
+      fetchExtras();
+    };
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servicesLoc]);
+
   const fetchExtras = async () => {
     try {
       const locParam = locationForApi ? `?location=${locationForApi}` : "";

@@ -137,6 +137,18 @@ export const Statistics = () => {
     fetchStats();
   }, [selectedLocation]);
 
+  useEffect(() => {
+    const handleDataChanged = () => {
+      fetchStats();
+      if (selectedDate !== format(new Date(), "yyyy-MM-dd")) {
+        fetchHistoryStats(selectedDate);
+      }
+    };
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocation, selectedDate]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedDate !== format(new Date(), "yyyy-MM-dd")) {

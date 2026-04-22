@@ -145,6 +145,40 @@ const MainLayout = ({ children }) => {
     return () => clearTimeout(timer);
   }, [customerSearch]);
 
+  // Global realtime bus: one SSE connection for whole admin app.
+  useEffect(() => {
+    let es;
+    let retryTimeout;
+
+    const connectSSE = () => {
+      try {
+        es = new EventSource(`${API}/events/dashboard`, { withCredentials: true });
+        es.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "refresh") {
+              window.dispatchEvent(new CustomEvent("xclean:data-changed", { detail: msg }));
+            }
+          } catch {
+            // Ignore malformed payloads/heartbeats
+          }
+        };
+        es.onerror = () => {
+          es?.close();
+          retryTimeout = setTimeout(connectSSE, 5000);
+        };
+      } catch {
+        retryTimeout = setTimeout(connectSSE, 5000);
+      }
+    };
+
+    connectSSE();
+    return () => {
+      es?.close();
+      clearTimeout(retryTimeout);
+    };
+  }, []);
+
   const openCustomer = (customerId) => {
     navigate(`/customers/${customerId}`);
     setCustomerSearch("");

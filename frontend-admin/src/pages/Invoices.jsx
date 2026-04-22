@@ -93,6 +93,12 @@ export const Invoices = () => {
     fetchInvoices();
   }, [fetchInvoices]);
 
+  useEffect(() => {
+    const handleDataChanged = () => fetchInvoices();
+    window.addEventListener("xclean:data-changed", handleDataChanged);
+    return () => window.removeEventListener("xclean:data-changed", handleDataChanged);
+  }, [fetchInvoices]);
+
   const handleResendEmail = async (invoiceId) => {
     setResendingId(invoiceId);
     try {
