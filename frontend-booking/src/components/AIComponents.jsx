@@ -22,7 +22,11 @@ const API = `${backendBaseUrl}/api`;
 export const AIChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Szia! Én vagyok az X-CLEAN AI asszisztense. Miben segíthetek? Kérdezhetsz a szolgáltatásainkról, árainkról vagy a foglalásról!" }
+    {
+      role: "assistant",
+      content:
+        "Szia! Én vagyok az X-CLEAN AI asszisztense. Segítek a foglalásban, árakban, nyitvatartásban és elérhetőségekben is. Kérdezz bátran!",
+    }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -152,7 +156,7 @@ export const AIChatbot = () => {
 
           {/* Quick Actions */}
           <div className="px-3 pb-3 flex flex-wrap gap-1.5">
-            {["Szolgáltatások", "Árak", "Nyitvatartás", "Foglalás"].map(q => (
+            {["Szolgáltatások", "Árak", "Nyitvatartás", "Cím", "Késés/lemondás"].map(q => (
               <button
                 key={q}
                 onClick={() => { setInput(q); }}
