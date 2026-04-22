@@ -217,6 +217,10 @@ export const Dashboard = () => {
     // ── SSE: live refresh when jobs/bookings change ────────────────────────
     let es;
     let retryTimeout;
+    const refreshInterval = setInterval(fetchData, 60000);
+    const handleNewBooking = () => fetchData();
+
+    window.addEventListener("xclean:new-booking", handleNewBooking);
     const connectSSE = () => {
       try {
         es = new EventSource(`${API}/events/dashboard`, { withCredentials: true });
@@ -237,6 +241,8 @@ export const Dashboard = () => {
     return () => {
       es?.close();
       clearTimeout(retryTimeout);
+      clearInterval(refreshInterval);
+      window.removeEventListener("xclean:new-booking", handleNewBooking);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLocation, locationForApi]);
@@ -1025,7 +1031,17 @@ export const Dashboard = () => {
                 </div>
               ) : (
                 /* Worker-based view - responsive columns */
-                <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-4">
+                <div
+                  className="space-y-4 md:space-y-0 md:grid md:gap-4"
+                  style={{
+                    gridTemplateColumns:
+                      workers.length <= 1
+                        ? "minmax(0, 1fr)"
+                        : workers.length === 2
+                          ? "repeat(2, minmax(0, 1fr))"
+                          : "repeat(3, minmax(0, 1fr))",
+                  }}
+                >
                   {workers.map((worker, workerIndex) => {
                     const workerJobs = filteredTodayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
                     
@@ -1185,7 +1201,10 @@ export const Dashboard = () => {
 
                   {/* Unassigned jobs section - if there are any */}
                   {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
-                    <div className="md:col-span-2 xl:col-span-3 bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden">
+                    <div
+                      className="bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden"
+                      style={{ gridColumn: "1 / -1" }}
+                    >
                       <div className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-b border-orange-500/30 px-4 py-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">

@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { API } from "../App";
 import { Bell, AlertTriangle, Package, Calendar, Car, MapPin, CheckCheck } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { toast } from "sonner";
+import { showNotification, requestNotificationPermission } from "../services/notificationService";
 
 export const NotificationBell = () => {
   const [stockNotifications, setStockNotifications] = useState([]);
   const [bookingNotifications, setBookingNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("bookings");
+  const seenBookingNotificationIds = useRef(new Set());
+  const initialized = useRef(false);
 
   const fetchNotifications = async () => {
     try {
@@ -17,14 +21,34 @@ export const NotificationBell = () => {
         axios.get(`${API}/notifications/low-stock`, { withCredentials: true }),
         axios.get(`${API}/notifications/bookings`, { withCredentials: true })
       ]);
+      const latestBookings = Array.isArray(bookingRes.data) ? bookingRes.data : [];
+      const currentIds = new Set(latestBookings.map(n => n.notification_id));
+
+      if (initialized.current) {
+        const newItems = latestBookings.filter(n => !seenBookingNotificationIds.current.has(n.notification_id));
+        for (const item of newItems) {
+          await showNotification("📅 Új foglalás érkezett!", {
+            body: item.message || item.title || "Új online foglalás",
+            tag: `booking-notif-${item.notification_id}`,
+          });
+        }
+        if (newItems.length > 0) {
+          toast.success(`${newItems.length} új online foglalás érkezett`);
+          window.dispatchEvent(new CustomEvent("xclean:new-booking", { detail: { count: newItems.length } }));
+        }
+      }
+
+      seenBookingNotificationIds.current = currentIds;
+      initialized.current = true;
       setStockNotifications(stockRes.data);
-      setBookingNotifications(bookingRes.data);
+      setBookingNotifications(latestBookings);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     }
   };
 
   useEffect(() => {
+    requestNotificationPermission();
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 15000); // Poll every 15 seconds
     return () => clearInterval(interval);
