@@ -325,6 +325,7 @@ const Calendar = () => {
 
   const getServiceLabel = (booking) => booking?.service_name || booking?.service || "—";
   const getNotesLabel = (booking) => (booking?.notes && booking.notes.trim().length > 0 ? booking.notes : null);
+  const getPriceLabel = (booking) => `${(Number(booking?.price) || 0).toLocaleString()} Ft`;
 
   const getBookingsForSlot = (date, hour) => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -397,6 +398,7 @@ const Calendar = () => {
                       onClick={() => openBookingDetails(booking)}
                     >
                       <div className="font-medium truncate">{booking.customer_name}</div>
+                      <div className="text-slate-300 truncate">{booking.time_slot} · {getPriceLabel(booking)}</div>
                       <div className="text-slate-300 truncate">{booking.plate_number}</div>
                       <div className="text-slate-400 truncate">{getServiceLabel(booking)}</div>
                       {getNotesLabel(booking) && (
@@ -482,6 +484,7 @@ const Calendar = () => {
                             onClick={() => openBookingDetails(booking)}
                           >
                             <div className="font-medium truncate">{booking.customer_name}</div>
+                            <div className="text-slate-300 truncate text-[10px]">{booking.time_slot} · {getPriceLabel(booking)}</div>
                             <div className="text-slate-400 truncate text-[10px]">{booking.plate_number}</div>
                             <div className="text-slate-400 truncate text-[10px]">{getServiceLabel(booking)}</div>
                             {getNotesLabel(booking) && (
@@ -504,6 +507,7 @@ const Calendar = () => {
                           onClick={() => openBookingDetails(booking)}
                         >
                           <div className="font-medium truncate">{booking.customer_name}</div>
+                          <div className="text-orange-300/80 truncate text-[10px]">{booking.time_slot} · {getPriceLabel(booking)}</div>
                           <div className="text-orange-400/70 truncate text-[10px]">{booking.plate_number}</div>
                           <div className="text-orange-400/70 truncate text-[10px]">{getServiceLabel(booking)}</div>
                           {getNotesLabel(booking) && (
@@ -555,25 +559,25 @@ const Calendar = () => {
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, day, hour)}
                     >
-                      {slotBookings.slice(0, 2).map(booking => (
-                        <div
-                          key={booking.booking_id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, booking)}
-                          onDragEnd={handleDragEnd}
-                          className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-grab active:cursor-grabbing border-l-2 select-none ${STATUS_COLORS[booking.status]} hover:brightness-110 ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
-                          onClick={() => openBookingDetails(booking)}
-                          title={`${booking.time_slot} · ${booking.customer_name} · ${booking.plate_number} · ${getServiceLabel(booking)}${getNotesLabel(booking) ? ` · Megj.: ${getNotesLabel(booking)}` : ""}`}
-                        >
-                          <div className="font-semibold truncate">{booking.customer_name}</div>
-                          <div className="truncate">{booking.plate_number}</div>
-                          <div className="truncate text-[9px] opacity-90">{getServiceLabel(booking)}</div>
-                          {getNotesLabel(booking) && <div className="truncate text-[9px] opacity-75">Megj.: {getNotesLabel(booking)}</div>}
-                        </div>
-                      ))}
-                      {slotBookings.length > 2 && (
-                        <div className="text-[9px] text-slate-500 text-center">+{slotBookings.length - 2}</div>
-                      )}
+                      <div className="max-h-[52px] overflow-y-auto pr-0.5">
+                        {slotBookings.map(booking => (
+                          <div
+                            key={booking.booking_id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, booking)}
+                            onDragEnd={handleDragEnd}
+                            className={`px-1.5 py-0.5 mb-0.5 rounded text-[10px] cursor-grab active:cursor-grabbing border-l-2 select-none ${STATUS_COLORS[booking.status]} hover:brightness-110 ${draggedBooking?.booking_id === booking.booking_id ? 'opacity-40' : ''}`}
+                            onClick={() => openBookingDetails(booking)}
+                            title={`${booking.time_slot} · ${getPriceLabel(booking)} · ${booking.customer_name} · ${booking.plate_number} · ${getServiceLabel(booking)}${getNotesLabel(booking) ? ` · Megj.: ${getNotesLabel(booking)}` : ""}`}
+                          >
+                            <div className="font-semibold truncate">{booking.customer_name}</div>
+                            <div className="truncate">{booking.time_slot} · {getPriceLabel(booking)}</div>
+                            <div className="truncate">{booking.plate_number}</div>
+                            <div className="truncate text-[9px] opacity-90">{getServiceLabel(booking)}</div>
+                            {getNotesLabel(booking) && <div className="truncate text-[9px] opacity-75">Megj.: {getNotesLabel(booking)}</div>}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -609,7 +613,7 @@ const Calendar = () => {
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{booking.time_slot}</span>
-                          <span className="text-slate-400">{booking.plate_number}</span>
+                          <span className="text-slate-400">{getPriceLabel(booking)}</span>
                         </div>
                         <div className="flex items-center justify-between mt-1 gap-2">
                           <span className="truncate">{booking.customer_name}</span>
@@ -680,23 +684,21 @@ const Calendar = () => {
                         </span>
                       )}
                     </div>
-                    <div className="space-y-0.5">
-                      {dayBookings.slice(0, 2).map(booking => (
+                    <div className="max-h-[86px] overflow-y-auto pr-0.5 space-y-0.5">
+                      {dayBookings.map(booking => (
                         <div 
                           key={booking.booking_id} 
                           className={`text-[10px] px-1 py-0.5 rounded border-l-2 truncate ${STATUS_COLORS[booking.status]}`} 
                           onClick={(e) => { e.stopPropagation(); openBookingDetails(booking); }}
-                          title={`${booking.time_slot} · ${booking.customer_name} · ${booking.plate_number} · ${getServiceLabel(booking)}${getNotesLabel(booking) ? ` · Megj.: ${getNotesLabel(booking)}` : ""}`}
+                          title={`${booking.time_slot} · ${getPriceLabel(booking)} · ${booking.customer_name} · ${booking.plate_number} · ${getServiceLabel(booking)}${getNotesLabel(booking) ? ` · Megj.: ${getNotesLabel(booking)}` : ""}`}
                         >
                           <div className="font-medium truncate">{booking.customer_name}</div>
+                          <div className="truncate">{booking.time_slot} · {getPriceLabel(booking)}</div>
                           <div className="truncate">{booking.plate_number}</div>
                           <div className="truncate opacity-90">{getServiceLabel(booking)}</div>
                           {getNotesLabel(booking) && <div className="truncate opacity-75">Megj.: {getNotesLabel(booking)}</div>}
                         </div>
                       ))}
-                      {dayBookings.length > 2 && (
-                        <div className="text-[9px] text-slate-500 pl-1">+{dayBookings.length - 2} további</div>
-                      )}
                     </div>
                   </div>
                 );
