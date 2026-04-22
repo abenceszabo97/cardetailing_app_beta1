@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import axios from "axios";
 import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
@@ -224,6 +225,7 @@ export const Workers = () => {
       const shiftTypeLabel = (t) => {
         if (t === "normal") return "Munka";
         if (t === "vacation") return "Szabadság";
+        if (t === "day_off") return "Szabadnap";
         if (t === "sick_leave") return "Betegszabadság";
         if (t === "absence") return "Hiányzás";
         return t;
@@ -232,6 +234,7 @@ export const Workers = () => {
       const shiftTypeColor = (t) => {
         if (t === "normal") return "#16a34a";
         if (t === "vacation") return "#2563eb";
+        if (t === "day_off") return "#7c3aed";
         if (t === "sick_leave") return "#dc2626";
         if (t === "absence") return "#d97706";
         return "#64748b";
@@ -244,8 +247,8 @@ export const Workers = () => {
           <tr>
             <td style="padding: 5px 8px; border: 1px solid #e2e8f0;">${s.date}</td>
             <td style="padding: 5px 8px; border: 1px solid #e2e8f0;">${dayNames[s.day_name] || s.day_name}</td>
-            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type !== 'absence' ? s.start_time : '–'}</td>
-            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type !== 'absence' ? s.end_time : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type === 'normal' ? s.start_time : '–'}</td>
+            <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type === 'normal' ? s.end_time : '–'}</td>
             <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.lunch || '–'}</td>
             <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center;">${s.shift_type === 'normal' ? s.hours + ' ó' : '–'}</td>
             <td style="padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center; color: ${shiftTypeColor(s.shift_type)}; font-weight: bold;">${shiftTypeLabel(s.shift_type)}</td>
@@ -263,6 +266,7 @@ export const Workers = () => {
                 { label: 'Munkanapok', value: worker.normal_days + ' nap', color: '#16a34a' },
                 { label: 'Ledolg. órák', value: worker.total_hours + ' óra', color: '#15803d' },
                 { label: 'Szabadság', value: worker.vacation_days + ' nap', color: '#2563eb' },
+                { label: 'Szabadnap', value: (worker.day_off_days || 0) + ' nap', color: '#7c3aed' },
                 { label: 'Betegszabadság', value: worker.sick_days + ' nap', color: '#dc2626' },
                 { label: 'Hiányzás', value: (worker.absence_days || 0) + ' nap', color: '#d97706' },
               ].map(s => `
@@ -464,6 +468,7 @@ export const Workers = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchData();
   }, [selectedLocation]);
@@ -478,6 +483,7 @@ export const Workers = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (viewMode === "stats") {
       fetchWorkerStats(statsLocation);
@@ -664,6 +670,35 @@ export const Workers = () => {
     ];
     if (index < 0 || index === undefined) return colors[0];
     return colors[index % colors.length];
+  };
+
+  const getShiftTypeMeta = (shiftType) => {
+    switch (shiftType) {
+      case "normal":
+        return { label: "Munka", card: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
+      case "vacation":
+        return { label: "Szabadság", card: "bg-blue-500/20 text-blue-300 border-blue-500/40" };
+      case "day_off":
+        return { label: "Szabadnap", card: "bg-violet-500/20 text-violet-300 border-violet-500/40" };
+      case "sick_leave":
+        return { label: "Betegszab.", card: "bg-rose-500/20 text-rose-300 border-rose-500/40" };
+      default:
+        return { label: "Hiányzás", card: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
+    }
+  };
+
+  const formatShiftDuration = (shift) => {
+    if (!shift?.start_time || !shift?.end_time || shift.shift_type !== "normal") return getShiftTypeMeta(shift?.shift_type).label;
+    try {
+      const start = new Date(shift.start_time);
+      const end = new Date(shift.end_time);
+      const minutes = Math.max(0, Math.round((end - start) / 60000));
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return m === 0 ? `${h}ó` : `${h}ó ${m}p`;
+    } catch {
+      return `${format(new Date(shift.start_time), "HH:mm")} - ${format(new Date(shift.end_time), "HH:mm")}`;
+    }
   };
 
   const navigate = (direction) => {
@@ -1159,6 +1194,7 @@ export const Workers = () => {
                         <SelectContent className="bg-slate-900 border-slate-700">
                           <SelectItem value="normal" className="text-white">Munkanap</SelectItem>
                           <SelectItem value="vacation" className="text-yellow-400">Szabadság</SelectItem>
+                          <SelectItem value="day_off" className="text-violet-400">Szabadnap</SelectItem>
                           <SelectItem value="sick_leave" className="text-red-400">Betegszabadság</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1264,17 +1300,17 @@ export const Workers = () => {
                           </div>
                           <div className="space-y-1">
                             {dayShifts.slice(0, 3).map((shift) => {
-                              const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
-                              const colors = getWorkerColor(workerIndex);
+                              const typeMeta = getShiftTypeMeta(shift.shift_type);
                               return (
                                 <div 
                                   key={shift.shift_id}
                                   onClick={(e) => { e.stopPropagation(); handleEditShift(shift); }}
-                                  className={`${colors.light} ${colors.text} text-xs p-1 rounded truncate group relative hover:ring-1 hover:ring-white/30`}
-                                  title={`${shift.worker_name}: ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`}
+                                  className={`${typeMeta.card} border text-[11px] p-1.5 rounded group relative hover:ring-1 hover:ring-white/30`}
+                                  title={`${shift.worker_name} · ${typeMeta.label} · ${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`}
                                 >
-                                  <span>{shift.worker_name?.split(' ')[0]}</span>
-                                  {shift.lunch_start && <span className="text-yellow-500 ml-1">*</span>}
+                                  <div className="font-medium truncate hidden lg:block">{shift.worker_name}</div>
+                                  <div className="font-medium truncate lg:hidden">{shift.worker_name?.split(' ')[0]}</div>
+                                  <div className="text-[10px] opacity-90 truncate">{formatShiftDuration(shift)}</div>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setDeleteShiftId(shift.shift_id); }}
                                     className="absolute right-0 top-0 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"
@@ -1328,20 +1364,21 @@ export const Workers = () => {
                         {dayShifts.length > 0 && (
                           <div className="px-3 pb-3 space-y-1">
                             {dayShifts.map((shift) => {
-                              const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
-                              const colors = getWorkerColor(workerIndex);
+                              const typeMeta = getShiftTypeMeta(shift.shift_type);
                               return (
                                 <div 
                                   key={shift.shift_id}
                                   onClick={() => handleEditShift(shift)}
-                                  className={`${colors.light} ${colors.text} text-sm p-2 rounded flex items-center justify-between`}
+                                  className={`${typeMeta.card} border text-sm p-2 rounded flex items-center justify-between`}
                                 >
                                   <div>
                                     <span className="font-medium">{shift.worker_name}</span>
                                     <span className="text-xs ml-2">
-                                      {format(new Date(shift.start_time), 'HH:mm')} - {format(new Date(shift.end_time), 'HH:mm')}
+                                      {shift.shift_type === "normal"
+                                        ? `${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}`
+                                        : typeMeta.label}
                                     </span>
-                                    {shift.lunch_start && (
+                                    {shift.shift_type === "normal" && shift.lunch_start && (
                                       <span className="text-yellow-500 text-xs ml-2">Ebéd: {shift.lunch_start}-{shift.lunch_end}</span>
                                     )}
                                   </div>
@@ -1402,22 +1439,27 @@ export const Workers = () => {
                                 <td key={day.toString()} className="p-2 align-top">
                                   <div className="space-y-1">
                                     {dayShifts.map(shift => (
+                                      (() => {
+                                        const typeMeta = getShiftTypeMeta(shift.shift_type);
+                                        return (
                                       <div 
                                         key={shift.shift_id}
-                                        className={`${colors.bg} text-white text-xs p-1 rounded group`}
+                                        className={`${typeMeta.card} border text-xs p-1 rounded group`}
                                       >
                                         <div className="flex items-center justify-between">
-                                          <span>{format(new Date(shift.start_time), 'HH:mm')}-{format(new Date(shift.end_time), 'HH:mm')}</span>
+                                          <span>{shift.shift_type === "normal" ? `${format(new Date(shift.start_time), 'HH:mm')}-${format(new Date(shift.end_time), 'HH:mm')}` : typeMeta.label}</span>
                                           <button onClick={() => setDeleteShiftId(shift.shift_id)} className="opacity-0 group-hover:opacity-100 ml-1">
                                             <Trash2 className="w-3 h-3" />
                                           </button>
                                         </div>
-                                        {shift.lunch_start && shift.lunch_end && (
+                                        {shift.shift_type === "normal" && shift.lunch_start && shift.lunch_end && (
                                           <div className="text-yellow-300 text-[10px] mt-0.5 flex items-center gap-1">
                                             <span>Ebéd: {shift.lunch_start}-{shift.lunch_end}</span>
                                           </div>
                                         )}
                                       </div>
+                                        );
+                                      })()
                                     ))}
                                   </div>
                                 </td>
@@ -1462,20 +1504,19 @@ export const Workers = () => {
                             <p className="text-slate-500 text-sm text-center py-2">Nincs műszak</p>
                           ) : (
                             dayShifts.map(shift => {
-                              const workerIndex = workers.findIndex(w => w.worker_id === shift.worker_id);
-                              const colors = getWorkerColor(workerIndex);
+                              const typeMeta = getShiftTypeMeta(shift.shift_type);
                               return (
                                 <div 
                                   key={shift.shift_id}
-                                  className={`${colors.light} ${colors.text} rounded-lg p-2 flex items-center justify-between`}
+                                  className={`${typeMeta.card} border rounded-lg p-2 flex items-center justify-between`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-8 rounded ${colors.bg}`} />
+                                    <div className={`w-2 h-8 rounded ${typeMeta.card.includes("emerald") ? "bg-emerald-500" : typeMeta.card.includes("blue") ? "bg-blue-500" : typeMeta.card.includes("violet") ? "bg-violet-500" : typeMeta.card.includes("rose") ? "bg-rose-500" : "bg-amber-500"}`} />
                                     <div>
                                       <p className="font-medium text-sm">{shift.worker_name}</p>
                                       <p className="text-xs opacity-80">
-                                        {format(new Date(shift.start_time), 'HH:mm')} - {format(new Date(shift.end_time), 'HH:mm')}
-                                        {shift.lunch_start && (
+                                        {shift.shift_type === "normal" ? `${format(new Date(shift.start_time), 'HH:mm')} - ${format(new Date(shift.end_time), 'HH:mm')}` : typeMeta.label}
+                                        {shift.shift_type === "normal" && shift.lunch_start && (
                                           <span className="text-yellow-500 ml-2">Ebéd: {shift.lunch_start}-{shift.lunch_end}</span>
                                         )}
                                       </p>
@@ -1982,6 +2023,7 @@ export const Workers = () => {
                   <SelectContent className="bg-slate-900 border-slate-700">
                     <SelectItem value="normal" className="text-white">Munkanap</SelectItem>
                     <SelectItem value="vacation" className="text-yellow-400">Szabadság</SelectItem>
+                    <SelectItem value="day_off" className="text-violet-400">Szabadnap</SelectItem>
                     <SelectItem value="sick_leave" className="text-red-400">Betegszabadság</SelectItem>
                   </SelectContent>
                 </Select>

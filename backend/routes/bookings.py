@@ -5,14 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
-import asyncio
 import uuid
 import logging
 import re
 from dependencies import get_current_user
 from routes.events import publish_event
 from database import db
-from config import RESEND_API_KEY, SENDER_EMAIL
+from config import RESEND_API_KEY
 from models.user import User
 from models.booking import Booking, BookingCreate, BookingUpdate
 from models.customer import Customer
@@ -28,6 +27,28 @@ def time_to_minutes(time_str: str) -> int:
 def minutes_to_time(minutes: int) -> str:
     """Convert minutes from midnight to HH:MM"""
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+def _parse_hhmm_to_minutes(value: Optional[str]) -> Optional[int]:
+    if not value:
+        return None
+    try:
+        hour, minute = value.split(":")
+        return int(hour) * 60 + int(minute)
+    except Exception:
+        return None
+
+def _intervals_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool:
+    """Return True if [start_a, end_a) overlaps [start_b, end_b)."""
+    return max(start_a, start_b) < min(end_a, end_b)
+
+def _extract_time_minutes_from_iso(value: Optional[str]) -> Optional[int]:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value)
+        return dt.hour * 60 + dt.minute
+    except Exception:
+        return None
 
 
 def is_past_slot_local(date_str: str, time_str: str) -> bool:
@@ -94,7 +115,42 @@ async def get_available_slots(
         {"date": date}, {"_id": 0, "worker_id": 1}
     ).to_list(50)
     absent_ids = {a["worker_id"] for a in absences}
+
+    # Also exclude workers that are marked unavailable in shift planning.
+    # These shift types are non-bookable on that day.
+    unavailable_shifts = await db.shifts.find(
+        {
+            "start_time": {"$regex": f"^{date}"},
+            "shift_type": {"$in": ["vacation", "day_off", "sick_leave", "absence"]},
+        },
+        {"_id": 0, "worker_id": 1},
+    ).to_list(200)
+    absent_ids.update(s["worker_id"] for s in unavailable_shifts if s.get("worker_id"))
+
     workers_list = [w for w in workers_list if w["worker_id"] not in absent_ids]
+
+    # Build configured shift windows + lunch-break windows per worker for the selected date.
+    shifts_for_day = await db.shifts.find(
+        {
+            "start_time": {"$regex": f"^{date}"},
+            "worker_id": {"$in": [w["worker_id"] for w in workers_list]},
+        },
+        {"_id": 0, "worker_id": 1, "shift_type": 1, "start_time": 1, "end_time": 1, "lunch_start": 1, "lunch_end": 1},
+    ).to_list(300)
+    shift_windows_by_worker = {}
+    lunch_breaks_by_worker = {}
+    for shift in shifts_for_day:
+        wid = shift.get("worker_id")
+        shift_type = shift.get("shift_type", "normal")
+        start_min = _extract_time_minutes_from_iso(shift.get("start_time"))
+        end_min = _extract_time_minutes_from_iso(shift.get("end_time"))
+        if wid and shift_type == "normal" and start_min is not None and end_min is not None and end_min > start_min:
+            shift_windows_by_worker.setdefault(wid, []).append((start_min, end_min))
+
+        lunch_start = _parse_hhmm_to_minutes(shift.get("lunch_start"))
+        lunch_end = _parse_hhmm_to_minutes(shift.get("lunch_end"))
+        if wid and lunch_start is not None and lunch_end is not None and lunch_end > lunch_start:
+            lunch_breaks_by_worker.setdefault(wid, []).append((lunch_start, lunch_end))
 
     # Get all bookings for the date (excluding cancelled/no-show)
     existing = await db.bookings.find({
@@ -140,6 +196,24 @@ async def get_available_slots(
             for w in workers_list:
                 worker_id = w["worker_id"]
                 is_free = True
+                slot_end_minutes = slot_minutes + check_duration
+
+                # Worker is bookable only if the whole appointment fits into at least one normal shift window.
+                worker_shift_windows = shift_windows_by_worker.get(worker_id, [])
+                fits_any_shift_window = any(
+                    slot_minutes >= shift_start and slot_end_minutes <= shift_end
+                    for shift_start, shift_end in worker_shift_windows
+                )
+                if not fits_any_shift_window:
+                    continue
+
+                # Block slots that overlap worker's configured lunch break window.
+                for lunch_start, lunch_end in lunch_breaks_by_worker.get(worker_id, []):
+                    if _intervals_overlap(slot_minutes, slot_end_minutes, lunch_start, lunch_end):
+                        is_free = False
+                        break
+                if not is_free:
+                    continue
                 
                 # Check if all needed slots are free for this worker
                 for i in range(slots_needed):

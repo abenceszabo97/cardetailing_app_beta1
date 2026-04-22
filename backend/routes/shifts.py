@@ -213,6 +213,7 @@ async def get_attendance_report(month: Optional[str] = None, worker_id: Optional
                 "total_hours": 0,
                 "normal_days": 0,
                 "vacation_days": 0,
+                "day_off_days": 0,
                 "sick_days": 0,
                 "absence_days": 0
             }
@@ -248,6 +249,8 @@ async def get_attendance_report(month: Optional[str] = None, worker_id: Optional
             workers_data[wid]["normal_days"] += 1
         elif shift_type == "vacation":
             workers_data[wid]["vacation_days"] += 1
+        elif shift_type == "day_off":
+            workers_data[wid]["day_off_days"] += 1
         elif shift_type == "sick_leave":
             workers_data[wid]["sick_days"] += 1
         elif shift_type == "absence":
@@ -283,6 +286,7 @@ async def get_leave_stats(year: Optional[str] = None, worker_id: Optional[str] =
                 "worker_id": wid,
                 "worker_name": shift.get("worker_name", ""),
                 "vacation_days": 0,
+                "day_off_days": 0,
                 "sick_days": 0,
                 "normal_days": 0
             }
@@ -290,6 +294,8 @@ async def get_leave_stats(year: Optional[str] = None, worker_id: Optional[str] =
         shift_type = shift.get("shift_type", "normal")
         if shift_type == "vacation":
             stats[wid]["vacation_days"] += 1
+        elif shift_type == "day_off":
+            stats[wid]["day_off_days"] += 1
         elif shift_type == "sick_leave":
             stats[wid]["sick_days"] += 1
         else:

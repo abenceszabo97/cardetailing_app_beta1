@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import axios from "axios";
 import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
@@ -145,6 +146,7 @@ export const Services = () => {
     setServicesLoc(locationForApi || "all");
   }, [locationForApi]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchServices(servicesLoc);
     fetchPromotions(servicesLoc);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth } from "../App";
@@ -96,6 +97,7 @@ export const CustomerDetail = () => {
     finally { setInvoicesLoading(false); }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchCustomer();
     fetchInvoices();

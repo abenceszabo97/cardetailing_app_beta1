@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth, useLocation2 } from "../App";
@@ -116,6 +117,7 @@ export const Customers = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchCustomers();
     fetchBlacklist();

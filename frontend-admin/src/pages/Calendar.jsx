@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import axios from "axios";
 import { useLocation2 } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";

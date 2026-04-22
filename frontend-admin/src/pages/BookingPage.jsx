@@ -13,9 +13,14 @@ import {
 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, isToday, isBefore } from "date-fns";
 import { hu } from "date-fns/locale";
-import { AIChatbot, AIUpsellSuggestions } from "../components/AIComponents";
+import { AIChatbot } from "../components/AIComponents";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const backendBaseUrl = (
+  process.env.REACT_APP_BACKEND_URL ||
+  process.env.REACT_APP_API_URL ||
+  window.location.origin
+).replace(/\/$/, "");
+const API = `${backendBaseUrl}/api`;
 
 // Car size icons - inline SVG components matching reference image style
 const CarIcons = {
@@ -158,7 +163,7 @@ const BookingPage = () => {
     }
   }, [form.location]);
 
-  // Load slots when date changes - include duration for time blocking
+  // Load slots when date changes - include duration for time blocking.
   useEffect(() => {
     if (form.location && form.date) {
       setLoadingSlots(true);
@@ -177,6 +182,7 @@ const BookingPage = () => {
     selectedPolishingType,
     cleaningAddon,
     cleaningPackage,
+    getDuration,
   ]);
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
@@ -200,20 +206,6 @@ const BookingPage = () => {
     return pricingData?.package_features?.[selectedCategory]?.[selectedPackage] || [];
   };
 
-  const getDuration = () => {
-    if (selectedPromotion) return selectedPromotion.duration || 70;
-    if (selectedCategory === "poliroz" && selectedSize) {
-      const polishDurations = { "1lepes": { S: 90, M: 100, L: 120, XL: 140, XXL: 160 }, "tobbLepes": { S: 150, M: 180, L: 210, XL: 240, XXL: 270 } };
-      const base = polishDurations[selectedPolishingType]?.[selectedSize] || 120;
-      return base + getCleaningAddonDuration();
-    }
-    if (!selectedSize || !selectedCategory || !pricingData) return 0;
-    let base = pricingData?.duration_matrix?.[selectedSize]?.[selectedCategory] || 60;
-    if (selectedPackage === "VIP") base = Math.round(base * 1.5);
-    else if (selectedPackage === "Pro") base = Math.round(base * 1.2);
-    return base;
-  };
-
   const getExtrasTotal = () => {
     return selectedExtras.reduce((sum, extraId) => {
       const extra = extras.find(e => e.service_id === extraId || e.name === extraId);
@@ -226,10 +218,32 @@ const BookingPage = () => {
     return pricingData?.price_matrix?.[selectedSize]?.[cleaningAddon]?.[cleaningPackage] ?? 0;
   };
 
-  const getCleaningAddonDuration = () => {
+  const getCleaningAddonDuration = useCallback(() => {
     if (!cleaningAddon || !selectedSize || !pricingData) return 0;
     return pricingData?.duration_matrix?.[selectedSize]?.[cleaningAddon] ?? 0;
-  };
+  }, [cleaningAddon, selectedSize, pricingData]);
+
+  const getDuration = useCallback(() => {
+    if (selectedPromotion) return selectedPromotion.duration || 70;
+    if (selectedCategory === "poliroz" && selectedSize) {
+      const polishDurations = { "1lepes": { S: 90, M: 100, L: 120, XL: 140, XXL: 160 }, "tobbLepes": { S: 150, M: 180, L: 210, XL: 240, XXL: 270 } };
+      const base = polishDurations[selectedPolishingType]?.[selectedSize] || 120;
+      return base + getCleaningAddonDuration();
+    }
+    if (!selectedSize || !selectedCategory || !pricingData) return 0;
+    let base = pricingData?.duration_matrix?.[selectedSize]?.[selectedCategory] || 60;
+    if (selectedPackage === "VIP") base = Math.round(base * 1.5);
+    else if (selectedPackage === "Pro") base = Math.round(base * 1.2);
+    return base;
+  }, [
+    selectedPromotion,
+    selectedCategory,
+    selectedSize,
+    selectedPolishingType,
+    getCleaningAddonDuration,
+    pricingData,
+    selectedPackage,
+  ]);
 
   const getTotalPrice = () => getPrice() + getExtrasTotal() + (selectedCategory === "poliroz" ? getCleaningAddonPrice() : 0);
 

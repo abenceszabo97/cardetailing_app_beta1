@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Star, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "../App";
 
 const LABELS = ["", "Nagyon elégedetlen", "Elégedetlen", "Semleges", "Elégedett", "Nagyon elégedett"];
 

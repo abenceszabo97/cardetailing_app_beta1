@@ -258,7 +258,7 @@ export const Dashboard = () => {
       const updatedJob = todayJobs.find(j => j.job_id === selectedJob.job_id);
       if (updatedJob) setSelectedJob(updatedJob);
     }
-  }, [todayJobs]);
+  }, [todayJobs, selectedJob]);
 
   const handleCreateJob = async () => {
     try {

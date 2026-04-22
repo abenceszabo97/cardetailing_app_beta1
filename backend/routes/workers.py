@@ -114,6 +114,7 @@ async def add_worker_absence(worker_id: str, data: AbsenceCreate, user: User = D
     shift_type_map = {
         "Betegszabadság": "sick_leave",
         "Szabadság": "vacation",
+        "Szabadnap": "day_off",
     }
     shift_type = shift_type_map.get(reason, "absence")  # "absence" = unexcused/other
 

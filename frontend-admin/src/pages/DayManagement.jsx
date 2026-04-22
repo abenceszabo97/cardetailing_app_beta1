@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import axios from "axios";
 import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
@@ -93,6 +94,7 @@ export const DayManagement = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setTodayRecord(null);
     setPreviousDayRecord(null);
