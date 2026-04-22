@@ -373,13 +373,6 @@ export const Dashboard = () => {
         }
       }
 
-      // Auto-open invoice dialog when marking job as done with payment
-      if (status === "kesz" && paymentMethod && job && !job.invoice_number) {
-        const jobWithPayment = { ...job, payment_method: paymentMethod };
-        // Small delay so fetchData can start, then open dialog
-        setTimeout(() => openInvoiceDialog(jobWithPayment), 300);
-      }
-
       pulseJobCard(jobId);
       fetchData();
     } catch (error) {
@@ -1810,10 +1803,10 @@ export const Dashboard = () => {
                 <Label className="text-slate-300 mb-2 block">Számlázási fiók</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: "auto", label: "🤖 Automatikus" },
-                    { value: "budapest", label: "🏙️ Budapest" },
-                    { value: "debrecen_private", label: "👤 Debrecen – Magánszemély" },
-                    { value: "debrecen_company", label: "🏢 Debrecen – Céges" },
+                    { value: "auto", label: "🤖 Automatikus (szabály alapú)" },
+                    { value: "budapest", label: "🏙️ X-CLEAN-AUTÓKOZMETIKA Kft." },
+                    { value: "debrecen_private", label: "💵 X-CLEAN-KÁRPIT Kft." },
+                    { value: "debrecen_company", label: "💳 LB Human Kft." },
                   ].map(opt => (
                     <button
                       key={opt.value}
@@ -1829,6 +1822,9 @@ export const Dashboard = () => {
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Auto szabály: Budapest -> X-CLEAN-AUTÓKOZMETIKA; Debrecen készpénz -> X-CLEAN-KÁRPIT; Debrecen kártya/átutalás vagy céges számla -> LB Human.
+                </p>
               </div>
               <div>
                 <Label className="text-slate-300">Megjegyzés</Label>

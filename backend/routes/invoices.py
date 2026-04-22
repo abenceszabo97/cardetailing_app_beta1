@@ -2,13 +2,10 @@
 Számlázz.hu Invoice Integration — Multi-entity support
 Docs: https://docs.szamlazz.hu/
 
-Billing logic:
-  - Budapest            → API key: szamlazz_budapest   (X cég)
-  - Debrecen + private  → API key: szamlazz_debrecen_p (Y cég)
-  - Debrecen + company  → API key: szamlazz_debrecen_c (Z cég)
-
-Company detection: customer name contains KFT, BT, ZRT, RT, NYRT, KHT, SZK, stb.
-No VAT number / private person → send nyugta (receipt) instead of számla
+Configured entities:
+  - szamlazz_budapest         → X-CLEAN-AUTÓKOZMETIKA Kft. (Budapest)
+  - szamlazz_debrecen_private → X-CLEAN-KÁRPIT Kft. (Debrecen készpénz)
+  - szamlazz_debrecen_company → LB Human Kft. (Debrecen kártya/átutalás + céges számla)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -47,15 +44,23 @@ async def get_setting(key: str) -> Optional[str]:
     return doc.get("value") if doc else None
 
 
-async def resolve_api_key(location: str, is_company: bool) -> Optional[str]:
-    """Determine which Számlázz.hu API key to use."""
-    if location and location.lower() == "budapest":
-        key = await get_setting("szamlazz_budapest")
-    elif is_company:
-        key = await get_setting("szamlazz_debrecen_company")
-    else:
-        key = await get_setting("szamlazz_debrecen_private")
-    return key or None
+def _resolve_billing_entity(location: str, payment_method: str, is_company: bool) -> str:
+    """Determine billing entity based on business rules."""
+    loc = (location or "").strip().lower()
+    method = _normalize_payment_method(payment_method)
+
+    if loc == "budapest":
+        return "budapest"
+
+    # Debrecen rules:
+    # - céges számla -> LB Human Kft.
+    # - készpénz -> X-CLEAN-KÁRPIT Kft.
+    # - otherwise (kártya/átutalás, stb.) -> LB Human Kft.
+    if is_company:
+        return "debrecen_company"
+    if method == "keszpenz":
+        return "debrecen_private"
+    return "debrecen_company"
 
 
 # ─── Pydantic models ──────────────────────────────────────────────────────────
@@ -312,20 +317,22 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
             data = data.model_copy(update={"extra_items": auto_extras})
 
     location = job.get("location", "Debrecen")
+    normalized_payment_method = _normalize_payment_method(data.payment_method)
+    data = data.model_copy(update={"payment_method": normalized_payment_method})
+
     is_company = detect_company(data.buyer_name) or bool(data.buyer_tax_number)
     is_receipt = not data.want_invoice or (not data.buyer_tax_number and not is_company)
 
     if data.billing_entity:
-        api_key = await get_setting(f"szamlazz_{data.billing_entity}")
+        selected_entity = data.billing_entity
+        api_key = await get_setting(f"szamlazz_{selected_entity}")
         if not api_key:
-            raise HTTPException(status_code=400, detail=f"Nincs beállítva API kulcs ehhez a fiókhoz ({data.billing_entity}). Menj a Beállítások oldalra.")
+            raise HTTPException(status_code=400, detail=f"Nincs beállítva API kulcs ehhez a fiókhoz ({selected_entity}). Menj a Beállítások oldalra.")
     else:
-        api_key = await resolve_api_key(location, is_company)
+        selected_entity = _resolve_billing_entity(location, data.payment_method, is_company)
+        api_key = await get_setting(f"szamlazz_{selected_entity}")
         if not api_key:
-            raise HTTPException(status_code=400, detail="Számlázz.hu API kulcs nincs beállítva ehhez a telephely/ügyfél kombinációhoz. Menj a Beállítások oldalra.")
-
-    normalized_payment_method = _normalize_payment_method(data.payment_method)
-    data = data.model_copy(update={"payment_method": normalized_payment_method})
+            raise HTTPException(status_code=400, detail=f"Számlázz.hu API kulcs nincs beállítva ehhez a szabályhoz ({selected_entity}). Menj a Beállítások oldalra.")
 
     xml_payload = _build_invoice_xml(api_key, job, data, is_receipt)
 
@@ -388,7 +395,7 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
         "invoice_number": invoice_number,
         "amount": job.get("price", 0),
         "location": location,
-        "billing_entity": "budapest" if location.lower() == "budapest" else ("debrecen_company" if is_company else "debrecen_private"),
+        "billing_entity": selected_entity,
         "payment_method": data.payment_method,
         "status": "fizetve" if data.payment_method in ("keszpenz", "kartya") else "fizetesre_var",
         "job_date": (job.get("date") or "")[:10],

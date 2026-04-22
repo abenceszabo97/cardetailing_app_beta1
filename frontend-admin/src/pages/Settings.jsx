@@ -490,8 +490,7 @@ export const Settings = () => {
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-5">
           <p className="text-slate-400 text-sm">
-            Háromféle számlázási entitás: Budapest (X cég), Debrecen magánszemély (Y cég), Debrecen cég (Z cég).
-            Az ügyfél neve alapján automatikusan kerül kiválasztásra a megfelelő számlázó.
+            Automatikus szabályok: Budapest -> X-CLEAN-AUTÓKOZMETIKA Kft.; Debrecen készpénz -> X-CLEAN-KÁRPIT Kft.; Debrecen kártya/átutalás vagy céges számla -> LB Human Kft.
           </p>
           <a
             href="https://www.szamlazz.hu/szamla/main?page=beallitasok"
@@ -505,9 +504,9 @@ export const Settings = () => {
 
           {/* Budapest */}
           {[
-            { entity: "budapest", label: "Budapest — X cég", desc: "Minden budapesti munkához" },
-            { entity: "debrecen_private", label: "Debrecen – Magánszemély — Y cég", desc: "Debreceni magánügyfelek (nincs adószám)" },
-            { entity: "debrecen_company", label: "Debrecen – Cég — Z cég", desc: "Debreceni vállalkozások (KFT, BT, ZRT stb.)" },
+            { entity: "budapest", label: "X-CLEAN-AUTÓKOZMETIKA Kft. API", desc: "Csak budapesti számlákhoz" },
+            { entity: "debrecen_private", label: "X-CLEAN-KÁRPIT Kft. API", desc: "Debrecen készpénzes fizetéshez" },
+            { entity: "debrecen_company", label: "LB Human Kft. API", desc: "Debrecen kártya/átutalás + debreceni céges számla" },
           ].map(({ entity, label, desc }) => (
             <div key={entity} className="p-3 rounded-lg border border-slate-700 space-y-2">
               <div className="flex items-center justify-between">
