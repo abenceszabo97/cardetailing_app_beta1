@@ -138,12 +138,7 @@ export const notifyJobStatusChange = (jobInfo, newStatus) => {
 };
 
 export const notifyPayment = (jobInfo, paymentMethod) => {
-  const methodLabel =
-    paymentMethod === 'keszpenz'
-      ? '💵 Készpénz'
-      : (paymentMethod === 'utalas' || paymentMethod === 'atutalas' || paymentMethod === 'banki_atutalas')
-        ? '🏦 Utalás'
-        : '💳 Kártya';
+  const methodLabel = paymentMethod === 'keszpenz' ? '💵 Készpénz' : '💳 Kártya';
   
   return showNotification(
     '💰 Fizetés rögzítve',

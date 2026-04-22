@@ -115,16 +115,14 @@ export const Statistics = () => {
         const jobs = jobsRes.data || [];
 
         const cashTotal = jobs.filter(j => j.payment_method === 'keszpenz').reduce((sum, j) => sum + (j.price || 0), 0);
-        const cardTotal = jobs.filter(j => ['kartya', 'bankkartya'].includes(j.payment_method)).reduce((sum, j) => sum + (j.price || 0), 0);
-        const transferTotal = jobs.filter(j => ['utalas', 'atutalas', 'banki_atutalas'].includes(j.payment_method)).reduce((sum, j) => sum + (j.price || 0), 0);
+        const cardTotal = jobs.filter(j => j.payment_method === 'kartya').reduce((sum, j) => sum + (j.price || 0), 0);
 
         setHistoryStats({
           date: date,
           cars_completed: jobs.length,
           cash_revenue: cashTotal,
           card_revenue: cardTotal,
-          transfer_revenue: transferTotal,
-          total_revenue: cashTotal + cardTotal + transferTotal
+          total_revenue: cashTotal + cardTotal
         });
       } catch (e) {
         setHistoryStats(null);
@@ -216,7 +214,6 @@ export const Statistics = () => {
           ["Osszes bevetel", `${report.summary.total_revenue.toLocaleString()} Ft`],
           ["Keszpenz bevetel", `${report.summary.cash_revenue.toLocaleString()} Ft`],
           ["Kartya bevetel", `${report.summary.card_revenue.toLocaleString()} Ft`],
-          ["Utalas bevetel", `${(report.summary.transfer_revenue || 0).toLocaleString()} Ft`],
           ["Atlag bevetel / auto", report.summary.total_cars > 0 ? `${Math.round(report.summary.total_revenue / report.summary.total_cars).toLocaleString()} Ft` : "0 Ft"],
         ],
         theme: "striped",
@@ -234,14 +231,13 @@ export const Statistics = () => {
         yPos += 6;
         autoTable(doc, {
           startY: yPos,
-          head: [["Dolgozo", "Autok", "Bevetel", "Keszpenz", "Kartya", "Utalas"]],
+          head: [["Dolgozo", "Autok", "Bevetel", "Keszpenz", "Kartya"]],
           body: report.worker_breakdown.map((w) => [
             w.name,
             w.cars.toString(),
             `${w.revenue.toLocaleString()} Ft`,
             `${w.cash.toLocaleString()} Ft`,
             `${w.card.toLocaleString()} Ft`,
-            `${(w.transfer || 0).toLocaleString()} Ft`,
           ]),
           theme: "striped",
           headStyles: { fillColor: [59, 130, 246] },
@@ -305,14 +301,13 @@ export const Statistics = () => {
         yPos += 6;
         autoTable(doc, {
           startY: yPos,
-          head: [["Datum", "Autok", "Bevetel", "Keszpenz", "Kartya", "Utalas"]],
+          head: [["Datum", "Autok", "Bevetel", "Keszpenz", "Kartya"]],
           body: report.daily_breakdown.map((d) => [
             d.date,
             d.cars.toString(),
             `${d.revenue.toLocaleString()} Ft`,
             `${d.cash.toLocaleString()} Ft`,
             `${d.card.toLocaleString()} Ft`,
-            `${(d.transfer || 0).toLocaleString()} Ft`,
           ]),
           theme: "striped",
           headStyles: { fillColor: [20, 184, 166] },
@@ -372,14 +367,13 @@ export const Statistics = () => {
       const rows = [
         [`X-CLEAN Havi statisztika – ${location} – exportálva: ${now}`],
         [],
-        ["Hónap", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Utalás (Ft)"],
+        ["Hónap", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)"],
         ...monthlyStats.map(m => [
           m.month,
           m.count,
           m.revenue,
           m.cash || "",
           m.card || "",
-          m.transfer || "",
         ]),
       ];
       const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
@@ -397,14 +391,13 @@ export const Statistics = () => {
       const rows2 = [
         [`X-CLEAN Dolgozói statisztika – ${location} – exportálva: ${now}`],
         [],
-        ["Dolgozó", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Utalás (Ft)", "Jutalék (Ft)"],
+        ["Dolgozó", "Autók (db)", "Bevétel (Ft)", "Készpénz (Ft)", "Kártya (Ft)", "Jutalék (Ft)"],
         ...workerStats.map(w => [
           w.worker_name || w.name || "",
           w.cars || w.count || 0,
           w.revenue || 0,
           w.cash || "",
           w.card || "",
-          w.transfer || "",
           w.commission || "",
         ]),
       ];
@@ -583,7 +576,7 @@ export const Statistics = () => {
 
           {/* History or Today stat cards */}
           {historyStats && !isToday ? (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
               <Card className="glass-card border-orange-500/30">
                 <CardContent className="p-3 sm:p-4 text-center">
                   <p className="text-[10px] sm:text-xs text-orange-400">{format(new Date(selectedDate), "yyyy. MMM d.", { locale: hu })}</p>
@@ -605,29 +598,17 @@ export const Statistics = () => {
               </Card>
               <Card className="glass-card border-orange-500/30">
                 <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-orange-400">Utalás</p>
-                  <p className="text-base sm:text-xl font-bold text-purple-300">{(historyStats.transfer_revenue || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card border-orange-500/30">
-                <CardContent className="p-3 sm:p-4 text-center">
                   <p className="text-[10px] sm:text-xs text-orange-400">Összesen</p>
                   <p className="text-base sm:text-xl font-bold text-purple-400">{(historyStats.total_revenue || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
                 </CardContent>
               </Card>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
               <Card className="glass-card">
                 <CardContent className="p-3 sm:p-4 text-center">
                   <p className="text-[10px] sm:text-xs text-slate-400">Mai autók</p>
                   <p className="text-xl sm:text-2xl font-bold text-white">{dashboardStats.today_cars}</p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-slate-400">Mai szolgáltatások</p>
-                  <p className="text-xl sm:text-2xl font-bold text-cyan-300">{dashboardStats.today_services || 0}</p>
                 </CardContent>
               </Card>
               <Card className="glass-card">
@@ -644,20 +625,8 @@ export const Statistics = () => {
               </Card>
               <Card className="glass-card">
                 <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-slate-400">Mai utalás</p>
-                  <p className="text-base sm:text-xl font-bold text-purple-300">{(dashboardStats.today_transfer || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card">
-                <CardContent className="p-3 sm:p-4 text-center">
                   <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
                   <p className="text-xl sm:text-2xl font-bold text-white">{dashboardStats.month_cars}</p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-slate-400">Havi szolgáltatások</p>
-                  <p className="text-xl sm:text-2xl font-bold text-cyan-300">{dashboardStats.month_services || 0}</p>
                 </CardContent>
               </Card>
               <Card className="glass-card">
@@ -670,12 +639,6 @@ export const Statistics = () => {
                 <CardContent className="p-3 sm:p-4 text-center">
                   <p className="text-[10px] sm:text-xs text-slate-400">Havi kártya</p>
                   <p className="text-base sm:text-xl font-bold text-blue-400">{(dashboardStats.month_card || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-slate-400">Havi utalás</p>
-                  <p className="text-base sm:text-xl font-bold text-purple-300">{(dashboardStats.month_transfer || 0).toLocaleString()}<span className="text-xs"> Ft</span></p>
                 </CardContent>
               </Card>
             </div>

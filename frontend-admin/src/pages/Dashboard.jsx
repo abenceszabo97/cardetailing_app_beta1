@@ -34,7 +34,6 @@ import {
   MapPin,
   CreditCard,
   Wallet,
-  Landmark,
   Image,
   X,
   Upload,
@@ -99,9 +98,7 @@ export const Dashboard = () => {
   const { selectedLocation, locationForApi } = useLocation2();
   const [stats, setStats] = useState({ 
     today_cars: 0, today_revenue: 0, today_cash: 0, today_card: 0,
-    today_transfer: 0, today_services: 0,
-    month_cars: 0, month_revenue: 0, month_cash: 0, month_card: 0,
-    month_transfer: 0, month_services: 0
+    month_cars: 0, month_revenue: 0, month_cash: 0, month_card: 0 
   });
   const [todayJobs, setTodayJobs] = useState([]);
   const [dailyStats, setDailyStats] = useState([]);
@@ -620,20 +617,6 @@ export const Dashboard = () => {
     setTimeout(() => setHighlightedJobId((prev) => (prev === jobId ? null : prev)), 1400);
   };
 
-  const getPaymentMethodBadgeClass = (paymentMethod) => {
-    if (paymentMethod === "keszpenz") return "bg-green-500/20 text-green-400";
-    if (paymentMethod === "kartya" || paymentMethod === "bankkartya") return "bg-blue-500/20 text-blue-400";
-    if (paymentMethod === "utalas" || paymentMethod === "atutalas" || paymentMethod === "banki_atutalas") return "bg-purple-500/20 text-purple-300";
-    return "bg-slate-500/20 text-slate-300";
-  };
-
-  const getPaymentMethodLabel = (paymentMethod) => {
-    if (paymentMethod === "keszpenz") return "💵 Készpénz";
-    if (paymentMethod === "kartya" || paymentMethod === "bankkartya") return "💳 Kártya";
-    if (paymentMethod === "utalas" || paymentMethod === "atutalas" || paymentMethod === "banki_atutalas") return "🏦 Utalás";
-    return paymentMethod || "—";
-  };
-
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-6 min-h-[400px]">
@@ -879,7 +862,7 @@ export const Dashboard = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         <Card className="glass-card kpi-card">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
@@ -897,37 +880,11 @@ export const Dashboard = () => {
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai szolgáltatások</p>
-                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.today_services || 0}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="text-[10px] sm:text-xs text-slate-400">Mai készpénz</p>
                 <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.today_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                 <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi szolgáltatások</p>
-                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.month_services || 0}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
           </CardContent>
@@ -1219,16 +1176,12 @@ export const Dashboard = () => {
                                         <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
                                         Kártya
                                       </Button>
-                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-purple-600 hover:bg-purple-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "utalas")}>
-                                    <Landmark className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                    Utalás
-                                  </Button>
                                     </>
                                   )}
                                   {job.status === "kesz" && job.payment_method && (
                                     <>
-                                      <Badge className={`text-xs ${getPaymentMethodBadgeClass(job.payment_method)}`}>
-                                        {getPaymentMethodLabel(job.payment_method)}
+                                      <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
+                                        {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
                                       </Badge>
                                       {invoiceConfigured && (
                                         <Button
@@ -1366,15 +1319,11 @@ export const Dashboard = () => {
                                     <CreditCard className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
                                     Kártya
                                   </Button>
-                                  <Button size="sm" className="h-8 sm:h-7 text-xs bg-purple-600 hover:bg-purple-500 px-2 sm:px-3" onClick={() => handleUpdateJobStatus(job.job_id, "kesz", "utalas")}>
-                                    <Landmark className="w-3.5 h-3.5 sm:w-3 sm:h-3 mr-1" />
-                                    Utalás
-                                  </Button>
                                 </>
                               )}
                               {job.status === "kesz" && job.payment_method && (
-                                <Badge className={`text-xs ${getPaymentMethodBadgeClass(job.payment_method)}`}>
-                                  {getPaymentMethodLabel(job.payment_method)}
+                                <Badge className={`text-xs ${job.payment_method === "keszpenz" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
+                                  {job.payment_method === "keszpenz" ? "💵 Készpénz" : "💳 Kártya"}
                                 </Badge>
                               )}
                               {job.status === "nem_jott_el" && (

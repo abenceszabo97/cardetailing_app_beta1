@@ -11,15 +11,6 @@ from models.user import User
 
 router = APIRouter()
 
-
-def _service_units_for_job(job: dict) -> int:
-    """Count service units for a completed job (base service + extras if present)."""
-    units = 1 if (job.get("service_id") or job.get("service_name")) else 0
-    extras = job.get("extras") or []
-    if isinstance(extras, list):
-        units += len(extras)
-    return units
-
 @router.get("/stats/dashboard")
 async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str] = None, user: User = Depends(get_current_user)):
     """Get dashboard statistics for a specific date (defaults to today)"""
@@ -60,7 +51,6 @@ async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str
             "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
             "cash": {"$sum": {"$cond": [{"$eq": ["$payment_method", "keszpenz"]}, {"$ifNull": ["$price", 0]}, 0]}},
             "card": {"$sum": {"$cond": [{"$in": ["$payment_method", ["kartya", "bankkartya"]]}, {"$ifNull": ["$price", 0]}, 0]}},
-            "transfer": {"$sum": {"$cond": [{"$in": ["$payment_method", ["utalas", "atutalas", "banki_atutalas"]]}, {"$ifNull": ["$price", 0]}, 0]}},
         }}
     ]
     today_agg = await db.jobs.aggregate(today_pipeline).to_list(1)
@@ -69,9 +59,6 @@ async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str
     today_revenue = today_result.get("revenue", 0)
     today_cash = today_result.get("cash", 0)
     today_card = today_result.get("card", 0)
-    today_transfer = today_result.get("transfer", 0)
-    today_jobs = await db.jobs.find(today_query, {"_id": 0, "service_id": 1, "service_name": 1, "extras": 1}).to_list(3000)
-    today_services = sum(_service_units_for_job(j) for j in today_jobs)
 
     # Get month's completed jobs using MongoDB aggregation pipeline
     month_query = {
@@ -87,7 +74,6 @@ async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str
             "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
             "cash": {"$sum": {"$cond": [{"$eq": ["$payment_method", "keszpenz"]}, {"$ifNull": ["$price", 0]}, 0]}},
             "card": {"$sum": {"$cond": [{"$in": ["$payment_method", ["kartya", "bankkartya"]]}, {"$ifNull": ["$price", 0]}, 0]}},
-            "transfer": {"$sum": {"$cond": [{"$in": ["$payment_method", ["utalas", "atutalas", "banki_atutalas"]]}, {"$ifNull": ["$price", 0]}, 0]}},
         }}
     ]
     month_agg = await db.jobs.aggregate(month_pipeline).to_list(1)
@@ -96,24 +82,17 @@ async def get_dashboard_stats(location: Optional[str] = None, date: Optional[str
     month_revenue = month_result.get("revenue", 0)
     month_cash = month_result.get("cash", 0)
     month_card = month_result.get("card", 0)
-    month_transfer = month_result.get("transfer", 0)
-    month_jobs = await db.jobs.find(month_query, {"_id": 0, "service_id": 1, "service_name": 1, "extras": 1}).to_list(10000)
-    month_services = sum(_service_units_for_job(j) for j in month_jobs)
 
     return {
         "today_cars": today_cars,
         "today_revenue": today_revenue,
         "today_cash": today_cash,
         "today_card": today_card,
-        "today_transfer": today_transfer,
-        "today_services": today_services,
         "cash": today_cash,  # Alias for compatibility
         "month_cars": month_cars,
         "month_revenue": month_revenue,
         "month_cash": month_cash,
         "month_card": month_card,
-        "month_transfer": month_transfer,
-        "month_services": month_services,
         # Cancelled/no-show stats
         "today_cancelled": await db.jobs.count_documents({
             **query_base,
@@ -571,8 +550,7 @@ async def get_report_data(
     total_cars = len(jobs)
     total_revenue = sum(j.get("price", 0) for j in jobs)
     cash_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") == "keszpenz")
-    card_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") in ["kartya", "bankkartya"])
-    transfer_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") in ["utalas", "atutalas", "banki_atutalas"])
+    card_revenue = sum(j.get("price", 0) for j in jobs if j.get("payment_method") == "kartya")
     
     worker_map = {}
     for job in jobs:
@@ -581,14 +559,12 @@ async def get_report_data(
         if not wid:
             continue
         if wid not in worker_map:
-            worker_map[wid] = {"worker_id": wid, "name": wname, "cars": 0, "revenue": 0, "cash": 0, "card": 0, "transfer": 0, "services": {}}
+            worker_map[wid] = {"worker_id": wid, "name": wname, "cars": 0, "revenue": 0, "cash": 0, "card": 0, "services": {}}
         w = worker_map[wid]
         w["cars"] += 1
         w["revenue"] += job.get("price", 0)
         if job.get("payment_method") == "keszpenz":
             w["cash"] += job.get("price", 0)
-        elif job.get("payment_method") in ["utalas", "atutalas", "banki_atutalas"]:
-            w["transfer"] += job.get("price", 0)
         else:
             w["card"] += job.get("price", 0)
         sname = job.get("service_name", "Ismeretlen")
@@ -605,7 +581,6 @@ async def get_report_data(
             "revenue": w["revenue"],
             "cash": w["cash"],
             "card": w["card"],
-            "transfer": w["transfer"],
             "services": services_list
         })
     worker_breakdown.sort(key=lambda x: x["revenue"], reverse=True)
@@ -629,13 +604,11 @@ async def get_report_data(
         if not d:
             continue
         if d not in daily_breakdown:
-            daily_breakdown[d] = {"date": d, "cars": 0, "revenue": 0, "cash": 0, "card": 0, "transfer": 0}
+            daily_breakdown[d] = {"date": d, "cars": 0, "revenue": 0, "cash": 0, "card": 0}
         daily_breakdown[d]["cars"] += 1
         daily_breakdown[d]["revenue"] += job.get("price", 0)
         if job.get("payment_method") == "keszpenz":
             daily_breakdown[d]["cash"] += job.get("price", 0)
-        elif job.get("payment_method") in ["utalas", "atutalas", "banki_atutalas"]:
-            daily_breakdown[d]["transfer"] += job.get("price", 0)
         else:
             daily_breakdown[d]["card"] += job.get("price", 0)
     
@@ -649,8 +622,7 @@ async def get_report_data(
             "total_cars": total_cars,
             "total_revenue": total_revenue,
             "cash_revenue": cash_revenue,
-            "card_revenue": card_revenue,
-            "transfer_revenue": transfer_revenue
+            "card_revenue": card_revenue
         },
         "worker_breakdown": worker_breakdown,
         "service_breakdown": service_breakdown,
