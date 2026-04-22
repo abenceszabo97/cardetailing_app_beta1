@@ -11,24 +11,13 @@ import {
   Settings,
   LogOut,
   Sparkles,
-  Sun,
-  Moon,
-  MapPin,
   X,
   Car,
   CalendarDays,
   FileText,
   Star,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-
-export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation }) => {
+export const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { locationForApi } = useLocation2();
@@ -50,16 +39,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
     const interval = setInterval(fetchLowStock, 60000); // refresh every minute
     return () => clearInterval(interval);
   }, [locationForApi]);
-
-  // Theme toggle
-  const [isDark, setIsDark] = useState(() => (localStorage.getItem("xclean_theme") || "dark") === "dark");
-  const toggleTheme = () => {
-    const next = isDark ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("xclean_theme", next);
-    setIsDark(!isDark);
-  };
-
 
   const navItems = [
     { path: "/dashboard", label: "Főoldal", icon: LayoutDashboard },
@@ -119,31 +98,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
           </div>
         </div>
 
-        {/* Location Filter */}
-        <div className="p-4 border-b border-slate-800">
-          <label className="text-xs text-slate-500 mb-2 block">Telephely</label>
-          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger
-              className="w-full bg-slate-950/50 border-slate-700 text-white"
-              data-testid="location-select"
-            >
-              <MapPin className="w-4 h-4 mr-2 text-green-400" />
-              <SelectValue placeholder="Válassz telephelyet" />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-700">
-              <SelectItem value="all" className="text-white hover:bg-slate-800">
-                Összes telephely
-              </SelectItem>
-              <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">
-                Debrecen
-              </SelectItem>
-              <SelectItem value="Budapest" className="text-white hover:bg-slate-800">
-                Budapest
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Navigation - scrollable */}
         <nav className="flex-1 overflow-y-auto p-4 min-h-0">
           <ul className="space-y-1">
@@ -196,16 +150,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
                 {user?.role === "admin" ? "Admin" : "Dolgozó"}
               </p>
             </div>
-          </div>
-          <div className="flex gap-2 mb-2">
-            <button
-              onClick={toggleTheme}
-              title={isDark ? "Váltás világos módra" : "Váltás sötét módra"}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-xs"
-            >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              {isDark ? "Világos" : "Sötét"}
-            </button>
           </div>
           <button
             onClick={logout}

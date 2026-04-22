@@ -650,6 +650,7 @@ export const Dashboard = () => {
         return j.plate_number?.toLowerCase().includes(q) || j.customer_name?.toLowerCase().includes(q);
       })
     : todayJobs;
+  const unassignedJobs = filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name);
 
   return (
     <div className="space-y-4 sm:space-y-6" data-testid="dashboard">
@@ -1217,29 +1218,29 @@ export const Dashboard = () => {
                   })}
 
                   {/* Unassigned jobs section - if there are any */}
-                  {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
+                  {unassignedJobs.length > 0 && (
                     <div
-                      className="bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden"
+                      className="bg-red-500/5 rounded-xl border border-red-500/40 overflow-hidden"
                       style={{ gridColumn: "1 / -1" }}
                     >
-                      <div className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-b border-orange-500/30 px-4 py-3">
+                      <div className="bg-gradient-to-r from-red-500/25 to-orange-500/20 border-b border-red-500/40 px-4 py-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-orange-500/30 flex items-center justify-center">
-                              <User className="w-4 h-4 text-orange-400" />
+                            <div className="w-8 h-8 rounded-full bg-red-500/30 flex items-center justify-center">
+                              <AlertTriangle className="w-4 h-4 text-red-300" />
                             </div>
-                            <span className="text-white font-semibold">Hozzárendelésre vár</span>
+                            <span className="text-white font-semibold">Hozzárendelésre vár (nincs dolgozó kiosztva)</span>
                           </div>
-                          <Badge className="bg-orange-500/20 text-orange-300 text-xs">
-                            {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length} munka
+                          <Badge className="bg-red-500/25 text-red-200 border border-red-400/40 text-xs animate-pulse">
+                            {unassignedJobs.length} munka
                           </Badge>
                         </div>
                       </div>
                       <div className="p-2 sm:p-3 space-y-2">
-                        {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).map((job) => (
+                        {unassignedJobs.map((job) => (
                           <div
                             key={job.job_id}
-                            className={`bg-slate-950/50 rounded-lg p-2.5 sm:p-3 border border-slate-800 hover:border-orange-500/30 transition-colors ${highlightedJobId === job.job_id ? "job-card-highlight" : ""}`}
+                            className={`bg-red-500/5 rounded-lg p-2.5 sm:p-3 border border-red-500/30 border-l-4 border-l-red-500 hover:border-red-400/50 transition-colors ${highlightedJobId === job.job_id ? "job-card-highlight" : ""}`}
                           >
                             {/* Mobile-optimized layout */}
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">

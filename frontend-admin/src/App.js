@@ -3,7 +3,14 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
-import { Search } from "lucide-react";
+import { Search, MapPin } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 
 // Pages
 import { Login } from "./pages/Login";
@@ -164,8 +171,6 @@ const MainLayout = ({ children }) => {
         <Sidebar 
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
-          selectedLocation={effectiveLocation}
-          setSelectedLocation={isAdmin ? setSelectedLocation : () => {}}
         />
         <div className="flex-1 lg:ml-64">
           <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-3">
@@ -181,26 +186,31 @@ const MainLayout = ({ children }) => {
                   </svg>
                 </button>
                 {isAdmin && (
-                  <select
-                    value={effectiveLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="bg-slate-800 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-green-500"
-                    data-testid="location-selector"
-                  >
-                    <option value="all">Összes telephely</option>
-                    <option value="Debrecen">Debrecen</option>
-                    <option value="Budapest">Budapest</option>
-                  </select>
+                  <Select value={effectiveLocation} onValueChange={setSelectedLocation}>
+                    <SelectTrigger
+                      className="h-10 min-w-[190px] bg-slate-950/50 border-slate-700 text-white rounded-xl"
+                      data-testid="location-selector"
+                    >
+                      <MapPin className="w-4 h-4 mr-2 text-green-400" />
+                      <SelectValue placeholder="Válassz telephelyet" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="all" className="text-white hover:bg-slate-800">Összes telephely</SelectItem>
+                      <SelectItem value="Debrecen" className="text-white hover:bg-slate-800">Debrecen</SelectItem>
+                      <SelectItem value="Budapest" className="text-white hover:bg-slate-800">Budapest</SelectItem>
+                    </SelectContent>
+                  </Select>
                 )}
                 {!isAdmin && user?.location && (
-                  <span className="text-sm text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                  <div className="h-10 min-w-[190px] text-sm text-white bg-slate-950/50 px-3 py-1.5 rounded-xl border border-slate-700 flex items-center">
+                    <MapPin className="w-4 h-4 mr-2 text-green-400" />
                     {user.location}
-                  </span>
+                  </div>
                 )}
               </div>
 
               <div className="hidden md:block w-full max-w-xl justify-self-center relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={customerSearch}
@@ -208,11 +218,11 @@ const MainLayout = ({ children }) => {
                   onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                   onChange={(e) => setCustomerSearch(e.target.value)}
                   placeholder="Rendszám vagy ügyfélnév keresése..."
-                  className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-green-500"
+                  className="w-full h-10 bg-slate-950/50 text-white border border-slate-700 rounded-xl pl-10 pr-3 text-sm shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                   data-testid="top-customer-search"
                 />
                 {searchOpen && searchResults.length > 0 && (
-                  <div className="absolute top-11 left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden z-50">
+                  <div className="absolute top-12 left-0 right-0 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
                     {searchResults.map((customer) => (
                       <button
                         key={customer.customer_id}
@@ -235,7 +245,7 @@ const MainLayout = ({ children }) => {
             </div>
 
             <div className="md:hidden mt-3 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={customerSearch}
@@ -243,11 +253,11 @@ const MainLayout = ({ children }) => {
                 onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                 onChange={(e) => setCustomerSearch(e.target.value)}
                 placeholder="Rendszám vagy ügyfélnév..."
-                className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                className="w-full h-10 bg-slate-950/50 text-white border border-slate-700 rounded-xl pl-10 pr-3 text-sm shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
                 data-testid="top-customer-search-mobile"
               />
               {searchOpen && searchResults.length > 0 && (
-                <div className="absolute top-11 left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden z-50">
+                <div className="absolute top-12 left-0 right-0 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
                   {searchResults.map((customer) => (
                     <button
                       key={customer.customer_id}

@@ -157,6 +157,23 @@ export const Statistics = () => {
   };
 
   const isToday = selectedDate === format(new Date(), "yyyy-MM-dd");
+  const forecastConfidence = Math.max(0, Math.min(100, Number(forecast?.confidence || 0)));
+  const confidenceLabel = forecastConfidence >= 80 ? "Magas" : forecastConfidence >= 60 ? "Közepes" : "Alacsony";
+  const confidenceTone = forecastConfidence >= 80
+    ? "text-green-300 bg-green-500/20 border-green-400/30"
+    : forecastConfidence >= 60
+      ? "text-amber-300 bg-amber-500/20 border-amber-400/30"
+      : "text-red-300 bg-red-500/20 border-red-400/30";
+  const forecastMin = Number(forecast?.pessimistic_revenue ?? forecast?.predicted_revenue ?? 0);
+  const forecastMax = Number(forecast?.optimistic_revenue ?? forecast?.predicted_revenue ?? 0);
+  const forecastExpected = Number(forecast?.predicted_revenue ?? 0);
+  const forecastSpan = Math.max(0, forecastMax - forecastMin);
+  const forecastUncertaintyPct = forecastExpected > 0
+    ? Math.min(100, Math.max(0, Math.round((forecastSpan / forecastExpected) * 100)))
+    : 0;
+  const expectedMarkerPct = forecastMax > forecastMin
+    ? Math.min(100, Math.max(0, ((forecastExpected - forecastMin) / (forecastMax - forecastMin)) * 100))
+    : 50;
 
   const generatePDF = async () => {
     setGeneratingReport(true);
@@ -1051,6 +1068,40 @@ export const Statistics = () => {
                 </div>
               </div>
 
+              {(forecast.pessimistic_revenue != null || forecast.optimistic_revenue != null) && (
+                <div className="rounded-xl border border-purple-500/20 bg-slate-950/40 p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <p className="text-xs text-slate-400">Előrejelzési tartomány (min - max)</p>
+                    <p className="text-[11px] text-purple-300">Bizonytalanság: {forecastUncertaintyPct}%</p>
+                  </div>
+                  <div className="relative h-2 rounded-full bg-slate-800 overflow-visible">
+                    <div
+                      className="h-full bg-gradient-to-r from-red-500/60 via-purple-500/70 to-green-500/60 transition-all"
+                      style={{ width: `${forecastUncertaintyPct}%` }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-purple-100 bg-white shadow-sm group cursor-help"
+                      style={{ left: `calc(${expectedMarkerPct}% - 4px)` }}
+                    >
+                      <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[120%] whitespace-nowrap rounded-md border border-slate-700 bg-slate-900/95 px-2 py-1 text-[10px] text-slate-200 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                        Min: {forecastMin.toLocaleString()} Ft • Várható: {forecastExpected.toLocaleString()} Ft • Max: {forecastMax.toLocaleString()} Ft
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-red-300">
+                      Min: {forecast.pessimistic_revenue != null ? `${forecast.pessimistic_revenue.toLocaleString()} Ft` : "—"}
+                    </span>
+                    <span className="text-purple-300 font-semibold">
+                      Várható: {forecast.predicted_revenue?.toLocaleString()} Ft
+                    </span>
+                    <span className="text-green-300 text-right">
+                      Max: {forecast.optimistic_revenue != null ? `${forecast.optimistic_revenue.toLocaleString()} Ft` : "—"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Middle row: 3 metric chips */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Confirmed next */}
@@ -1127,8 +1178,8 @@ export const Statistics = () => {
 
               {/* Footer: confidence + trend + disclaimer */}
               <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-purple-500/10">
-                <span className="inline-flex items-center gap-1 bg-purple-500/20 text-purple-300 text-xs font-semibold px-2 py-1 rounded-full">
-                  {forecast.confidence}% megbízhatóság
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border ${confidenceTone}`}>
+                  Biztonság: {confidenceLabel} ({forecastConfidence}%)
                 </span>
                 {forecast.trend === "up" ? (
                   <span className="flex items-center gap-1 text-green-400 text-xs font-medium">
@@ -1141,6 +1192,28 @@ export const Statistics = () => {
                 ) : (
                   <span className="text-slate-400 text-xs">Stabil trend</span>
                 )}
+                <div className="w-full sm:w-52 ml-auto">
+                  <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                    <span>Bizonytalanság</span>
+                    <span>Magabiztos</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-red-500 via-amber-400 to-green-400"
+                      style={{ width: `${forecastConfidence}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-3 sm:p-4 space-y-2">
+                <p className="text-xs font-semibold text-slate-200">Mi alapján számol az AI?</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400">
+                  <p>• Utolsó 6 hónap bevételi trendje és szezonális mintái.</p>
+                  <p>• Már rögzített jövő havi foglalások súlyozott hatása.</p>
+                  <p>• Jelenlegi havi tempóból számolt kifutási becslés.</p>
+                  <p>• Növekvő/csökkenő trend irányának korrekciója.</p>
+                </div>
                 <p className="text-xs text-slate-600 ml-auto">
                   * Az előrejelzés az utolsó 6 hónap adatain alapuló lineáris regresszió — tájékoztató jellegű.
                 </p>
