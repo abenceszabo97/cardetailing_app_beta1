@@ -4,6 +4,7 @@ Bookings Routes
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 import asyncio
 import uuid
 import logging
@@ -17,6 +18,7 @@ from models.booking import Booking, BookingCreate, BookingUpdate
 from models.customer import Customer
 
 router = APIRouter()
+LOCAL_TZ = ZoneInfo("Europe/Budapest")
 
 def time_to_minutes(time_str: str) -> int:
     """Convert HH:MM to minutes from midnight"""
@@ -26,6 +28,16 @@ def time_to_minutes(time_str: str) -> int:
 def minutes_to_time(minutes: int) -> str:
     """Convert minutes from midnight to HH:MM"""
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def is_past_slot_local(date_str: str, time_str: str) -> bool:
+    """Return True when the slot start is before current local time."""
+    try:
+        slot_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M").replace(tzinfo=LOCAL_TZ)
+    except ValueError:
+        # Invalid values are handled by model validation elsewhere; don't mark as past here.
+        return False
+    return slot_dt < datetime.now(LOCAL_TZ)
 
 def get_blocked_slots(bookings: List[dict], workers_list: List[dict]) -> dict:
     """
@@ -70,6 +82,12 @@ async def get_available_slots(
     Takes into account worker availability based on booking duration.
     """
     workers_list = await db.workers.find({"location": location, "active": True}, {"_id": 0}).to_list(100)
+    now_local = datetime.now(LOCAL_TZ)
+    try:
+        selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Érvénytelen dátum formátum")
+    is_today_local = selected_date == now_local.date()
 
     # Remove workers who are absent on this date
     absences = await db.worker_absences.find(
@@ -112,6 +130,10 @@ async def get_available_slots(
         for minute in [0, 30]:
             slot_time = f"{hour:02d}:{minute:02d}"
             slot_minutes = time_to_minutes(slot_time)
+
+            # Do not offer past slots for today (e.g. at 11:30, block < 11:30).
+            if is_today_local and slot_minutes < (now_local.hour * 60 + now_local.minute):
+                continue
             
             # Check each worker's availability for this slot AND the required duration
             free_workers = []
@@ -196,6 +218,10 @@ async def lookup_customer_by_plate(plate_number: str):
 @router.post("/bookings")
 async def create_booking(data: BookingCreate):
     """Create a new booking (public, no auth required)"""
+    # Public bookings cannot be created for past time slots.
+    if is_past_slot_local(data.date, data.time_slot):
+        raise HTTPException(status_code=400, detail="A kiválasztott időpont már elmúlt")
+
     # Get service info if available (for traditional bookings)
     service = None
     service_name = data.service_name
