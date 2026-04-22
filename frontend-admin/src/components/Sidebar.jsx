@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useAuth, API, useLocation2 } from "../App";
 import {
@@ -18,8 +18,6 @@ import {
   Car,
   CalendarDays,
   FileText,
-  Search,
-  User,
   Star,
 } from "lucide-react";
 import {
@@ -32,7 +30,6 @@ import {
 
 export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { locationForApi } = useLocation2();
 
@@ -63,31 +60,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
     setIsDark(!isDark);
   };
 
-  // Global search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const searchRef = useRef(null);
-  const searchInputRef = useRef(null);
-
-  // Ctrl+K / Cmd+K global shortcut — focus sidebar search
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        // On mobile open the sidebar first
-        if (window.innerWidth < 1024) onClose && onClose();
-        setTimeout(() => searchInputRef.current?.focus(), 50);
-      }
-      if (e.key === "Escape") {
-        setShowResults(false);
-        searchInputRef.current?.blur();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
 
   const navItems = [
     { path: "/dashboard", label: "Főoldal", icon: LayoutDashboard },
@@ -104,55 +76,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
   ];
 
   const isActive = (path) => location.pathname === path;
-
-  // Debounced search
-  useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.length < 2) {
-      setSearchResults([]);
-      setShowResults(false);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setSearchLoading(true);
-      try {
-        const res = await axios.get(`${API}/customers?search=${encodeURIComponent(searchQuery)}`, {
-          withCredentials: true,
-        });
-        // Also search by plate_number client-side from the returned list
-        const q = searchQuery.toLowerCase();
-        const filtered = (Array.isArray(res.data) ? res.data : []).filter(
-          c =>
-            c.name?.toLowerCase().includes(q) ||
-            c.plate_number?.toLowerCase().includes(q) ||
-            c.phone?.includes(q)
-        );
-        setSearchResults(filtered.slice(0, 6));
-        setShowResults(true);
-      } catch {
-        setSearchResults([]);
-      }
-      setSearchLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Close results on outside click
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowResults(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  const handleSelectResult = (customer) => {
-    setSearchQuery("");
-    setShowResults(false);
-    onClose();
-    navigate(`/customers/${customer.customer_id}`);
-  };
 
   return (
     <>
@@ -193,57 +116,6 @@ export const Sidebar = ({ isOpen, onClose, selectedLocation, setSelectedLocation
             >
               <X className="w-5 h-5" />
             </button>
-          </div>
-        </div>
-
-        {/* Global Search */}
-        <div className="px-4 pt-3 pb-2 border-b border-slate-800" ref={searchRef}>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Rendszám, ügyfélnév, telefon…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onFocus={() => searchResults.length > 0 && setShowResults(true)}
-              className="w-full bg-slate-950/60 border border-slate-700 rounded-lg pl-9 pr-14 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500 transition-colors"
-            />
-            {searchLoading ? (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-            ) : !searchQuery && (
-              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] text-slate-500 bg-slate-800 border border-slate-700 rounded">
-                ⌘K
-              </kbd>
-            )}
-            {/* Results dropdown */}
-            {showResults && searchResults.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-                {searchResults.map(customer => (
-                  <button
-                    key={customer.customer_id}
-                    onClick={() => handleSelectResult(customer)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-slate-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{customer.name}</p>
-                      <p className="text-xs text-slate-500 font-mono">{customer.plate_number}</p>
-                    </div>
-                    {customer.location && (
-                      <span className="ml-auto text-xs text-slate-600 flex-shrink-0">{customer.location}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            {showResults && searchResults.length === 0 && !searchLoading && searchQuery.length >= 2 && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 px-3 py-3 text-sm text-slate-500 text-center">
-                Nincs találat
-              </div>
-            )}
           </div>
         </div>
 

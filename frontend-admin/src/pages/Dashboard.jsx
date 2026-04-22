@@ -47,7 +47,6 @@ import {
   Receipt,
   Search
 } from "lucide-react";
-import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from "date-fns";
 import { hu } from "date-fns/locale";
 import { 
@@ -81,6 +80,15 @@ const IMAGE_SLOTS_AFTER = [
   { id: "belter_hatul_bal", label: "Beltér hátul baloldal", category: "belter", matchBefore: "belter_hatul_bal" },
   { id: "belter_hatul_jobb", label: "Beltér hátul jobboldal", category: "belter", matchBefore: "belter_hatul_jobb" },
   { id: "atadas_atvatel", label: "Átadás-átvétel dokumentáció", category: "handover", matchBefore: null },
+];
+
+const WORKER_GRADIENTS = [
+  "from-blue-500/20 to-cyan-500/20",
+  "from-purple-500/20 to-pink-500/20",
+  "from-green-500/20 to-emerald-500/20",
+  "from-orange-500/20 to-yellow-500/20",
+  "from-red-500/20 to-rose-500/20",
+  "from-indigo-500/20 to-violet-500/20",
 ];
 
 export const Dashboard = () => {
@@ -907,49 +915,6 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Weekly Revenue Sparkline */}
-      {dailyStats.length > 0 && (() => {
-        // Last 7 days from dailyStats
-        const last7 = [...dailyStats]
-          .sort((a, b) => a.date.localeCompare(b.date))
-          .slice(-7)
-          .map(d => ({
-            ...d,
-            label: d.date.slice(5), // MM-DD
-          }));
-        const totalWeek = last7.reduce((s, d) => s + (d.revenue || 0), 0);
-        return (
-          <Card className="glass-card border-indigo-500/20">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-xs text-slate-400">Elmúlt 7 nap bevétel</p>
-                  <p className="text-lg font-bold text-indigo-400">{totalWeek.toLocaleString('hu-HU')} Ft</p>
-                </div>
-                <TrendingUp className="w-5 h-5 text-indigo-400 opacity-60" />
-              </div>
-              <ResponsiveContainer width="100%" height={80}>
-                <AreaChart data={last7} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis hide />
-                  <Tooltip
-                    formatter={(v) => [`${v.toLocaleString('hu-HU')} Ft`, 'Bevétel']}
-                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fill="url(#revenueGrad)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
       {/* Revenue Forecast */}
       {(() => {
         const now = new Date();
@@ -1039,8 +1004,8 @@ export const Dashboard = () => {
       )}
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6">
+        <div>
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="text-xl text-white font-['Manrope'] flex items-center justify-between">
@@ -1060,15 +1025,14 @@ export const Dashboard = () => {
                 </div>
               ) : (
                 /* Worker-based view - responsive columns */
-                <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
-                  {workers.slice(0, 2).map((worker) => {
+                <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-4">
+                  {workers.map((worker, workerIndex) => {
                     const workerJobs = filteredTodayJobs.filter(j => j.worker_id === worker.worker_id || j.worker_name === worker.name);
-                    const unassignedJobs = filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name);
                     
                     return (
                       <div key={worker.worker_id} className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
                         {/* Worker header */}
-                        <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-slate-700 px-3 sm:px-4 py-2 sm:py-3">
+                        <div className={`bg-gradient-to-r ${WORKER_GRADIENTS[workerIndex % WORKER_GRADIENTS.length]} border-b border-slate-700 px-3 sm:px-4 py-2 sm:py-3`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/30 flex items-center justify-center">
@@ -1221,7 +1185,7 @@ export const Dashboard = () => {
 
                   {/* Unassigned jobs section - if there are any */}
                   {filteredTodayJobs.filter(j => !j.worker_id && !j.worker_name).length > 0 && (
-                    <div className="md:col-span-2 bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden">
+                    <div className="md:col-span-2 xl:col-span-3 bg-slate-900/50 rounded-xl border border-orange-500/30 overflow-hidden">
                       <div className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-b border-orange-500/30 px-4 py-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -1346,31 +1310,6 @@ export const Dashboard = () => {
                     </div>
                   )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="text-xl text-white font-['Manrope']">Havi grafikon</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dailyStats.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                  <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Nincs adat</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={dailyStats}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(value) => format(new Date(value), 'MM/dd')} />
-                    <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }} labelFormatter={(value) => format(new Date(value), 'yyyy. MMMM d.', { locale: hu })} />
-                    <Bar dataKey="count" fill="#22c55e" radius={[4, 4, 0, 0]} name="Autók" />
-                  </BarChart>
-                </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
