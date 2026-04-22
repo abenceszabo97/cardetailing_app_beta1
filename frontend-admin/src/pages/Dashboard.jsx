@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { API, useAuth, useLocation2 } from "../App";
 import { toast } from "sonner";
@@ -186,26 +186,20 @@ export const Dashboard = () => {
     notes: ""
   });
 
-  const fetchData = async () => {
+  const fetchLiveData = useCallback(async () => {
     try {
       const locationParam = locationForApi ? `?location=${locationForApi}` : "";
       
-      const [statsRes, jobsRes, dailyRes, customersRes, servicesRes, workersRes, lowStockRes] = await Promise.allSettled([
+      const [statsRes, jobsRes, dailyRes, lowStockRes] = await Promise.allSettled([
         axios.get(`${API}/stats/dashboard${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/jobs/today${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/stats/daily${locationParam}`, { withCredentials: true }),
-        axios.get(`${API}/customers`, { withCredentials: true }),
-        axios.get(`${API}/services`, { withCredentials: true }),
-        axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
         axios.get(`${API}/notifications/low-stock`, { withCredentials: true })
       ]);
 
       if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
       if (jobsRes.status === 'fulfilled') setTodayJobs(Array.isArray(jobsRes.value.data) ? jobsRes.value.data : []);
       if (dailyRes.status === 'fulfilled') setDailyStats(Array.isArray(dailyRes.value.data) ? dailyRes.value.data : []);
-      if (customersRes.status === 'fulfilled') setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
-      if (servicesRes.status === 'fulfilled') setServices(Array.isArray(servicesRes.value.data) ? servicesRes.value.data : []);
-      if (workersRes.status === 'fulfilled') setWorkers(Array.isArray(workersRes.value.data) ? workersRes.value.data : []);
       if (lowStockRes.status === 'fulfilled') setLowStockItems(Array.isArray(lowStockRes.value.data) ? lowStockRes.value.data : []);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -213,7 +207,28 @@ export const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationForApi]);
+
+  const fetchReferenceData = useCallback(async () => {
+    try {
+      const locationParam = locationForApi ? `?location=${locationForApi}` : "";
+      const [customersRes, servicesRes, workersRes] = await Promise.allSettled([
+        axios.get(`${API}/customers`, { withCredentials: true }),
+        axios.get(`${API}/services`, { withCredentials: true }),
+        axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
+      ]);
+
+      if (customersRes.status === "fulfilled") setCustomers(Array.isArray(customersRes.value.data) ? customersRes.value.data : []);
+      if (servicesRes.status === "fulfilled") setServices(Array.isArray(servicesRes.value.data) ? servicesRes.value.data : []);
+      if (workersRes.status === "fulfilled") setWorkers(Array.isArray(workersRes.value.data) ? workersRes.value.data : []);
+    } catch {
+      // Keep previously loaded reference data to avoid UI jank
+    }
+  }, [locationForApi]);
+
+  const fetchData = useCallback(async () => {
+    await Promise.all([fetchLiveData(), fetchReferenceData()]);
+  }, [fetchLiveData, fetchReferenceData]);
 
   useEffect(() => {
     fetchData();
@@ -223,8 +238,8 @@ export const Dashboard = () => {
     // ── SSE: live refresh when jobs/bookings change ────────────────────────
     let es;
     let retryTimeout;
-    const refreshInterval = setInterval(fetchData, 60000);
-    const handleNewBooking = () => fetchData();
+    const refreshInterval = setInterval(fetchLiveData, 60000);
+    const handleNewBooking = () => fetchLiveData();
 
     window.addEventListener("xclean:new-booking", handleNewBooking);
     const connectSSE = () => {
@@ -233,7 +248,7 @@ export const Dashboard = () => {
         es.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data);
-            if (msg.type === "refresh") fetchData();
+            if (msg.type === "refresh") fetchLiveData();
           } catch {}
         };
         es.onerror = () => {
@@ -251,7 +266,7 @@ export const Dashboard = () => {
       window.removeEventListener("xclean:new-booking", handleNewBooking);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLocation, locationForApi]);
+  }, [selectedLocation, locationForApi, fetchData, fetchLiveData]);
 
   // Notification permission state
   const [notificationsEnabled, setNotificationsEnabled] = useState(isNotificationEnabled());

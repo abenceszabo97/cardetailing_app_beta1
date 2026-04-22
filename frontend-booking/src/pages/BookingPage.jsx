@@ -258,13 +258,34 @@ const BookingPage = () => {
 
   // Load slots when date changes - include duration for time blocking.
   useEffect(() => {
-    if (form.location && form.date) {
-      setLoadingSlots(true);
-      const duration = getDuration();
-      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}&duration=${duration || 60}`)
-        .then(r => { setSlots(r.data); setLoadingSlots(false); })
-        .catch(() => setLoadingSlots(false));
+    if (!form.location || !form.date) {
+      setSlots([]);
+      setLoadingSlots(false);
+      return;
     }
+
+    let cancelled = false;
+    const duration = getDuration() || 60;
+    setLoadingSlots(true);
+
+    const timer = setTimeout(() => {
+      axios
+        .get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}&duration=${duration}`)
+        .then((r) => {
+          if (!cancelled) setSlots(Array.isArray(r.data) ? r.data : []);
+        })
+        .catch(() => {
+          if (!cancelled) setSlots([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingSlots(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [
     form.location,
     form.date,

@@ -137,14 +137,7 @@ const MainLayout = ({ children }) => {
       try {
         const response = await axios.get(`${API}/customers?search=${encodeURIComponent(q)}`, { withCredentials: true });
         const customers = Array.isArray(response.data) ? response.data : [];
-        const matches = customers
-          .filter((c) =>
-            (c.name || "").toLowerCase().includes(q) ||
-            (c.plate_number || "").toLowerCase().includes(q) ||
-            (c.phone || "").toLowerCase().includes(q)
-          )
-          .slice(0, 8);
-        setSearchResults(matches);
+        setSearchResults(customers.slice(0, 8));
       } catch {
         setSearchResults([]);
       }
