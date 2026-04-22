@@ -203,18 +203,6 @@ const BookingPage = () => {
     }
   }, [form.location, form.date, selectedSize, selectedCategory, selectedPackage, selectedPromotion]);
 
-  // Debounced plate lookup — properly cleans up the timeout on every change
-  useEffect(() => {
-    const plate = form.plate_number;
-    if (!plate || plate.length < 5) {
-      setCustomerFound(null);
-      setIsBlacklisted(false);
-      return;
-    }
-    const timeoutId = setTimeout(() => lookupPlate(plate), 500);
-    return () => clearTimeout(timeoutId);
-  }, [form.plate_number, lookupPlate]);
-
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   // Calculate price - supports promotions
@@ -328,6 +316,18 @@ const BookingPage = () => {
     }
     setLookingUp(false);
   }, []);
+
+  // Debounced plate lookup — properly cleans up the timeout on every change
+  useEffect(() => {
+    const plate = form.plate_number;
+    if (!plate || plate.length < 5) {
+      setCustomerFound(null);
+      setIsBlacklisted(false);
+      return;
+    }
+    const timeoutId = setTimeout(() => lookupPlate(plate), 500);
+    return () => clearTimeout(timeoutId);
+  }, [form.plate_number, lookupPlate]);
 
   // Accepts: ABC-123 (3 letters + 3 digits) or AB-CD-123 (2+2 letters + 3 digits)
   const PLATE_REGEX = /^([A-ZÁÉÍÓÖŐÚÜŰ]{3}-\d{3}|[A-ZÁÉÍÓÖŐÚÜŰ]{2}-[A-ZÁÉÍÓÖŐÚÜŰ]{2}-\d{3})$/i;
