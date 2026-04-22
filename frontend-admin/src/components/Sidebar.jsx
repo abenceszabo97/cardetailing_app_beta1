@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  Sun,
   X,
   Car,
   CalendarDays,

@@ -194,28 +194,6 @@ const BookingPage = () => {
     }
   }, [form.location]);
 
-  // Load slots when date changes - include duration for time blocking.
-  useEffect(() => {
-    if (form.location && form.date) {
-      setLoadingSlots(true);
-      const duration = getDuration();
-      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}&duration=${duration || 60}`)
-        .then(r => { setSlots(r.data); setLoadingSlots(false); })
-        .catch(() => setLoadingSlots(false));
-    }
-  }, [
-    form.location,
-    form.date,
-    selectedSize,
-    selectedCategory,
-    selectedPackage,
-    selectedPromotion,
-    selectedPolishingType,
-    cleaningAddon,
-    cleaningPackage,
-    getDuration,
-  ]);
-
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   // Calculate price - supports promotions
@@ -277,6 +255,28 @@ const BookingPage = () => {
   ]);
 
   const getTotalPrice = () => getPrice() + getExtrasTotal() + (selectedCategory === "poliroz" ? getCleaningAddonPrice() : 0);
+
+  // Load slots when date changes - include duration for time blocking.
+  useEffect(() => {
+    if (form.location && form.date) {
+      setLoadingSlots(true);
+      const duration = getDuration();
+      axios.get(`${API}/bookings/available-slots?location=${form.location}&date=${form.date}&duration=${duration || 60}`)
+        .then(r => { setSlots(r.data); setLoadingSlots(false); })
+        .catch(() => setLoadingSlots(false));
+    }
+  }, [
+    form.location,
+    form.date,
+    selectedSize,
+    selectedCategory,
+    selectedPackage,
+    selectedPromotion,
+    selectedPolishingType,
+    cleaningAddon,
+    cleaningPackage,
+    getDuration,
+  ]);
 
   // Select a promotion
   const selectPromotion = (promo) => {
