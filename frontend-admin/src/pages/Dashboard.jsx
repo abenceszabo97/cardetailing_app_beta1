@@ -914,19 +914,6 @@ export const Dashboard = () => {
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi szolgáltatások</p>
-                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.month_services || 0}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="text-[10px] sm:text-xs text-slate-400">Mai kártya</p>
                 <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.today_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
               </div>
@@ -958,6 +945,19 @@ export const Dashboard = () => {
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
                 <Car className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card kpi-card">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-slate-400">Havi szolgáltatások</p>
+                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.month_services || 0}</p>
+              </div>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
               </div>
             </div>
           </CardContent>
