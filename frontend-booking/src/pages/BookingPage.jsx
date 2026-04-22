@@ -203,7 +203,17 @@ const BookingPage = () => {
         .then(r => { setSlots(r.data); setLoadingSlots(false); })
         .catch(() => setLoadingSlots(false));
     }
-  }, [form.location, form.date, selectedSize, selectedCategory, selectedPackage, selectedPromotion]);
+  }, [
+    form.location,
+    form.date,
+    selectedSize,
+    selectedCategory,
+    selectedPackage,
+    selectedPromotion,
+    selectedPolishingType,
+    cleaningAddon,
+    cleaningPackage,
+  ]);
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -217,13 +227,13 @@ const BookingPage = () => {
     if (selectedPromotion) return selectedPromotion.price;
     if (selectedCategory === "poliroz") return getPolishingPrice();
     if (!selectedSize || !selectedCategory || !selectedPackage || !pricingData) return 0;
-    return pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[selectedPackage] || 0;
+    return pricingData?.price_matrix?.[selectedSize]?.[selectedCategory]?.[selectedPackage] || 0;
   };
 
   const getFeatures = () => {
     if (selectedPromotion) return selectedPromotion.features || [];
     if (!selectedCategory || !selectedPackage || !pricingData) return [];
-    return pricingData.package_features[selectedCategory]?.[selectedPackage] || [];
+    return pricingData?.package_features?.[selectedCategory]?.[selectedPackage] || [];
   };
 
   const getDuration = () => {
@@ -234,7 +244,7 @@ const BookingPage = () => {
       return base + getCleaningAddonDuration();
     }
     if (!selectedSize || !selectedCategory || !pricingData) return 0;
-    let base = pricingData.duration_matrix[selectedSize]?.[selectedCategory] || 60;
+    let base = pricingData?.duration_matrix?.[selectedSize]?.[selectedCategory] || 60;
     if (selectedPackage === "VIP") base = Math.round(base * 1.5);
     else if (selectedPackage === "Pro") base = Math.round(base * 1.2);
     return base;
@@ -920,8 +930,8 @@ const BookingPage = () => {
                   <label className="text-sm text-slate-400 mb-3 block font-medium">3. Csomag választás</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {['Eco', 'Pro', 'VIP'].map(pkg => {
-                      const price = pricingData.price_matrix[selectedSize]?.[selectedCategory]?.[pkg] || 0;
-                      const features = pricingData.package_features[selectedCategory]?.[pkg] || [];
+                      const price = pricingData?.price_matrix?.[selectedSize]?.[selectedCategory]?.[pkg] || 0;
+                      const features = pricingData?.package_features?.[selectedCategory]?.[pkg] || [];
                       const isSelected = selectedPackage === pkg;
                       
                       return (
