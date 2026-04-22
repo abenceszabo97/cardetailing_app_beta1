@@ -21,6 +21,7 @@ import {
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Checkbox } from "../components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Skeleton } from "../components/ui/skeleton";
 import { getStatusConfig } from "../lib/statusColors";
@@ -870,137 +871,142 @@ export const Dashboard = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai autók</p>
-                <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.today_cars}</p>
+      <div className="space-y-2 sm:space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai autók</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.today_cars}</p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Car className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                </div>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Car className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai szolgáltatások</p>
+                  <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.today_services || 0}</p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai szolgáltatások</p>
-                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.today_services || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai készpénz</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.today_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                </div>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai kártya</p>
+                  <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.today_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai készpénz</p>
-                <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.today_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Mai átutalás</p>
+                  <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.today_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
+                </div>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
+                  <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.month_cars}</p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Car className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai kártya</p>
-                <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.today_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi szolgáltatások</p>
+                  <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.month_services || 0}</p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                </div>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi készpénz</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.month_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Mai átutalás</p>
-                <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.today_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi kártya</p>
+                  <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.month_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                </div>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
+            </CardContent>
+          </Card>
+          <Card className="glass-card kpi-card">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-slate-400">Havi átutalás</p>
+                  <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.month_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi autók</p>
-                <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stats.month_cars}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Car className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi szolgáltatások</p>
-                <p className="text-lg sm:text-2xl font-bold text-white mt-1">{stats.month_services || 0}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi készpénz</p>
-                <p className="text-lg sm:text-2xl font-bold text-green-400 mt-1">{(stats.month_cash || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi kártya</p>
-                <p className="text-lg sm:text-2xl font-bold text-blue-400 mt-1">{(stats.month_card || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card kpi-card">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-400">Havi átutalás</p>
-                <p className="text-lg sm:text-2xl font-bold text-purple-300 mt-1">{(stats.month_transfer || 0).toLocaleString()}<span className="text-xs sm:text-sm"> Ft</span></p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
-                <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Revenue Forecast */}
