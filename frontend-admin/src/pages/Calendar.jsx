@@ -544,9 +544,9 @@ const Calendar = () => {
               </div>
             ))}
           </div>
-          <div className="max-h-[500px] overflow-y-auto">
+          <div className="max-h-[680px] overflow-y-auto">
             {hours.map(hour => (
-              <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] divide-x divide-slate-800 border-t border-slate-800 min-h-[56px]">
+              <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] divide-x divide-slate-800 border-t border-slate-800 min-h-[72px]">
                 <div className="p-1 text-xs text-slate-500 text-right pr-2 pt-2">{hour}:00</div>
                 {days.map(day => {
                   const slotBookings = getBookingsForSlot(day, hour);
@@ -559,7 +559,7 @@ const Calendar = () => {
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, day, hour)}
                     >
-                      <div className="max-h-[52px] overflow-y-auto pr-0.5">
+                      <div className="max-h-[68px] overflow-y-auto pr-0.5">
                         {slotBookings.map(booking => (
                           <div
                             key={booking.booking_id}
@@ -673,7 +673,7 @@ const Calendar = () => {
                 return (
                   <div 
                     key={day.toISOString()} 
-                    className={`min-h-[90px] p-1.5 cursor-pointer hover:bg-slate-800/30 transition-colors ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/5 ring-1 ring-inset ring-green-500/30' : ''}`}
+                    className={`min-h-[130px] p-1.5 cursor-pointer hover:bg-slate-800/30 transition-colors ${!isCurrentMonth ? 'bg-slate-950/30' : ''} ${isToday ? 'bg-green-500/5 ring-1 ring-inset ring-green-500/30' : ''}`}
                     onClick={() => { setCurrentDate(day); setView("day"); }}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -684,7 +684,7 @@ const Calendar = () => {
                         </span>
                       )}
                     </div>
-                    <div className="max-h-[86px] overflow-y-auto pr-0.5 space-y-0.5">
+                    <div className="max-h-[116px] overflow-y-auto pr-0.5 space-y-0.5">
                       {dayBookings.map(booking => (
                         <div 
                           key={booking.booking_id} 
