@@ -10,6 +10,7 @@ from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.worker import Worker, WorkerCreate, WorkerUpdate
+from services.audit_log import log_audit
 
 
 class AbsenceCreate(BaseModel):
@@ -42,24 +43,45 @@ async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
-    
+    before = await db.workers.find_one({"worker_id": worker_id}, {"_id": 0})
+    if not before:
+        raise HTTPException(status_code=404, detail="Dolgozó nem található")
+
     result = await db.workers.update_one(
         {"worker_id": worker_id},
         {"$set": update_data}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Dolgozó nem található")
+    await log_audit(
+        "update",
+        "worker",
+        worker_id,
+        user_id=user.user_id,
+        user_name=user.name,
+        changes={k: {"from": before.get(k), "to": v} for k, v in update_data.items()},
+    )
     return {"message": "Dolgozó frissítve"}
 
 @router.delete("/workers/{worker_id}")
 async def delete_worker(worker_id: str, user: User = Depends(get_current_user)):
     """Deactivate worker"""
+    before = await db.workers.find_one({"worker_id": worker_id}, {"_id": 0})
     result = await db.workers.update_one(
         {"worker_id": worker_id},
         {"$set": {"active": False}}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Dolgozó nem található")
+    if before:
+        await log_audit(
+            "deactivate",
+            "worker",
+            worker_id,
+            user_id=user.user_id,
+            user_name=user.name,
+            changes={"active": {"from": before.get("active"), "to": False}},
+        )
     return {"message": "Dolgozó törölve"}
 
 

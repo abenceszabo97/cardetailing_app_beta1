@@ -92,6 +92,13 @@ async def lifespan(app: FastAPI):
         await db.shifts.create_index("location")
         await db.notifications.create_index("read")
         await db.notifications.create_index([("location", 1), ("read", 1)])
+        # Idempotency keys (24h cleanup via expires_at)
+        await db.idempotency.create_index(
+            [("scope", 1), ("idempotency_key", 1)], unique=True
+        )
+        await db.idempotency.create_index("expires_at", expireAfterSeconds=0)
+        await db.audit_log.create_index("created_at")
+        await db.audit_log.create_index([("resource_type", 1), ("resource_id", 1)])
         logger.info("MongoDB indexes created/verified")
     except Exception as e:
         logger.warning(f"Index creation warning: {e}")

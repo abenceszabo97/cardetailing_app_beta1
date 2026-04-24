@@ -7,7 +7,7 @@ Configured entities:
   - szamlazz_debrecen_private → X-CLEAN-KÁRPIT Kft. (Debrecen készpénz)
   - szamlazz_debrecen_company → LB Human Kft. (Debrecen kártya/átutalás + céges számla)
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional, List
 import httpx
@@ -19,6 +19,8 @@ from dependencies import get_current_user
 from database import db
 from models.user import User
 import uuid
+from services import idempotency as idem
+from services.audit_log import log_audit
 
 logger = logging.getLogger(__name__)
 
@@ -293,15 +295,38 @@ async def set_api_key(data: ApiKeyUpdate, user: User = Depends(get_current_user)
 
 
 @router.post("/invoices/create")
-async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_user)):
+async def create_invoice(
+    data: InvoiceCreate,
+    user: User = Depends(get_current_user),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
     """
     Create a Számlázz.hu invoice or receipt for a completed job.
     Automatically picks the correct billing entity based on location and customer type.
     """
+    idem.ensure_idempotency_key_valid(idempotency_key)
+    body_fingerprint = idem.body_hash(data)
+    if idempotency_key:
+        cached, err = await idem.get_cached_response(
+            idem.SCOPE_INVOICE, idempotency_key, body_fingerprint
+        )
+        if err == "mismatch":
+            raise HTTPException(
+                status_code=409,
+                detail="Az Idempotency-Key már más tartalomhoz van társítva",
+            )
+        if cached is not None:
+            return cached
+
     # Load job
     job = await db.jobs.find_one({"job_id": data.job_id}, {"_id": 0})
     if not job:
         raise HTTPException(status_code=404, detail="Munka nem található")
+    if job.get("invoice_id"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ehhez a munkához már van rögzítve bizonylat ({job.get('invoice_id')}).",
+        )
 
     # Auto-populate extra_items from job extras if not explicitly provided
     if not data.extra_items and job.get("extras"):
@@ -417,7 +442,7 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
     )
 
     type_label = "Nyugta" if is_receipt else "Számla"
-    return {
+    result = {
         "success": True,
         "invoice_id": invoice_id,
         "invoice_number": invoice_number,
@@ -425,6 +450,23 @@ async def create_invoice(data: InvoiceCreate, user: User = Depends(get_current_u
         "billing_entity": invoice_doc["billing_entity"],
         "message": f"{type_label} kiállítva" + (f": {invoice_number}" if invoice_number else " és elküldve"),
     }
+    await log_audit(
+        "create",
+        "invoice",
+        invoice_id,
+        user_id=user.user_id,
+        user_name=user.name,
+        changes={
+            "job_id": {"to": data.job_id},
+            "invoice_number": {"to": invoice_number},
+            "amount": {"to": job.get("price", 0)},
+        },
+    )
+    if idempotency_key:
+        await idem.store_response(
+            idem.SCOPE_INVOICE, idempotency_key, body_fingerprint, result
+        )
+    return result
 
 
 @router.get("/invoices")

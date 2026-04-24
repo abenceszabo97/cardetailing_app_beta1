@@ -11,9 +11,15 @@ from database import db
 from models.user import User
 from models.job import Job, JobCreate, JobUpdate, IMAGE_SLOT_LABELS_BEFORE, IMAGE_SLOT_LABELS_AFTER, IMAGE_SLOTS_BEFORE, IMAGE_SLOTS_AFTER
 from routes.events import publish_event
+from services.state_transitions import is_booking_status_transition_ok, is_job_status_transition_ok
+from services.audit_log import log_audit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+def _audit_field_changes(before: dict, update_data: dict) -> dict:
+    return {k: {"from": before.get(k), "to": v} for k, v in update_data.items()}
+
 
 def _normalize_payment_method(value: Optional[str]) -> Optional[str]:
     """Normalize payment method aliases to canonical values."""
@@ -282,13 +288,27 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
         
         if not booking:
             raise HTTPException(status_code=404, detail="Foglalás nem található")
-        
+        if "status" in update_data and not is_booking_status_transition_ok(
+            booking.get("status"), update_data["status"]
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Érvénytelen státuszváltás ehhez a foglaláshoz",
+            )
+
         # If status is being changed to "folyamatban" or "kesz", convert booking to job
         if update_data.get("status") in ["folyamatban", "kesz"]:
             # Check if job already exists for this booking
             existing_job = await db.jobs.find_one({"booking_id": booking_id}, {"_id": 0})
             
             if existing_job:
+                if "status" in update_data and not is_job_status_transition_ok(
+                    existing_job.get("status"), update_data["status"]
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Érvénytelen státuszváltás ehhez a munkához",
+                    )
                 # Update existing job with all fields
                 await db.jobs.update_one(
                     {"booking_id": booking_id},
@@ -336,6 +356,14 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     )
                     # Send review email for the linked booking
                     await _send_review_email_for_booking(booking_id, booking)
+                await log_audit(
+                    "update",
+                    "job",
+                    existing_job.get("job_id", job_id),
+                    user_id=user.user_id,
+                    user_name=user.name,
+                    changes=_audit_field_changes(existing_job, update_data),
+                )
                 return {"message": "Munka frissítve"}
             else:
                 # Create new job from booking
@@ -414,6 +442,15 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     # Send review email for the linked booking
                     await _send_review_email_for_booking(booking_id, booking)
 
+                await log_audit(
+                    "update",
+                    "job",
+                    new_job_id,
+                    user_id=user.user_id,
+                    user_name=user.name,
+                    changes=_audit_field_changes(booking, update_data),
+                    meta={"created_from_booking": booking_id},
+                )
                 return {"message": "Munka létrehozva a foglalásból"}
         else:
             # Update booking with all provided fields (price, service, worker, etc.)
@@ -452,7 +489,14 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     {"booking_id": booking_id},
                     {"$set": booking_update}
                 )
-            
+            await log_audit(
+                "update",
+                "booking",
+                booking_id,
+                user_id=user.user_id,
+                user_name=user.name,
+                changes=_audit_field_changes(booking, update_data),
+            )
             return {"message": "Foglalás frissítve"}
     
     # Regular job update
@@ -465,6 +509,24 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
     job = await db.jobs.find_one({"job_id": job_id}, {"_id": 0})
     if not job:
         raise HTTPException(status_code=404, detail="Munka nem található")
+    if "status" in update_data and not is_job_status_transition_ok(
+        job.get("status"), update_data["status"]
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Érvénytelen státuszváltás ehhez a munkához",
+        )
+    if job.get("booking_id") and "status" in update_data:
+        linked_booking = await db.bookings.find_one(
+            {"booking_id": job["booking_id"]}, {"_id": 0}
+        )
+        if linked_booking and not is_booking_status_transition_ok(
+            linked_booking.get("status"), update_data["status"]
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Érvénytelen státuszváltás a kapcsolódó foglaláshoz",
+            )
     
     if update_data.get("status") == "kesz" and job.get("status") != "kesz":
         # Only increment total_spent once (guard against re-marking as kesz)
@@ -516,6 +578,14 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
         if update_data.get("status") == "kesz" and update_data.get("payment_method"):
             await _send_review_email_for_booking(job["booking_id"], None)
 
+    await log_audit(
+        "update",
+        "job",
+        job_id,
+        user_id=user.user_id,
+        user_name=user.name,
+        changes=_audit_field_changes(job, update_data),
+    )
     publish_event("refresh", {"reason": "job_updated"})
     return {"message": "Munka frissítve"}
 
