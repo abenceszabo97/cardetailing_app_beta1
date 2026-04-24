@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import uuid
 import logging
 import re
+from calendar import monthrange
 from dependencies import get_current_user
 from routes.events import publish_event
 from database import db
@@ -18,6 +19,118 @@ from models.customer import Customer
 
 router = APIRouter()
 LOCAL_TZ = ZoneInfo("Europe/Budapest")
+
+
+def _normalize_phone(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    digits = re.sub(r"\D+", "", str(value))
+    if digits.startswith("36") and len(digits) > 9:
+        digits = digits[2:]
+    elif digits.startswith("06"):
+        digits = digits[2:]
+    elif digits.startswith("0") and len(digits) >= 10:
+        digits = digits[1:]
+    return digits[-9:] if digits else None
+
+
+def _normalize_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = re.sub(r"\s+", " ", str(value).strip().lower())
+    return normalized or None
+
+
+def _parse_address_parts(address_value: Optional[str]) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    if not address_value:
+        return (None, None, None)
+    cleaned = str(address_value).strip()
+    match = re.match(r"^(\d{4})\s+([^,]+),?\s*(.*)$", cleaned)
+    if match:
+        zip_code = match.group(1).strip() or None
+        city = match.group(2).strip() or None
+        street = match.group(3).strip() or None
+        return (zip_code, city, street)
+    return (None, None, cleaned or None)
+
+
+def _easter_sunday(year: int):
+    """Anonymous Gregorian algorithm."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return datetime(year, month, day)
+
+
+def _hungarian_holidays_for_year(year: int) -> set[str]:
+    easter = _easter_sunday(year)
+    good_friday = easter - timedelta(days=2)
+    easter_monday = easter + timedelta(days=1)
+    pentecost_monday = easter + timedelta(days=50)
+    fixed_days = [
+        (1, 1),
+        (3, 15),
+        (5, 1),
+        (8, 20),
+        (10, 23),
+        (11, 1),
+        (12, 25),
+        (12, 26),
+    ]
+    result = {f"{year}-{m:02d}-{d:02d}" for m, d in fixed_days}
+    result.update({
+        good_friday.strftime("%Y-%m-%d"),
+        easter_monday.strftime("%Y-%m-%d"),
+        pentecost_monday.strftime("%Y-%m-%d"),
+    })
+    return result
+
+
+def is_hungarian_public_holiday(date_str: str) -> bool:
+    try:
+        y, m, d = [int(v) for v in date_str.split("-")]
+        if m < 1 or m > 12 or d < 1 or d > monthrange(y, m)[1]:
+            return False
+    except Exception:
+        return False
+    return date_str in _hungarian_holidays_for_year(y)
+
+
+async def _find_blacklist_match(plate_number: str, phone: Optional[str], address: Optional[str]) -> Optional[dict]:
+    plate = (plate_number or "").upper().strip()
+    normalized_phone = _normalize_phone(phone)
+    zip_code, city, street = _parse_address_parts(address)
+    normalized_city = _normalize_text(city)
+    normalized_street = _normalize_text(street)
+
+    entries = await db.blacklist.find({}, {"_id": 0}).to_list(2000)
+    for entry in entries:
+        entry_plate = str(entry.get("plate_number", "")).upper().strip()
+        if plate and entry_plate and plate == entry_plate:
+            return {"type": "plate", "reason": entry.get("reason")}
+
+        entry_phone = _normalize_phone(entry.get("phone"))
+        if normalized_phone and entry_phone and normalized_phone == entry_phone:
+            return {"type": "phone", "reason": entry.get("reason")}
+
+        entry_zip = (entry.get("address_zip") or "").strip()
+        entry_city = _normalize_text(entry.get("address_city"))
+        entry_street = _normalize_text(entry.get("address_street"))
+        if zip_code and normalized_city and normalized_street and entry_zip and entry_city and entry_street:
+            if zip_code == entry_zip and normalized_city == entry_city and normalized_street == entry_street:
+                return {"type": "address", "reason": entry.get("reason")}
+    return None
 
 def _normalize_payment_method(value: Optional[str]) -> Optional[str]:
     """Normalize payment method aliases to canonical values."""
@@ -113,6 +226,9 @@ async def get_available_slots(
     Get available time slots for a given date and location (public).
     Takes into account worker availability based on booking duration.
     """
+    if is_hungarian_public_holiday(date):
+        return []
+
     workers_list = await db.workers.find({"location": location, "active": True}, {"_id": 0}).to_list(100)
     now_local = datetime.now(LOCAL_TZ)
     try:
@@ -303,6 +419,13 @@ async def lookup_customer_by_plate(plate_number: str):
 @router.post("/bookings")
 async def create_booking(data: BookingCreate):
     """Create a new booking (public, no auth required)"""
+    if is_hungarian_public_holiday(data.date):
+        raise HTTPException(status_code=400, detail="Ünnepnapon zárva tartunk, erre a napra nem foglalható időpont")
+
+    blacklist_match = await _find_blacklist_match(data.plate_number, data.phone, data.address)
+    if blacklist_match:
+        raise HTTPException(status_code=403, detail="A megadott adatok tiltólistán szerepelnek, foglalás nem lehetséges")
+
     # Public bookings cannot be created for past time slots.
     if is_past_slot_local(data.date, data.time_slot):
         raise HTTPException(status_code=400, detail="A kiválasztott időpont már elmúlt")

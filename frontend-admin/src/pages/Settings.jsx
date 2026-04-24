@@ -40,6 +40,8 @@ import {
   Trash2,
   Key,
   UserCog,
+  Edit,
+  Save,
   Eye,
   EyeOff,
   Check,
@@ -174,6 +176,9 @@ export const Settings = () => {
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
   const [resetPasswordUserId, setResetPasswordUserId] = useState(null);
   const [deleteWorkerId, setDeleteWorkerId] = useState(null);
+  const [deleteUserId, setDeleteUserId] = useState(null);
+  const [editingWorkerId, setEditingWorkerId] = useState(null);
+  const [editWorkerForm, setEditWorkerForm] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   
@@ -190,7 +195,9 @@ export const Settings = () => {
   const [newWorker, setNewWorker] = useState({
     name: "",
     phone: "",
-    location: "Debrecen"
+    location: "Debrecen",
+    travel_allowance_eligible: false,
+    travel_allowance_amount: 0
   });
 
   const [newUser, setNewUser] = useState({
@@ -268,10 +275,45 @@ export const Settings = () => {
       await axios.post(`${API}/workers`, newWorker, { withCredentials: true });
       toast.success("Dolgozó sikeresen létrehozva!");
       setIsNewWorkerOpen(false);
-      setNewWorker({ name: "", phone: "", location: "Debrecen" });
+      setNewWorker({ name: "", phone: "", location: "Debrecen", travel_allowance_eligible: false, travel_allowance_amount: 0 });
       fetchData();
     } catch (error) {
       toast.error("Hiba a dolgozó létrehozásakor");
+    }
+  };
+
+  const handleStartEditWorker = (worker) => {
+    setEditingWorkerId(worker.worker_id);
+    setEditWorkerForm({
+      name: worker.name || "",
+      phone: worker.phone || "",
+      location: worker.location || "Debrecen",
+      travel_allowance_eligible: !!worker.travel_allowance_eligible,
+      travel_allowance_amount: worker.travel_allowance_amount || 0,
+    });
+  };
+
+  const handleSaveWorker = async () => {
+    if (!editingWorkerId || !editWorkerForm) return;
+    try {
+      await axios.put(`${API}/workers/${editingWorkerId}`, editWorkerForm, { withCredentials: true });
+      toast.success("Dolgozó frissítve!");
+      setEditingWorkerId(null);
+      setEditWorkerForm(null);
+      fetchData();
+    } catch {
+      toast.error("Hiba a dolgozó mentésekor");
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    try {
+      const res = await axios.delete(`${API}/users/${userId}`, { withCredentials: true });
+      toast.success(res.data?.message || "Felhasználó deaktiválva");
+      setDeleteUserId(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Hiba a felhasználó törlésekor");
     }
   };
 
@@ -711,6 +753,16 @@ export const Settings = () => {
                             {u.active !== false ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                           </Button>
                         )}
+                        {u.user_id !== user.user_id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-8 h-8 text-slate-400 hover:text-red-500"
+                            onClick={() => setDeleteUserId(u.user_id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -798,6 +850,17 @@ export const Settings = () => {
                               {u.active !== false ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                             </Button>
                           )}
+                          {u.user_id !== user.user_id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-slate-400 hover:text-red-500"
+                              onClick={() => setDeleteUserId(u.user_id)}
+                              title="Felhasználó törlése"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -857,9 +920,32 @@ export const Settings = () => {
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-700">
                       <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                      <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-700 bg-slate-950/40">
+                  <Label className="text-slate-300 text-sm">Utazási költségtérítésre jogosult</Label>
+                  <button
+                    type="button"
+                    onClick={() => setNewWorker({...newWorker, travel_allowance_eligible: !newWorker.travel_allowance_eligible})}
+                    className={`w-10 h-6 rounded-full transition-colors ${newWorker.travel_allowance_eligible ? "bg-green-500" : "bg-slate-700"}`}
+                  >
+                    <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${newWorker.travel_allowance_eligible ? "translate-x-2" : "-translate-x-2"}`} />
+                  </button>
+                </div>
+                {newWorker.travel_allowance_eligible && (
+                  <div>
+                    <Label className="text-slate-300">Utazási költségtérítés (Ft/nap)</Label>
+                    <Input
+                      type="number"
+                      value={newWorker.travel_allowance_amount}
+                      onChange={(e) => setNewWorker({...newWorker, travel_allowance_amount: parseInt(e.target.value, 10) || 0})}
+                      className="bg-slate-950 border-slate-700 text-white"
+                      placeholder="pl. 1500"
+                    />
+                  </div>
+                )}
                 <Button 
                   onClick={handleCreateWorker}
                   className="w-full bg-green-600 hover:bg-green-500"
@@ -901,6 +987,14 @@ export const Settings = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
+                      className="w-8 h-8 text-slate-400 hover:text-blue-400"
+                      onClick={() => handleStartEditWorker(worker)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
                       className="w-8 h-8 text-slate-400 hover:text-red-400"
                       onClick={() => setDeleteWorkerId(worker.worker_id)}
                     >
@@ -918,7 +1012,7 @@ export const Settings = () => {
                     <TableHead className="text-slate-400">Név</TableHead>
                     <TableHead className="text-slate-400">Telefonszám</TableHead>
                     <TableHead className="text-slate-400">Telephely</TableHead>
-                    <TableHead className="text-slate-400 w-10"></TableHead>
+                    <TableHead className="text-slate-400 w-24 text-right">Műveletek</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -940,6 +1034,16 @@ export const Settings = () => {
                           <MapPin className="w-3 h-3 mr-1" />
                           {worker.location}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-slate-400 hover:text-blue-400"
+                          onClick={() => handleStartEditWorker(worker)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
                       </TableCell>
                       <TableCell>
                         <Button 
@@ -977,6 +1081,70 @@ export const Settings = () => {
             <Button variant="destructive" onClick={() => handleDeleteWorker(deleteWorkerId)} className="bg-red-600 hover:bg-red-700">
               Törlés
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingWorkerId} onOpenChange={() => { setEditingWorkerId(null); setEditWorkerForm(null); }}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-blue-400">Dolgozó szerkesztése</DialogTitle>
+          </DialogHeader>
+          {editWorkerForm && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-slate-300">Név</Label>
+                <Input value={editWorkerForm.name} onChange={(e) => setEditWorkerForm({...editWorkerForm, name: e.target.value})} className="bg-slate-950 border-slate-700 text-white" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Telefonszám</Label>
+                <Input value={editWorkerForm.phone} onChange={(e) => setEditWorkerForm({...editWorkerForm, phone: e.target.value})} className="bg-slate-950 border-slate-700 text-white" />
+              </div>
+              <div>
+                <Label className="text-slate-300">Telephely</Label>
+                <Select value={editWorkerForm.location} onValueChange={(v) => setEditWorkerForm({...editWorkerForm, location: v})}>
+                  <SelectTrigger className="bg-slate-950 border-slate-700"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="Debrecen" className="text-white">Debrecen</SelectItem>
+                    <SelectItem value="Budapest" className="text-white">Budapest</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-700 bg-slate-950/40">
+                <Label className="text-slate-300 text-sm">Utazási költségtérítésre jogosult</Label>
+                <button
+                  type="button"
+                  onClick={() => setEditWorkerForm({...editWorkerForm, travel_allowance_eligible: !editWorkerForm.travel_allowance_eligible})}
+                  className={`w-10 h-6 rounded-full transition-colors ${editWorkerForm.travel_allowance_eligible ? "bg-green-500" : "bg-slate-700"}`}
+                >
+                  <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${editWorkerForm.travel_allowance_eligible ? "translate-x-2" : "-translate-x-2"}`} />
+                </button>
+              </div>
+              {editWorkerForm.travel_allowance_eligible && (
+                <div>
+                  <Label className="text-slate-300">Utazási költségtérítés (Ft/nap)</Label>
+                  <Input type="number" value={editWorkerForm.travel_allowance_amount} onChange={(e) => setEditWorkerForm({...editWorkerForm, travel_allowance_amount: parseInt(e.target.value, 10) || 0})} className="bg-slate-950 border-slate-700 text-white" />
+                </div>
+              )}
+              <Button onClick={handleSaveWorker} className="w-full bg-blue-600 hover:bg-blue-500">
+                <Save className="w-4 h-4 mr-2" />
+                Mentés
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Felhasználó törlése</DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400">Biztosan deaktiválni szeretnéd ezt a felhasználót?</p>
+          <p className="text-white font-medium">{users.find(u => u.user_id === deleteUserId)?.name}</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteUserId(null)} className="border-slate-700">Mégse</Button>
+            <Button variant="destructive" onClick={() => handleDeleteUser(deleteUserId)} className="bg-red-600 hover:bg-red-700">Törlés</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -103,6 +103,7 @@ export const Workers = () => {
   const [absences, setAbsences] = useState([]);
   const [absenceForm, setAbsenceForm] = useState({ worker_id: "", date: "", reason: "Hiányzás" });
   const [addingAbsence, setAddingAbsence] = useState(false);
+  const [copyShiftToMonth, setCopyShiftToMonth] = useState(false);
 
   const generateWorkerPDF = async () => {
     const { default: jsPDF } = await import("jspdf");
@@ -450,6 +451,45 @@ export const Workers = () => {
   const monthDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
+  const easterSunday = (year) => {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  };
+
+  const holidaySetForYear = (year) => {
+    const easter = easterSunday(year);
+    const goodFriday = new Date(easter);
+    goodFriday.setDate(goodFriday.getDate() - 2);
+    const easterMonday = new Date(easter);
+    easterMonday.setDate(easterMonday.getDate() + 1);
+    const pentecostMonday = new Date(easter);
+    pentecostMonday.setDate(pentecostMonday.getDate() + 50);
+    const fixed = [
+      `${year}-01-01`, `${year}-03-15`, `${year}-05-01`, `${year}-08-20`,
+      `${year}-10-23`, `${year}-11-01`, `${year}-12-25`, `${year}-12-26`,
+    ];
+    const moving = [goodFriday, easterMonday, pentecostMonday].map((d) => format(d, "yyyy-MM-dd"));
+    return new Set([...fixed, ...moving]);
+  };
+  const holidaySet = new Set([
+    ...holidaySetForYear(currentDate.getFullYear()),
+    ...holidaySetForYear(currentDate.getFullYear() + 1),
+  ]);
+  const isPublicHoliday = (day) => holidaySet.has(format(day, "yyyy-MM-dd"));
+
   const fetchData = async () => {
     try {
       const locationParam = locationForApi ? `?location=${locationForApi}` : "";
@@ -543,10 +583,35 @@ export const Workers = () => {
 
   const handleCreateShift = async () => {
     try {
-      await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
-      toast.success("Műszak sikeresen létrehozva!");
+      if (copyShiftToMonth && newShift.shift_type === "normal" && newShift.start_time && newShift.end_time) {
+        const baseStart = new Date(newShift.start_time);
+        const baseEnd = new Date(newShift.end_time);
+        const targetMonth = baseStart.getMonth();
+        const candidateDays = monthDays.filter((d) => d.getMonth() === targetMonth);
+        const existingWorkerShifts = shifts.filter((s) => s.worker_id === newShift.worker_id);
+        const requests = candidateDays.map((day) => {
+          const dayKey = format(day, "yyyy-MM-dd");
+          const exists = existingWorkerShifts.some((s) => format(new Date(s.start_time), "yyyy-MM-dd") === dayKey);
+          if (exists) return null;
+          const startAt = new Date(day);
+          startAt.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
+          const endAt = new Date(day);
+          endAt.setHours(baseEnd.getHours(), baseEnd.getMinutes(), 0, 0);
+          return axios.post(`${API}/shifts`, {
+            ...newShift,
+            start_time: format(startAt, "yyyy-MM-dd'T'HH:mm"),
+            end_time: format(endAt, "yyyy-MM-dd'T'HH:mm"),
+          }, { withCredentials: true });
+        }).filter(Boolean);
+        await Promise.all(requests);
+        toast.success(`Műszak sablon másolva (${requests.length} nap)`);
+      } else {
+        await axios.post(`${API}/shifts`, newShift, { withCredentials: true });
+        toast.success("Műszak sikeresen létrehozva!");
+      }
       setIsNewShiftOpen(false);
       setNewShift({ worker_id: "", location: locationForApi || "Debrecen", start_time: "", end_time: "", shift_type: "normal", lunch_start: "", lunch_end: "" });
+      setCopyShiftToMonth(false);
       fetchData();
     } catch (error) {
       toast.error("Hiba a műszak létrehozásakor");
@@ -601,12 +666,12 @@ export const Workers = () => {
     const dateStr = format(day, "yyyy-MM-dd");
     setNewShift({
       worker_id: "",
-      location: "Debrecen",
+      location: locationForApi || "Debrecen",
       start_time: `${dateStr}T08:00`,
-      end_time: `${dateStr}T16:00`,
+      end_time: `${dateStr}T17:00`,
       shift_type: "normal",
       lunch_start: "12:00",
-      lunch_end: "12:30"
+      lunch_end: "13:00"
     });
     setSelectedDay(day);
     setIsNewShiftOpen(true);
@@ -1192,6 +1257,35 @@ export const Workers = () => {
                     <DialogTitle className="text-xl font-['Manrope']">Új műszak létrehozása</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
+                    <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3">
+                      <Label className="text-slate-300 text-sm">Gyors sablonok</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                        {[
+                          { id: "deb_08_17", label: "08:00-17:00", lunchStart: "12:00", lunchEnd: "13:00", start: "08:00", end: "17:00" },
+                          { id: "deb_10_19", label: "10:00-19:00", lunchStart: "14:00", lunchEnd: "15:00", start: "10:00", end: "19:00" },
+                          { id: "deb_08_19", label: "08:00-19:00", lunchStart: "12:00", lunchEnd: "13:00", start: "08:00", end: "19:00" },
+                        ].map((tpl) => (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => {
+                              const dayPart = (newShift.start_time || `${format(currentDate, "yyyy-MM-dd")}T08:00`).slice(0, 10);
+                              setNewShift({
+                                ...newShift,
+                                shift_type: "normal",
+                                start_time: `${dayPart}T${tpl.start}`,
+                                end_time: `${dayPart}T${tpl.end}`,
+                                lunch_start: tpl.lunchStart,
+                                lunch_end: tpl.lunchEnd,
+                              });
+                            }}
+                            className="rounded-md border border-slate-700 text-slate-200 hover:border-green-500/50 hover:bg-green-500/10 px-2 py-1.5 text-xs"
+                          >
+                            {tpl.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div>
                       <Label className="text-slate-300">Dolgozó</Label>
                       <Select value={newShift.worker_id} onValueChange={(v) => setNewShift({...newShift, worker_id: v})}>
@@ -1285,6 +1379,19 @@ export const Workers = () => {
                             />
                           </div>
                         </div>
+                        <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2">
+                          <div>
+                            <p className="text-slate-300 text-sm">Másolás a hónap többi napjára</p>
+                            <p className="text-slate-500 text-xs">Ugyanazzal az idősávval és ebédszünettel</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCopyShiftToMonth(!copyShiftToMonth)}
+                            className={`w-10 h-6 rounded-full transition-colors ${copyShiftToMonth ? "bg-green-500" : "bg-slate-700"}`}
+                          >
+                            <span className={`block w-4 h-4 bg-white rounded-full mx-auto transition-transform ${copyShiftToMonth ? "translate-x-2" : "-translate-x-2"}`} />
+                          </button>
+                        </div>
                       </div>
                     )}
                     
@@ -1354,6 +1461,11 @@ export const Workers = () => {
                           <div className={`text-sm font-medium mb-1 ${isCurrentMonth ? (isToday ? 'text-green-400' : 'text-white') : 'text-slate-600'}`}>
                             {format(day, 'd')}
                           </div>
+                          {isPublicHoliday(day) && (
+                            <div className="text-[10px] text-rose-300 bg-rose-500/20 border border-rose-500/40 rounded px-1 py-0.5 mb-1 inline-block">
+                              Ünnepnap
+                            </div>
+                          )}
                           <div className="space-y-1">
                             {dayShifts.slice(0, 3).map((shift) => {
                               const typeMeta = getShiftTypeMeta(shift.shift_type);
@@ -1410,6 +1522,9 @@ export const Workers = () => {
                               {format(day, "EEEE", { locale: hu })}
                             </span>
                             <span className="text-slate-400">{format(day, "d", { locale: hu })}</span>
+                            {isPublicHoliday(day) && (
+                              <Badge variant="outline" className="border-rose-500/50 text-rose-300 text-[10px]">Ünnepnap</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {dayShifts.length > 0 && (

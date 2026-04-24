@@ -130,6 +130,47 @@ const formatHunPhone = (raw) => {
 };
 const isValidHunPhone = (phone) => /^\+36\s?\d{2}\s?\d{3}\s?\d{4}$/.test(phone.trim());
 
+const easterSunday = (year) => {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+};
+
+const hungarianHolidaySetForYear = (year) => {
+  const easter = easterSunday(year);
+  const goodFriday = new Date(easter);
+  goodFriday.setDate(goodFriday.getDate() - 2);
+  const easterMonday = new Date(easter);
+  easterMonday.setDate(easterMonday.getDate() + 1);
+  const pentecostMonday = new Date(easter);
+  pentecostMonday.setDate(pentecostMonday.getDate() + 50);
+
+  const fixed = [
+    `${year}-01-01`,
+    `${year}-03-15`,
+    `${year}-05-01`,
+    `${year}-08-20`,
+    `${year}-10-23`,
+    `${year}-11-01`,
+    `${year}-12-25`,
+    `${year}-12-26`,
+  ];
+  const moving = [goodFriday, easterMonday, pentecostMonday].map((d) => format(d, "yyyy-MM-dd"));
+  return new Set([...fixed, ...moving]);
+};
+
 const BookingPage = () => {
   const [step, setStep] = useState(1);
   const [stepDir, setStepDir] = useState("forward");
@@ -183,6 +224,9 @@ const BookingPage = () => {
   const [plateError, setPlateError] = useState("");
   const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const progressPercent = Math.round((step / 4) * 100);
+  const holidaysThisYear = hungarianHolidaySetForYear(new Date().getFullYear());
+  const holidaysNextYear = hungarianHolidaySetForYear(new Date().getFullYear() + 1);
+  const isHolidayDate = (dateStr) => holidaysThisYear.has(dateStr) || holidaysNextYear.has(dateStr);
 
   // Load pricing data and extras
   // Load pricing data when location changes
@@ -1258,16 +1302,19 @@ const BookingPage = () => {
                 {weekDays.map(day => {
                   const dateStr = format(day, "yyyy-MM-dd");
                   const isPast = isBefore(day, new Date()) && !isToday(day);
+                  const isHoliday = isHolidayDate(dateStr);
                   const isSelected = form.date === dateStr;
                   
                   return (
                     <button
                       key={dateStr}
-                      onClick={() => !isPast && set("date", dateStr)}
-                      disabled={isPast}
+                      onClick={() => !isPast && !isHoliday && set("date", dateStr)}
+                      disabled={isPast || isHoliday}
                       className={`p-3 rounded-xl text-center transition-all ${
                         isPast 
                           ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed' 
+                          : isHoliday
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 cursor-not-allowed'
                           : isSelected 
                             ? 'bg-green-500 text-white shadow-lg' 
                             : isToday(day)
@@ -1277,10 +1324,16 @@ const BookingPage = () => {
                     >
                       <div className="text-xs opacity-70">{format(day, "EEE", { locale: hu })}</div>
                       <div className="text-lg font-bold">{format(day, "d")}</div>
+                      {isHoliday && <div className="text-[10px] mt-1">Ünnepnap</div>}
                     </button>
                   );
                 })}
               </div>
+              {form.date && isHolidayDate(form.date) && (
+                <div className="mt-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm">
+                  Ünnepnapon zárva tartunk, kérlek válassz másik napot.
+                </div>
+              )}
 
               {/* Time Slots */}
               {form.date && (
@@ -1296,6 +1349,7 @@ const BookingPage = () => {
                       ))}
                     </div>
                   ) : (
+                    <>
                     <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
                       {slots.map(slot => (
                         <button
@@ -1326,6 +1380,12 @@ const BookingPage = () => {
                         </button>
                       ))}
                     </div>
+                    {!isHolidayDate(form.date) && slots.length > 0 && slots.every(s => !s.is_available) && (
+                      <div className="mt-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 text-sm">
+                        Erre a napra jelenleg nincs foglalható idopont (uzlet zarva vagy minden dolgozo szabadnapon van).
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               )}

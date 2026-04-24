@@ -6,6 +6,10 @@ import uuid
 class BlacklistEntry(BaseModel):
     blacklist_id: str = Field(default_factory=lambda: f"bl_{uuid.uuid4().hex[:12]}")
     plate_number: str
+    phone: Optional[str] = None
+    address_zip: Optional[str] = None
+    address_city: Optional[str] = None
+    address_street: Optional[str] = None
     customer_name: Optional[str] = None
     reason: str
     evidence_images: List[str] = Field(default_factory=list)  # Evidence images URLs
@@ -15,5 +19,9 @@ class BlacklistEntry(BaseModel):
 
 class BlacklistCreate(BaseModel):
     plate_number: str
+    phone: Optional[str] = None
+    address_zip: Optional[str] = None
+    address_city: Optional[str] = None
+    address_street: Optional[str] = None
     reason: str
     evidence_images: Optional[List[str]] = None

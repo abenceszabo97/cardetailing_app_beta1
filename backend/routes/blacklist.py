@@ -2,12 +2,39 @@
 Blacklist Routes
 """
 from fastapi import APIRouter, Depends, HTTPException
+import re
 from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.blacklist import BlacklistEntry, BlacklistCreate
 
 router = APIRouter()
+
+
+def _normalize_phone(value: str | None) -> str | None:
+    if not value:
+        return None
+    digits = re.sub(r"\D+", "", value)
+    if digits.startswith("36") and len(digits) > 9:
+        digits = digits[2:]
+    elif digits.startswith("06"):
+        digits = digits[2:]
+    elif digits.startswith("0") and len(digits) >= 10:
+        digits = digits[1:]
+    return digits[-9:] if digits else None
+
+
+def _parse_address_parts(address_value: str | None) -> tuple[str | None, str | None, str | None]:
+    if not address_value:
+        return (None, None, None)
+    cleaned = str(address_value).strip()
+    match = re.match(r"^(\d{4})\s+([^,]+),?\s*(.*)$", cleaned)
+    if match:
+        zip_code = match.group(1).strip() or None
+        city = match.group(2).strip() or None
+        street = match.group(3).strip() or None
+        return (zip_code, city, street)
+    return (None, None, cleaned or None)
 
 @router.get("/blacklist")
 async def get_blacklist(user: User = Depends(get_current_user)):
@@ -26,9 +53,22 @@ async def add_to_blacklist(data: BlacklistCreate, user: User = Depends(get_curre
     
     customer = await db.customers.find_one({"plate_number": plate}, {"_id": 0})
     customer_name = customer.get("name") if customer else None
+    resolved_phone = data.phone or (customer.get("phone") if customer else None)
+    address_zip = data.address_zip
+    address_city = data.address_city
+    address_street = data.address_street
+    if customer and not (address_zip and address_city and address_street):
+        parsed_zip, parsed_city, parsed_street = _parse_address_parts(customer.get("address"))
+        address_zip = address_zip or parsed_zip
+        address_city = address_city or parsed_city
+        address_street = address_street or parsed_street
     
     entry = BlacklistEntry(
         plate_number=plate,
+        phone=resolved_phone,
+        address_zip=address_zip,
+        address_city=address_city,
+        address_street=address_street,
         customer_name=customer_name,
         reason=data.reason,
         evidence_images=data.evidence_images or [],
@@ -69,5 +109,5 @@ async def check_blacklist(plate_number: str):
     plate = plate_number.upper().strip()
     entry = await db.blacklist.find_one({"plate_number": plate}, {"_id": 0})
     if entry:
-        return {"blacklisted": True}
+        return {"blacklisted": True, "reason": entry.get("reason")}
     return {"blacklisted": False}
