@@ -30,6 +30,9 @@ async def get_business_alerts(user: User = Depends(require_admin)) -> dict:
     today = now_local.date().isoformat()
     is_holiday = is_hungarian_public_holiday(today)
     weekday = now_local.weekday()
+    unassigned_warn = int((await _get_setting_value("alerts_unassigned_warn")) or 1)
+    unassigned_critical = int((await _get_setting_value("alerts_unassigned_critical")) or 3)
+    day_close_hour = int((await _get_setting_value("alerts_day_close_hour")) or 20)
 
     for loc in ("Debrecen", "Budapest"):
         if not is_holiday and weekday < 6:
@@ -56,7 +59,7 @@ async def get_business_alerts(user: User = Depends(require_admin)) -> dict:
                 ],
             }
         )
-        if unassigned >= 3:
+        if unassigned >= unassigned_critical:
             alerts.append(
                 {
                     "code": "many_unassigned_bookings",
@@ -64,7 +67,7 @@ async def get_business_alerts(user: User = Depends(require_admin)) -> dict:
                     "message": f"Ma {unassigned} foglalásnak nincs kiosztott dolgozója.",
                 }
             )
-        elif 1 <= unassigned <= 2:
+        elif unassigned >= unassigned_warn:
             alerts.append(
                 {
                     "code": "unassigned_bookings",
@@ -88,7 +91,7 @@ async def get_business_alerts(user: User = Depends(require_admin)) -> dict:
                 }
             )
 
-    if not is_holiday and weekday < 6 and now_local.hour >= 20:
+    if not is_holiday and weekday < 6 and now_local.hour >= day_close_hour:
         day_start_utc = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         )

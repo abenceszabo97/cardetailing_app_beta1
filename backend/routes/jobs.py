@@ -1,7 +1,7 @@
 """
 Jobs Routes
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -13,24 +13,14 @@ from models.job import Job, JobCreate, JobUpdate, IMAGE_SLOT_LABELS_BEFORE, IMAG
 from routes.events import publish_event
 from services.state_transitions import is_booking_status_transition_ok, is_job_status_transition_ok
 from services.audit_log import log_audit
+from services.normalizers import normalize_payment_method
+from services import slot_cache, outbox
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 def _audit_field_changes(before: dict, update_data: dict) -> dict:
     return {k: {"from": before.get(k), "to": v} for k, v in update_data.items()}
-
-
-def _normalize_payment_method(value: Optional[str]) -> Optional[str]:
-    """Normalize payment method aliases to canonical values."""
-    if not value:
-        return value
-    method = str(value).strip().lower()
-    if method in {"utalas", "atutalas", "banki_atutalas"}:
-        return "atutalas"
-    if method in {"kartya", "bankkartya"}:
-        return "kartya"
-    return method
 
 
 async def _send_review_email_for_booking(booking_id: str, booking: dict):
@@ -236,6 +226,8 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
     doc = job.model_dump()
     doc["date"] = doc["date"].isoformat()
     doc["created_at"] = doc["created_at"].isoformat()
+    doc["updated_at"] = doc["created_at"]
+    doc["version"] = 1
     await db.jobs.insert_one(doc)
     
     # Also create a corresponding booking so it shows on the Calendar
@@ -256,7 +248,9 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
         "price": job.price,
         "status": job.status,
         "notes": job.notes or "",
-        "created_at": doc["created_at"]
+        "created_at": doc["created_at"],
+        "updated_at": doc["created_at"],
+        "version": 1,
     }
     await db.bookings.insert_one(booking_doc)
     
@@ -268,15 +262,27 @@ async def create_job(data: JobCreate, user: User = Depends(get_current_user)):
     
     result = job.model_dump()
     result["booking_id"] = booking_doc["booking_id"]
+    slot_cache.invalidate_slots(location=job.location, date=doc["date"][:10])
+    await outbox.enqueue_event(
+        "job.created",
+        {"job_id": job.job_id, "booking_id": booking_doc["booking_id"]},
+        aggregate_type="job",
+        aggregate_id=job.job_id,
+    )
     publish_event("refresh", {"reason": "job_created"})
     return result
 
 @router.put("/jobs/{job_id}")
-async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_current_user)):
+async def update_job(
+    job_id: str,
+    data: JobUpdate,
+    user: User = Depends(get_current_user),
+    expected_version: Optional[int] = Header(None, alias="If-Match-Version"),
+):
     """Update job - also handles booking to job conversion"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     if "payment_method" in update_data:
-        update_data["payment_method"] = _normalize_payment_method(update_data.get("payment_method"))
+        update_data["payment_method"] = normalize_payment_method(update_data.get("payment_method"))
     
     # Check if this is a booking reference (starts with bkg_)
     if job_id.startswith("bkg_"):
@@ -288,6 +294,8 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
         
         if not booking:
             raise HTTPException(status_code=404, detail="Foglalás nem található")
+        if expected_version is not None and int(booking.get("version", 1)) != expected_version:
+            raise HTTPException(status_code=409, detail="A foglalás időközben módosult")
         if "status" in update_data and not is_booking_status_transition_ok(
             booking.get("status"), update_data["status"]
         ):
@@ -312,7 +320,13 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 # Update existing job with all fields
                 await db.jobs.update_one(
                     {"booking_id": booking_id},
-                    {"$set": update_data}
+                    {
+                        "$set": {
+                            **update_data,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                            "version": int(existing_job.get("version", 1)) + 1,
+                        }
+                    }
                 )
                 
                 # ALSO update the booking to keep them in sync
@@ -344,7 +358,13 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
-                    {"$set": booking_sync}
+                    {
+                        "$set": {
+                            **booking_sync,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                            "version": int(booking.get("version", 1)) + 1,
+                        }
+                    }
                 )
                 
                 if update_data.get("status") == "kesz" and update_data.get("payment_method") and existing_job.get("status") != "kesz":
@@ -363,6 +383,15 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     user_id=user.user_id,
                     user_name=user.name,
                     changes=_audit_field_changes(existing_job, update_data),
+                )
+                slot_cache.invalidate_slots(
+                    location=booking.get("location"), date=booking.get("date")
+                )
+                await outbox.enqueue_event(
+                    "job.updated",
+                    {"job_id": existing_job.get("job_id"), "changes": list(update_data.keys())},
+                    aggregate_type="job",
+                    aggregate_id=existing_job.get("job_id", ""),
                 )
                 return {"message": "Munka frissítve"}
             else:
@@ -430,7 +459,13 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     booking_sync["extras_price"] = update_data["extras_price"]
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
-                    {"$set": booking_sync}
+                    {
+                        "$set": {
+                            **booking_sync,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                            "version": int(booking.get("version", 1)) + 1,
+                        }
+                    }
                 )
 
                 if update_data.get("status") == "kesz" and update_data.get("payment_method"):
@@ -450,6 +485,15 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                     user_name=user.name,
                     changes=_audit_field_changes(booking, update_data),
                     meta={"created_from_booking": booking_id},
+                )
+                slot_cache.invalidate_slots(
+                    location=booking.get("location"), date=booking.get("date")
+                )
+                await outbox.enqueue_event(
+                    "job.created_from_booking",
+                    {"job_id": new_job_id, "booking_id": booking_id},
+                    aggregate_type="job",
+                    aggregate_id=new_job_id,
                 )
                 return {"message": "Munka létrehozva a foglalásból"}
         else:
@@ -487,7 +531,13 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
             if booking_update:
                 await db.bookings.update_one(
                     {"booking_id": booking_id},
-                    {"$set": booking_update}
+                    {
+                        "$set": {
+                            **booking_update,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                            "version": int(booking.get("version", 1)) + 1,
+                        }
+                    }
                 )
             await log_audit(
                 "update",
@@ -496,6 +546,15 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
                 user_id=user.user_id,
                 user_name=user.name,
                 changes=_audit_field_changes(booking, update_data),
+            )
+            slot_cache.invalidate_slots(
+                location=booking.get("location"), date=booking.get("date")
+            )
+            await outbox.enqueue_event(
+                "booking.updated_from_jobs",
+                {"booking_id": booking_id, "changes": list(update_data.keys())},
+                aggregate_type="booking",
+                aggregate_id=booking_id,
             )
             return {"message": "Foglalás frissítve"}
     
@@ -509,6 +568,8 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
     job = await db.jobs.find_one({"job_id": job_id}, {"_id": 0})
     if not job:
         raise HTTPException(status_code=404, detail="Munka nem található")
+    if expected_version is not None and int(job.get("version", 1)) != expected_version:
+        raise HTTPException(status_code=409, detail="A munka időközben módosult")
     if "status" in update_data and not is_job_status_transition_ok(
         job.get("status"), update_data["status"]
     ):
@@ -537,7 +598,13 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
 
     await db.jobs.update_one(
         {"job_id": job_id},
-        {"$set": update_data}
+        {
+            "$set": {
+                **update_data,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "version": int(job.get("version", 1)) + 1,
+            }
+        }
     )
 
     # Sync back to booking if this job came from a booking
@@ -586,14 +653,36 @@ async def update_job(job_id: str, data: JobUpdate, user: User = Depends(get_curr
         user_name=user.name,
         changes=_audit_field_changes(job, update_data),
     )
+    slot_cache.invalidate_slots(
+        location=job.get("location"),
+        date=(job.get("date") or "")[:10] if job.get("date") else None,
+    )
+    await outbox.enqueue_event(
+        "job.updated",
+        {"job_id": job_id, "changes": list(update_data.keys())},
+        aggregate_type="job",
+        aggregate_id=job_id,
+    )
     publish_event("refresh", {"reason": "job_updated"})
     return {"message": "Munka frissítve"}
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str, user: User = Depends(get_current_user)):
     """Delete job"""
+    job = await db.jobs.find_one({"job_id": job_id}, {"_id": 0})
     result = await db.jobs.delete_one({"job_id": job_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Munka nem található")
+    if job:
+        slot_cache.invalidate_slots(
+            location=job.get("location"),
+            date=(job.get("date") or "")[:10] if job.get("date") else None,
+        )
+        await outbox.enqueue_event(
+            "job.deleted",
+            {"job_id": job_id},
+            aggregate_type="job",
+            aggregate_id=job_id,
+        )
     publish_event("refresh", {"reason": "job_deleted"})
     return {"message": "Munka törölve"}

@@ -1,7 +1,7 @@
 """
 Workers Routes
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime, timezone
@@ -11,6 +11,7 @@ from database import db
 from models.user import User
 from models.worker import Worker, WorkerCreate, WorkerUpdate
 from services.audit_log import log_audit
+from services import slot_cache, outbox
 
 
 class AbsenceCreate(BaseModel):
@@ -34,11 +35,24 @@ async def create_worker(data: WorkerCreate, user: User = Depends(get_current_use
     worker = Worker(**data.model_dump())
     doc = worker.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
+    doc["updated_at"] = doc["created_at"]
+    doc["version"] = 1
     await db.workers.insert_one(doc)
+    await outbox.enqueue_event(
+        "worker.created",
+        {"worker_id": worker.worker_id, "location": worker.location},
+        aggregate_type="worker",
+        aggregate_id=worker.worker_id,
+    )
     return worker.model_dump()
 
 @router.put("/workers/{worker_id}")
-async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends(get_current_user)):
+async def update_worker(
+    worker_id: str,
+    data: WorkerUpdate,
+    user: User = Depends(get_current_user),
+    expected_version: Optional[int] = Header(None, alias="If-Match-Version"),
+):
     """Update worker"""
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     if not update_data:
@@ -46,10 +60,18 @@ async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends
     before = await db.workers.find_one({"worker_id": worker_id}, {"_id": 0})
     if not before:
         raise HTTPException(status_code=404, detail="Dolgozó nem található")
+    if expected_version is not None and int(before.get("version", 1)) != expected_version:
+        raise HTTPException(status_code=409, detail="A dolgozó időközben módosult")
 
     result = await db.workers.update_one(
         {"worker_id": worker_id},
-        {"$set": update_data}
+        {
+            "$set": {
+                **update_data,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "version": int(before.get("version", 1)) + 1,
+            }
+        }
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Dolgozó nem található")
@@ -61,15 +83,34 @@ async def update_worker(worker_id: str, data: WorkerUpdate, user: User = Depends
         user_name=user.name,
         changes={k: {"from": before.get(k), "to": v} for k, v in update_data.items()},
     )
+    slot_cache.invalidate_slots(location=before.get("location"))
+    await outbox.enqueue_event(
+        "worker.updated",
+        {"worker_id": worker_id, "changes": list(update_data.keys())},
+        aggregate_type="worker",
+        aggregate_id=worker_id,
+    )
     return {"message": "Dolgozó frissítve"}
 
 @router.delete("/workers/{worker_id}")
-async def delete_worker(worker_id: str, user: User = Depends(get_current_user)):
+async def delete_worker(
+    worker_id: str,
+    user: User = Depends(get_current_user),
+    expected_version: Optional[int] = Header(None, alias="If-Match-Version"),
+):
     """Deactivate worker"""
     before = await db.workers.find_one({"worker_id": worker_id}, {"_id": 0})
+    if expected_version is not None and before and int(before.get("version", 1)) != expected_version:
+        raise HTTPException(status_code=409, detail="A dolgozó időközben módosult")
     result = await db.workers.update_one(
         {"worker_id": worker_id},
-        {"$set": {"active": False}}
+        {
+            "$set": {
+                "active": False,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "version": int((before or {}).get("version", 1)) + 1,
+            }
+        }
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Dolgozó nem található")
@@ -82,6 +123,13 @@ async def delete_worker(worker_id: str, user: User = Depends(get_current_user)):
             user_name=user.name,
             changes={"active": {"from": before.get("active"), "to": False}},
         )
+        slot_cache.invalidate_slots(location=before.get("location"))
+    await outbox.enqueue_event(
+        "worker.deactivated",
+        {"worker_id": worker_id},
+        aggregate_type="worker",
+        aggregate_id=worker_id,
+    )
     return {"message": "Dolgozó törölve"}
 
 
@@ -130,7 +178,6 @@ async def add_worker_absence(worker_id: str, data: AbsenceCreate, user: User = D
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.worker_absences.insert_one(doc)
-    del doc["_id"]
 
     # Map reason → shift type so it appears in jelenléti ív / PDF export
     shift_type_map = {
@@ -159,6 +206,13 @@ async def add_worker_absence(worker_id: str, data: AbsenceCreate, user: User = D
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.shifts.insert_one(shift_doc)
+        slot_cache.invalidate_slots(location=worker.get("location"), date=data.date)
+    await outbox.enqueue_event(
+        "worker.absence_created",
+        {"worker_id": worker_id, "absence_id": doc["absence_id"], "date": data.date},
+        aggregate_type="worker_absence",
+        aggregate_id=doc["absence_id"],
+    )
 
     return doc
 
@@ -166,9 +220,18 @@ async def add_worker_absence(worker_id: str, data: AbsenceCreate, user: User = D
 @router.delete("/workers/{worker_id}/absences/{absence_id}")
 async def delete_worker_absence(worker_id: str, absence_id: str, user: User = Depends(get_current_user)):
     """Delete an absence record and its linked shift entry (if any)."""
+    before = await db.worker_absences.find_one({"absence_id": absence_id, "worker_id": worker_id}, {"_id": 0})
     result = await db.worker_absences.delete_one({"absence_id": absence_id, "worker_id": worker_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Hiányzás nem található")
     # Also remove the auto-created shift (only if it was linked to this absence)
     await db.shifts.delete_one({"absence_linked": absence_id, "worker_id": worker_id})
+    if before:
+        slot_cache.invalidate_slots(date=before.get("date"))
+    await outbox.enqueue_event(
+        "worker.absence_deleted",
+        {"worker_id": worker_id, "absence_id": absence_id},
+        aggregate_type="worker_absence",
+        aggregate_id=absence_id,
+    )
     return {"message": "Hiányzás törölve"}

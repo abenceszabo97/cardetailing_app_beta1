@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from database import db
+from services import slot_cache
 
 LOCAL_TZ = ZoneInfo("Europe/Budapest")
 
@@ -229,6 +230,9 @@ def get_blocked_slots(bookings: List[dict], workers_list: List[dict]) -> dict:
 async def compute_available_slots(
     location: str, date: str, service_id: Optional[str] = None, duration: Optional[int] = None
 ) -> list:
+    cached = slot_cache.get_slots(location, date, service_id, duration)
+    if cached is not None:
+        return cached
     if is_hungarian_public_holiday(date):
         return []
 
@@ -402,4 +406,78 @@ async def compute_available_slots(
                     else 0,
                 }
             )
+    slot_cache.set_slots(location, date, service_id, duration, all_slots)
     return all_slots
+
+
+async def explain_booking_slot(
+    *,
+    location: str,
+    date: str,
+    time_slot: str,
+    duration: Optional[int] = None,
+    plate_number: Optional[str] = None,
+    phone: Optional[str] = None,
+    address: Optional[str] = None,
+) -> dict:
+    reasons: list[dict] = []
+    blocking_rules: list[str] = []
+
+    if is_hungarian_public_holiday(date):
+        blocking_rules.append("holiday")
+        reasons.append(
+            {
+                "code": "holiday",
+                "message": "Ünnepnapon zárva tartunk.",
+            }
+        )
+    if is_past_slot_local(date, time_slot):
+        blocking_rules.append("past_slot")
+        reasons.append(
+            {
+                "code": "past_slot",
+                "message": "A kiválasztott időpont már elmúlt.",
+            }
+        )
+
+    if plate_number:
+        blacklist_match = await find_blacklist_match(plate_number, phone, address)
+        if blacklist_match:
+            blocking_rules.append("blacklist")
+            reasons.append(
+                {
+                    "code": "blacklist",
+                    "message": "A megadott adatok tiltólistán szerepelnek.",
+                    "meta": blacklist_match,
+                }
+            )
+
+    slots = await compute_available_slots(location, date, duration=duration)
+    selected_slot = next((s for s in slots if s.get("time_slot") == time_slot), None)
+    if not selected_slot:
+        blocking_rules.append("slot_not_in_working_hours")
+        reasons.append(
+            {
+                "code": "slot_not_in_working_hours",
+                "message": "A kért időpont a foglalható időablakon kívül esik.",
+            }
+        )
+    elif not selected_slot.get("is_available"):
+        blocking_rules.append("no_available_worker")
+        reasons.append(
+            {
+                "code": "no_available_worker",
+                "message": "Nincs elérhető dolgozó a kért időpontra.",
+                "meta": {
+                    "booked_count": selected_slot.get("booked_count"),
+                    "total_workers": selected_slot.get("total_workers"),
+                },
+            }
+        )
+
+    return {
+        "allowed": len(blocking_rules) == 0,
+        "blocking_rules": blocking_rules,
+        "reasons": reasons,
+        "slot_snapshot": selected_slot,
+    }

@@ -17,24 +17,18 @@ from models.customer import Customer
 from services.booking_rules import (
     assert_public_booking_create_allowed,
     compute_available_slots,
+    explain_booking_slot,
 )
 from services.state_transitions import is_booking_status_transition_ok
 from services.audit_log import log_audit
 from services import idempotency as idem
+from services import slot_cache
+from services import outbox
+from services import message_queue
+from services.normalizers import normalize_payment_method, normalize_plate
 
 router = APIRouter()
 
-
-def _normalize_payment_method(value: Optional[str]) -> Optional[str]:
-    """Normalize payment method aliases to canonical values."""
-    if not value:
-        return value
-    method = str(value).strip().lower()
-    if method in {"utalas", "atutalas", "banki_atutalas"}:
-        return "atutalas"
-    if method in {"kartya", "bankkartya"}:
-        return "kartya"
-    return method
 
 @router.get("/bookings/available-slots")
 async def get_available_slots(
@@ -47,6 +41,29 @@ async def get_available_slots(
     Get available time slots for a given date and location (public).
     """
     return await compute_available_slots(location, date, service_id, duration)
+
+
+@router.get("/bookings/rules/explain")
+async def explain_rules_for_slot(
+    location: str,
+    date: str,
+    time_slot: str,
+    duration: Optional[int] = None,
+    plate_number: Optional[str] = None,
+    phone: Optional[str] = None,
+    address: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """Explain why a slot is allowed/blocked."""
+    return await explain_booking_slot(
+        location=location,
+        date=date,
+        time_slot=time_slot,
+        duration=duration,
+        plate_number=plate_number,
+        phone=phone,
+        address=address,
+    )
 
 @router.get("/bookings/by-review-token/{token}")
 async def get_booking_by_review_token(token: str):
@@ -114,6 +131,8 @@ async def create_booking(
         if cached is not None:
             return cached
 
+    data.plate_number = normalize_plate(data.plate_number)
+    data.payment_method = normalize_payment_method(data.payment_method)
     await assert_public_booking_create_allowed(
         data.date,
         data.time_slot,
@@ -203,6 +222,8 @@ async def create_booking(
     
     doc = booking.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
+    doc["updated_at"] = doc["created_at"]
+    doc["version"] = 1
     await db.bookings.insert_one(doc)
     
     # Auto-create/update customer
@@ -222,7 +243,7 @@ async def create_booking(
         customer_id = cust.customer_id
     else:
         await db.customers.update_one(
-            {"plate_number": data.plate_number.upper()},
+            {"plate_number": data.plate_number},
             {"$inc": {"booking_count": 1}, "$set": {"email": data.email, "phone": data.phone}}
         )
         customer_id = existing_cust.get("customer_id", "")
@@ -234,23 +255,20 @@ async def create_booking(
             {"$set": {"customer_id": customer_id}}
         )
     
-    # Send confirmation email if configured
     if RESEND_API_KEY and data.email:
-        try:
-            from services.email_service import send_booking_confirmation
-            email_result = await send_booking_confirmation(doc)
-            logging.info(f"Booking confirmation email: {email_result}")
-        except Exception as e:
-            logging.warning(f"Booking email failed: {e}")
-
-    # Send confirmation SMS (fire-and-forget; never block booking creation)
+        await message_queue.enqueue_message(
+            channel="email",
+            event_type="booking_confirmation",
+            payload=doc,
+            dedupe_key=f"booking_confirmation_email:{booking.booking_id}",
+        )
     if data.phone:
-        try:
-            from services.sms_service import send_booking_confirmation_sms
-            sms_result = await send_booking_confirmation_sms(doc)
-            logging.info(f"Booking confirmation SMS: {sms_result.get('status')}")
-        except Exception as e:
-            logging.warning(f"Booking SMS failed: {e}")
+        await message_queue.enqueue_message(
+            channel="sms",
+            event_type="booking_confirmation",
+            payload=doc,
+            dedupe_key=f"booking_confirmation_sms:{booking.booking_id}",
+        )
 
     # Create notification for management system
     notification = {
@@ -302,6 +320,8 @@ async def create_booking(
             
             second_doc = second_booking_obj.model_dump()
             second_doc["created_at"] = second_doc["created_at"].isoformat()
+            second_doc["updated_at"] = second_doc["created_at"]
+            second_doc["version"] = 1
             second_doc["linked_booking_id"] = booking.booking_id
             await db.bookings.insert_one(second_doc)
             
@@ -347,6 +367,13 @@ async def create_booking(
         await idem.store_response(
             idem.SCOPE_BOOKING, idempotency_key, body_fingerprint, result
         )
+    slot_cache.invalidate_slots(location=data.location, date=data.date)
+    await outbox.enqueue_event(
+        "booking.created",
+        {"booking_id": booking.booking_id, "location": data.location, "date": data.date},
+        aggregate_type="booking",
+        aggregate_id=booking.booking_id,
+    )
     return result
 
 @router.get("/bookings")
@@ -374,10 +401,15 @@ async def get_booking(booking_id: str, user: User = Depends(get_current_user)):
     return booking
 
 @router.put("/bookings/{booking_id}")
-async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depends(get_current_user)):
+async def update_booking(
+    booking_id: str,
+    data: BookingUpdate,
+    user: User = Depends(get_current_user),
+    expected_version: Optional[int] = Header(None, alias="If-Match-Version"),
+):
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     if "payment_method" in update_data:
-        update_data["payment_method"] = _normalize_payment_method(update_data.get("payment_method"))
+        update_data["payment_method"] = normalize_payment_method(update_data.get("payment_method"))
     if "worker_id" in update_data:
         worker = await db.workers.find_one({"worker_id": update_data["worker_id"]}, {"_id": 0})
         if worker:
@@ -388,7 +420,7 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
             update_data["service_name"] = service["name"]
             update_data["price"] = service["price"]
     if "plate_number" in update_data:
-        update_data["plate_number"] = update_data["plate_number"].upper()
+        update_data["plate_number"] = normalize_plate(update_data["plate_number"])
     if not update_data:
         raise HTTPException(status_code=400, detail="Nincs frissítendő adat")
     
@@ -396,6 +428,8 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
     original_booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
     if not original_booking:
         raise HTTPException(status_code=404, detail="Foglalás nem található")
+    if expected_version is not None and int(original_booking.get("version", 1)) != expected_version:
+        raise HTTPException(status_code=409, detail="A foglalás időközben módosult")
 
     if "status" in update_data:
         if not is_booking_status_transition_ok(
@@ -406,7 +440,11 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
                 detail="Érvénytelen státuszváltás ehhez a foglaláshoz",
             )
     
-    await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    update_data["version"] = int(original_booking.get("version", 0)) + 1
+    result = await db.bookings.update_one({"booking_id": booking_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Foglalás nem található")
     
     # Get updated booking
     booking = await db.bookings.find_one({"booking_id": booking_id}, {"_id": 0})
@@ -491,6 +529,16 @@ async def update_booking(booking_id: str, data: BookingUpdate, user: User = Depe
         user_name=user.name,
         changes=change_snapshot,
     )
+    slot_cache.invalidate_slots(
+        location=booking.get("location"),
+        date=booking.get("date"),
+    )
+    await outbox.enqueue_event(
+        "booking.updated",
+        {"booking_id": booking_id, "changes": list(update_data.keys())},
+        aggregate_type="booking",
+        aggregate_id=booking_id,
+    )
     publish_event("refresh", {"reason": "booking_updated"})
     return {"message": "Foglalás frissítve"}
 
@@ -508,6 +556,16 @@ async def delete_booking(booking_id: str, user: User = Depends(get_current_user)
             user_id=user.user_id,
             user_name=user.name,
             changes={"previous": {k: before.get(k) for k in before if k != "_id"}},
+        )
+        slot_cache.invalidate_slots(
+            location=before.get("location"),
+            date=before.get("date"),
+        )
+        await outbox.enqueue_event(
+            "booking.deleted",
+            {"booking_id": booking_id},
+            aggregate_type="booking",
+            aggregate_id=booking_id,
         )
     publish_event("refresh", {"reason": "booking_deleted"})
     return {"message": "Foglalás törölve"}
@@ -571,6 +629,14 @@ async def modify_booking_by_token(token: str, date: str, time_slot: str):
         {"modify_token": token},
         {"$set": {"date": date, "time_slot": time_slot, "status": "foglalt"}}
     )
+    slot_cache.invalidate_slots(location=booking.get("location"), date=booking.get("date"))
+    slot_cache.invalidate_slots(location=booking.get("location"), date=date)
+    await outbox.enqueue_event(
+        "booking.rescheduled",
+        {"booking_id": booking.get("booking_id"), "date": date, "time_slot": time_slot},
+        aggregate_type="booking",
+        aggregate_id=booking.get("booking_id", ""),
+    )
     publish_event("refresh", {"reason": "booking_modified"})
     return {"message": "Foglalás módosítva", "date": date, "time_slot": time_slot}
 
@@ -592,6 +658,13 @@ async def cancel_booking_by_token(token: str):
     await db.bookings.update_one(
         {"cancel_token": token},
         {"$set": {"status": "lemondta", "cancelled_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    slot_cache.invalidate_slots(location=booking.get("location"), date=booking.get("date"))
+    await outbox.enqueue_event(
+        "booking.cancelled",
+        {"booking_id": booking.get("booking_id")},
+        aggregate_type="booking",
+        aggregate_id=booking.get("booking_id", ""),
     )
     publish_event("refresh", {"reason": "booking_cancelled"})
     return {"message": "Foglalás lemondva"}

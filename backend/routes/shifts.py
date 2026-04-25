@@ -8,6 +8,7 @@ from dependencies import get_current_user
 from database import db
 from models.user import User
 from models.shift import Shift, ShiftCreate, ShiftUpdate
+from services import slot_cache, outbox
 
 router = APIRouter()
 
@@ -54,7 +55,13 @@ async def create_shift(data: ShiftCreate, user: User = Depends(get_current_user)
     doc["end_time"] = doc["end_time"].isoformat()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.shifts.insert_one(doc)
-    
+    slot_cache.invalidate_slots(location=data.location, date=doc["start_time"][:10])
+    await outbox.enqueue_event(
+        "shift.created",
+        {"shift_id": shift.shift_id, "worker_id": data.worker_id},
+        aggregate_type="shift",
+        aggregate_id=shift.shift_id,
+    )
     return shift.model_dump()
 
 @router.put("/shifts/{shift_id}")
@@ -78,6 +85,7 @@ async def update_shift(shift_id: str, data: ShiftUpdate, user: User = Depends(ge
         if worker:
             update_data["worker_name"] = worker["name"]
     
+    before = await db.shifts.find_one({"shift_id": shift_id}, {"_id": 0})
     result = await db.shifts.update_one(
         {"shift_id": shift_id},
         {"$set": update_data}
@@ -85,15 +93,35 @@ async def update_shift(shift_id: str, data: ShiftUpdate, user: User = Depends(ge
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Műszak nem található")
-    
+    if before:
+        slot_cache.invalidate_slots(
+            location=before.get("location"), date=(before.get("start_time") or "")[:10]
+        )
+    await outbox.enqueue_event(
+        "shift.updated",
+        {"shift_id": shift_id, "changes": list(update_data.keys())},
+        aggregate_type="shift",
+        aggregate_id=shift_id,
+    )
     return {"message": "Műszak frissítve"}
 
 @router.delete("/shifts/{shift_id}")
 async def delete_shift(shift_id: str, user: User = Depends(get_current_user)):
     """Delete shift"""
+    before = await db.shifts.find_one({"shift_id": shift_id}, {"_id": 0})
     result = await db.shifts.delete_one({"shift_id": shift_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Műszak nem található")
+    if before:
+        slot_cache.invalidate_slots(
+            location=before.get("location"), date=(before.get("start_time") or "")[:10]
+        )
+    await outbox.enqueue_event(
+        "shift.deleted",
+        {"shift_id": shift_id},
+        aggregate_type="shift",
+        aggregate_id=shift_id,
+    )
     return {"message": "Műszak törölve"}
 
 @router.get("/stats/worker-monthly")

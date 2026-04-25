@@ -21,6 +21,8 @@ from models.user import User
 import uuid
 from services import idempotency as idem
 from services.audit_log import log_audit
+from services.normalizers import normalize_payment_method
+from services import outbox
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +115,8 @@ def _payment_label(method: str) -> str:
 
 
 def _normalize_payment_method(value: Optional[str]) -> str:
-    if not value:
-        return "keszpenz"
-    method = str(value).strip().lower()
-    if method in {"utalas", "atutalas", "banki_atutalas"}:
-        return "atutalas"
-    if method in {"bankkartya", "kartya"}:
-        return "kartya"
-    return method
+    normalized = normalize_payment_method(value)
+    return normalized or "keszpenz"
 
 
 def _build_invoice_xml(api_key: str, job: dict, data: InvoiceCreate, is_receipt: bool) -> str:
@@ -425,6 +421,8 @@ async def create_invoice(
         "status": "fizetve" if data.payment_method in ("keszpenz", "kartya") else "fizetesre_var",
         "job_date": (job.get("date") or "")[:10],
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "version": 1,
         "created_by": user.user_id,
     }
     await db.invoices.insert_one(invoice_doc)
@@ -461,6 +459,12 @@ async def create_invoice(
             "invoice_number": {"to": invoice_number},
             "amount": {"to": job.get("price", 0)},
         },
+    )
+    await outbox.enqueue_event(
+        "invoice.created",
+        {"invoice_id": invoice_id, "job_id": data.job_id},
+        aggregate_type="invoice",
+        aggregate_id=invoice_id,
     )
     if idempotency_key:
         await idem.store_response(
@@ -511,9 +515,45 @@ async def resend_invoice_email(invoice_id: str, user: User = Depends(get_current
 
 
 @router.put("/invoices/{invoice_id}/status")
-async def update_invoice_status(invoice_id: str, status: str, user: User = Depends(get_current_user)):
+async def update_invoice_status(
+    invoice_id: str,
+    status: str,
+    user: User = Depends(get_current_user),
+    expected_version: Optional[int] = Header(None, alias="If-Match-Version"),
+):
     """Update payment status (fizetve / fizetesre_var)."""
-    await db.invoices.update_one({"invoice_id": invoice_id}, {"$set": {"status": status}})
+    before = await db.invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
+    if not before:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    if expected_version is not None and int(before.get("version", 1)) != expected_version:
+        raise HTTPException(status_code=409, detail="A számla időközben módosult")
+    next_version = int(before.get("version", 1)) + 1
+    result = await db.invoices.update_one(
+        {"invoice_id": invoice_id},
+        {
+            "$set": {
+                "status": status,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "version": next_version,
+            }
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    await log_audit(
+        "update",
+        "invoice",
+        invoice_id,
+        user_id=user.user_id,
+        user_name=user.name,
+        changes={"status": {"from": before.get("status"), "to": status}},
+    )
+    await outbox.enqueue_event(
+        "invoice.status_updated",
+        {"invoice_id": invoice_id, "status": status},
+        aggregate_type="invoice",
+        aggregate_id=invoice_id,
+    )
     return {"message": "Státusz frissítve"}
 
 

@@ -16,6 +16,7 @@ from limiter import limiter
 from config import CORS_ORIGINS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, RESEND_API_KEY
 from database import db, close_db
 from routes import api_router
+from services import message_queue, outbox
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -99,6 +100,17 @@ async def lifespan(app: FastAPI):
         await db.idempotency.create_index("expires_at", expireAfterSeconds=0)
         await db.audit_log.create_index("created_at")
         await db.audit_log.create_index([("resource_type", 1), ("resource_id", 1)])
+        await db.bookings.create_index([("location", 1), ("date", 1), ("status", 1), ("worker_id", 1)])
+        await db.jobs.create_index([("location", 1), ("date", 1), ("status", 1), ("worker_id", 1)])
+        await db.bookings.create_index("version")
+        await db.jobs.create_index("version")
+        await db.invoices.create_index("version")
+        await db.workers.create_index("version")
+        await db.message_queue.create_index("message_id", unique=True)
+        await db.message_queue.create_index([("status", 1), ("next_attempt_at", 1)])
+        await db.message_queue.create_index("dedupe_key", sparse=True)
+        await db.outbox.create_index("event_id", unique=True)
+        await db.outbox.create_index([("status", 1), ("created_at", 1)])
         logger.info("MongoDB indexes created/verified")
     except Exception as e:
         logger.warning(f"Index creation warning: {e}")
@@ -106,12 +118,20 @@ async def lifespan(app: FastAPI):
     # Start background reminder task
     import asyncio
     reminder_task = asyncio.create_task(reminder_loop())
+    queue_stop_event = asyncio.Event()
+    outbox_stop_event = asyncio.Event()
+    message_queue_task = asyncio.create_task(message_queue.worker_loop(queue_stop_event))
+    outbox_task = asyncio.create_task(outbox.worker_loop(outbox_stop_event))
     
     yield
     
     # Shutdown
     logger.info("X-CLEAN API shutting down...")
+    queue_stop_event.set()
+    outbox_stop_event.set()
     reminder_task.cancel()
+    message_queue_task.cancel()
+    outbox_task.cancel()
     await close_db()
 
 
