@@ -902,7 +902,7 @@ export const Workers = () => {
                           placeholder="Teljes név"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-slate-300">Telefonszám</Label>
                           <Input
@@ -922,7 +922,7 @@ export const Workers = () => {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-slate-300">Beosztás</Label>
                           <Input
@@ -2239,7 +2239,7 @@ export const Workers = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Műszak kezdete</label>
                   <Input
@@ -2273,7 +2273,7 @@ export const Workers = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Ebédszünet kezdete</label>
                   <Input

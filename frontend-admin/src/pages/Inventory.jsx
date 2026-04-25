@@ -176,7 +176,7 @@ export const Inventory = () => {
                       data-testid="new-inventory-name"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Aktuális mennyiség</Label>
                       <Input
@@ -198,7 +198,7 @@ export const Inventory = () => {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-slate-300">Egység</Label>
                       <Select value={newItem.unit} onValueChange={(v) => setNewItem({...newItem, unit: v})}>

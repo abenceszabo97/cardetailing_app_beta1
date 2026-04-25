@@ -215,7 +215,7 @@ const MainLayout = ({ children }) => {
                 {isAdmin && (
                   <Select value={effectiveLocation} onValueChange={setSelectedLocation}>
                     <SelectTrigger
-                      className="h-10 min-w-[190px] bg-slate-950/50 border-slate-700 text-white rounded-xl"
+                      className="h-10 w-[140px] sm:w-[190px] bg-slate-950/50 border-slate-700 text-white rounded-xl"
                       data-testid="location-selector"
                     >
                       <MapPin className="w-4 h-4 mr-2 text-green-400" />
@@ -229,9 +229,9 @@ const MainLayout = ({ children }) => {
                   </Select>
                 )}
                 {!isAdmin && user?.location && (
-                  <div className="h-10 min-w-[190px] text-sm text-white bg-slate-950/50 px-3 py-1.5 rounded-xl border border-slate-700 flex items-center">
+                  <div className="h-10 w-[140px] sm:w-[190px] text-sm text-white bg-slate-950/50 px-3 py-1.5 rounded-xl border border-slate-700 flex items-center">
                     <MapPin className="w-4 h-4 mr-2 text-green-400" />
-                    {user.location}
+                    <span className="truncate">{user.location}</span>
                   </div>
                 )}
               </div>

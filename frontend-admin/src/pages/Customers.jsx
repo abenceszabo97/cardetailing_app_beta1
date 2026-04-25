@@ -679,7 +679,7 @@ export const Customers = () => {
             </div>
 
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3 p-5 border-b border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-5 border-b border-slate-800">
               <div className="bg-slate-800/60 rounded-lg p-3 text-center">
                 <p className="text-xs text-slate-400 mb-1">Összes költés</p>
                 <p className="text-base font-bold text-green-400">{(historyCustomer.total_spent || 0).toLocaleString('hu-HU')} Ft</p>
