@@ -165,24 +165,24 @@ async def get_daily_stats(location: Optional[str] = None, user: User = Depends(g
     """Get daily statistics for current month"""
     today = datetime.now(timezone.utc)
     month_str = today.strftime("%Y-%m")  # e.g., "2025-03"
-    
+
     query = {"status": "kesz", "date": {"$regex": f"^{re.escape(month_str)}"}}
     if location:
         query["location"] = location
-
-    jobs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
-
-    daily_stats = {}
-    for job in jobs:
-        date_str = job.get("date", "")[:10]
-        if not date_str:
-            continue
-        if date_str not in daily_stats:
-            daily_stats[date_str] = {"date": date_str, "count": 0, "revenue": 0}
-        daily_stats[date_str]["count"] += 1
-        daily_stats[date_str]["revenue"] += job.get("price", 0)
-    
-    return list(daily_stats.values())
+    pipeline = [
+        {"$match": query},
+        {
+            "$group": {
+                "_id": {"$substr": [{"$ifNull": ["$date", ""]}, 0, 10]},
+                "count": {"$sum": 1},
+                "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
+            }
+        },
+        {"$project": {"_id": 0, "date": "$_id", "count": 1, "revenue": 1}},
+        {"$match": {"date": {"$ne": ""}}},
+        {"$sort": {"date": 1}},
+    ]
+    return await db.jobs.aggregate(pipeline).to_list(100)
 
 @router.get("/stats/monthly")
 async def get_monthly_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -190,18 +190,57 @@ async def get_monthly_stats(location: Optional[str] = None, user: User = Depends
     query = {"status": "kesz"}
     if location:
         query["location"] = location
-    
-    jobs = await db.jobs.find(query, {"_id": 0}).to_list(10000)
-    
-    monthly_stats = {}
-    for job in jobs:
-        month_str = job["date"][:7]
-        if month_str not in monthly_stats:
-            monthly_stats[month_str] = {"month": month_str, "count": 0, "revenue": 0}
-        monthly_stats[month_str]["count"] += 1
-        monthly_stats[month_str]["revenue"] += job["price"]
-    
-    return sorted(monthly_stats.values(), key=lambda x: x["month"])
+    pipeline = [
+        {"$match": query},
+        {
+            "$group": {
+                "_id": {"$substr": [{"$ifNull": ["$date", ""]}, 0, 7]},
+                "count": {"$sum": 1},
+                "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
+                "cash": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$payment_method", "keszpenz"]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+                "card": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$payment_method", ["kartya", "bankkartya"]]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+                "transfer": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$payment_method", ["utalas", "atutalas", "banki_atutalas"]]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "month": "$_id",
+                "count": 1,
+                "revenue": 1,
+                "cash": 1,
+                "card": 1,
+                "transfer": 1,
+            }
+        },
+        {"$match": {"month": {"$ne": ""}}},
+        {"$sort": {"month": 1}},
+    ]
+    return await db.jobs.aggregate(pipeline).to_list(240)
 
 @router.get("/stats/workers")
 async def get_worker_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -213,24 +252,59 @@ async def get_worker_stats(location: Optional[str] = None, user: User = Depends(
     if location:
         query["location"] = location
 
-    jobs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
-
-    worker_stats = {}
-    for job in jobs:
-        worker_id = job.get("worker_id")
-        if not worker_id:
-            continue
-        if worker_id not in worker_stats:
-            worker_stats[worker_id] = {
-                "worker_id": worker_id,
-                "worker_name": job.get("worker_name", "Ismeretlen"),
-                "count": 0,
-                "revenue": 0
+    pipeline = [
+        {"$match": query},
+        {"$match": {"worker_id": {"$nin": [None, ""]}}},
+        {
+            "$group": {
+                "_id": "$worker_id",
+                "worker_name": {"$first": {"$ifNull": ["$worker_name", "Ismeretlen"]}},
+                "count": {"$sum": 1},
+                "revenue": {"$sum": {"$ifNull": ["$price", 0]}},
+                "cash": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$payment_method", "keszpenz"]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+                "card": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$payment_method", ["kartya", "bankkartya"]]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+                "transfer": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$payment_method", ["utalas", "atutalas", "banki_atutalas"]]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
             }
-        worker_stats[worker_id]["count"] += 1
-        worker_stats[worker_id]["revenue"] += job["price"]
-    
-    return list(worker_stats.values())
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "worker_id": "$_id",
+                "worker_name": 1,
+                "count": 1,
+                "revenue": 1,
+                "cash": 1,
+                "card": 1,
+                "transfer": 1,
+            }
+        },
+        {"$sort": {"revenue": -1}},
+    ]
+    return await db.jobs.aggregate(pipeline).to_list(200)
 
 @router.get("/stats/services")
 async def get_service_stats(location: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -239,7 +313,10 @@ async def get_service_stats(location: Optional[str] = None, user: User = Depends
     if location:
         query["location"] = location
     
-    jobs = await db.jobs.find(query, {"_id": 0}).to_list(10000)
+    jobs = await db.jobs.find(
+        query,
+        {"_id": 0, "service_id": 1, "service_name": 1, "price": 1, "extras": 1, "extras_price": 1},
+    ).to_list(10000)
     
     service_docs = await db.services.find({}, {"_id": 0, "service_id": 1, "name": 1, "price": 1, "min_price": 1}).to_list(2000)
     services_by_id = {s["service_id"]: s for s in service_docs if s.get("service_id")}

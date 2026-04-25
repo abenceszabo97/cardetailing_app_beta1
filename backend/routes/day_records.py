@@ -98,19 +98,56 @@ async def close_day(data: DayCloseCreate, user: User = Depends(get_current_user)
     if not record:
         raise HTTPException(status_code=400, detail="Nincs nyitott nap")
     
-    jobs = await db.jobs.find({
-        "location": data.location,
-        "status": "kesz",
-        "date": {
-            "$gte": today.isoformat(),
-            "$lt": tomorrow.isoformat()
-        }
-    }, {"_id": 0}).to_list(1000)
-    
-    total_cars = len(jobs)
-    cash_total = sum(j["price"] for j in jobs if j.get("payment_method") == "keszpenz")
-    card_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("kartya", "bankkartya"))
-    transfer_total = sum(j["price"] for j in jobs if j.get("payment_method") in ("atutalas", "utalas", "banki_atutalas"))
+    agg = await db.jobs.aggregate([
+        {
+            "$match": {
+                "location": data.location,
+                "status": "kesz",
+                "date": {
+                    "$gte": today.isoformat(),
+                    "$lt": tomorrow.isoformat()
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "total_cars": {"$sum": 1},
+                "cash_total": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$payment_method", "keszpenz"]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+                "card_total": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$payment_method", ["kartya", "bankkartya"]]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+                "transfer_total": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$payment_method", ["atutalas", "utalas", "banki_atutalas"]]},
+                            {"$ifNull": ["$price", 0]},
+                            0,
+                        ]
+                    }
+                },
+            }
+        },
+    ]).to_list(1)
+    summary = agg[0] if agg else {}
+    total_cars = int(summary.get("total_cars", 0))
+    cash_total = float(summary.get("cash_total", 0))
+    card_total = float(summary.get("card_total", 0))
+    transfer_total = float(summary.get("transfer_total", 0))
     
     withdrawals = record.get("withdrawals", [])
     total_withdrawals = sum(w.get("amount", 0) for w in withdrawals)

@@ -51,12 +51,32 @@ async def get_customer(customer_id: str, user: User = Depends(get_current_user))
     if not customer:
         raise HTTPException(status_code=404, detail="Ügyfél nem található")
     
-    # Search jobs by both customer_id AND plate_number for complete history
+    # Search jobs by both customer_id AND plate_number for complete history.
+    # Keep a practical upper bound to avoid slow detail-page loads.
     plate = customer.get("plate_number", "")
     jobs_query = {"$or": [{"customer_id": customer_id}]}
     if plate:
         jobs_query["$or"].append({"plate_number": plate})
-    jobs = await db.jobs.find(jobs_query, {"_id": 0}).sort("date", -1).to_list(100)
+    jobs_task = db.jobs.find(
+        jobs_query,
+        {
+            "_id": 0,
+            "job_id": 1,
+            "booking_id": 1,
+            "customer_name": 1,
+            "plate_number": 1,
+            "service_name": 1,
+            "worker_name": 1,
+            "price": 1,
+            "status": 1,
+            "date": 1,
+            "location": 1,
+            "images_before": 1,
+            "images_after": 1,
+            "payment_method": 1,
+        },
+    ).sort("date", -1).to_list(200)
+    jobs = await jobs_task
     
     # Deduplicate by job_id
     seen = set()
@@ -67,13 +87,26 @@ async def get_customer(customer_id: str, user: User = Depends(get_current_user))
             seen.add(jid)
             unique_jobs.append(j)
     
-    # Also include completed bookings that were never converted to jobs
+    bookings = []
     if plate:
         bookings = await db.bookings.find(
             {"plate_number": plate, "status": {"$in": ["kesz", "folyamatban", "foglalt"]}},
-            {"_id": 0}
-        ).sort("date", -1).to_list(100)
-        
+            {
+                "_id": 0,
+                "booking_id": 1,
+                "customer_name": 1,
+                "plate_number": 1,
+                "service_name": 1,
+                "worker_name": 1,
+                "price": 1,
+                "status": 1,
+                "date": 1,
+                "time_slot": 1,
+                "location": 1,
+            },
+        ).sort("date", -1).to_list(200)
+    # Also include completed bookings that were never converted to jobs
+    if plate:
         existing_booking_ids = {j.get("booking_id") for j in unique_jobs if j.get("booking_id")}
         for b in bookings:
             if b.get("booking_id") not in existing_booking_ids:

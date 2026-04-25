@@ -80,7 +80,6 @@ export const Workers = () => {
   const { selectedLocation, locationForApi } = useLocation2();
   const [shifts, setShifts] = useState([]);
   const [workers, setWorkers] = useState([]);
-  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isNewShiftOpen, setIsNewShiftOpen] = useState(false);
@@ -493,14 +492,12 @@ export const Workers = () => {
   const fetchData = async () => {
     try {
       const locationParam = locationForApi ? `?location=${locationForApi}` : "";
-      const [shiftsRes, workersRes, jobsRes] = await Promise.all([
+      const [shiftsRes, workersRes] = await Promise.all([
         axios.get(`${API}/shifts${locationParam}`, { withCredentials: true }),
-        axios.get(`${API}/workers${locationParam}`, { withCredentials: true }),
-        axios.get(`${API}/jobs${locationParam}`, { withCredentials: true })
+        axios.get(`${API}/workers${locationParam}`, { withCredentials: true })
       ]);
       setShifts(shiftsRes.data);
       setWorkers(workersRes.data);
-      setJobs(jobsRes.data);
     } catch (error) {
       toast.error("Hiba az adatok betöltésekor");
     } finally {
@@ -1428,6 +1425,34 @@ export const Workers = () => {
                   <span className="hidden sm:inline mr-1">{calendarView === "month" ? "Következő hónap" : "Következő hét"}</span>
                   <ChevronRight className="w-5 h-5" />
                 </Button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">Gyors nézet:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  onClick={() => {
+                    setCalendarView("month");
+                    setCurrentDate(new Date());
+                  }}
+                >
+                  Teljes hónap
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  onClick={() => {
+                    setCalendarView("week");
+                    setCurrentDate(new Date());
+                  }}
+                >
+                  Aktuális hét
+                </Button>
+                <span className="text-[11px] text-slate-500">
+                  Alapból továbbra is minden műszak látszik.
+                </span>
               </div>
             </CardContent>
           </Card>
